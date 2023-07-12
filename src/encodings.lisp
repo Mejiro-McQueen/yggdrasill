@@ -9,25 +9,35 @@
 
 (defclass integer-data-encoding (encoding)
   ((encoding :documentation "Specifies integer numeric value to raw encoding method." :initarg :encoding)
-   (size-in-bits :documentation "Number of bits to use for the raw encoding." :initarg :size-bits :type integer)
+   (size-in-bits :documentation "Number of bits to use for the raw encoding." :initarg :size-in-bits :type integer)
    (change-threshold :documentation "Error detection algorithm" :initarg :change-threshold)
    (default-calibrator :documentation "TODO" :initarg :default-calibrator)
    (context-calibrator-list :documentation "TODO" :initarg :context-calibrator-list)))
 
-(defun make-integer-data-encoding (&optional (size-bits 8)
-                                         (encoding 'UNSIGNED)
-                                         (change-threshold nil)
-                                         (default-calibrator nil)
-                                         (context-calibrator-list))
+(defun make-integer-data-encoding (&key (size-in-bits 8)
+                                        (encoding 'UNSIGNED)
+                                        (change-threshold nil)
+                                        (default-calibrator nil)
+                                        (context-calibrator-list nil))
   (valid-integer-encoding-p encoding)
-  (check-type size-bits integer)
-  (assert (plusp size-bits) (size-bits) "size-bits ~A must be a positive integer" size-bits)
+  (check-type size-in-bits integer)
+  (assert (plusp size-in-bits) (size-in-bits) "size-in-bits ~A must be a positive integer" size-in-bits)
   (make-instance 'integer-data-encoding
-                 :size-bits size-bits
+                 :size-in-bits size-in-bits
                  :encoding encoding
                  :change-threshold change-threshold
                  :context-calibrator-list context-calibrator-list
-                 :default-calbrator default-calibrator))
+                 :default-calibrator default-calibrator))
+
+
+(defmethod cxml-marshall ((obj integer-data-encoding))
+  (with-slots (size-in-bits encoding change-threshold default-calibrator context-calibrator-list) obj
+    (cxml:with-element* ("xtce" "IntegerDataEncodingType")
+      (if encoding (cxml:attribute "encoding" encoding))
+      (if size-in-bits (cxml:attribute "sizeInBits" size-in-bits))
+      (if change-threshold (cxml:attribute "changeThreshold" change-threshold))
+      (if default-calibrator (cxml-marshall default-calibrator))
+      (if context-calibrator-list (cxml-marshall context-calibrator-list)))))
 
 (defclass string-data-encoding ()
   ((size-in-bits :initarg :size-in-bits
@@ -114,8 +124,6 @@
                  :change-threshold change-threshold
                  :context-calibrator-list context-calibrator-list))
 
-
-;;;;;;;;;;;;;;;;;
 (defun valid-bit-order-p (bit-order)
   (assert (member bit-order '(MSB LSB)) (bit-order) "Bit Order ~A is not <LSB | MSB>" bit-order) t)
 

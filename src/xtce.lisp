@@ -1,7 +1,8 @@
 (defpackage :xtce
   (:use :cl)
-  (:use :cxml)
-  (:documentation "XTCE"))
+  (:documentation "XTCE")
+  (:export :make-space-system
+           :make-telemetry-metadata))
 
 (in-package :xtce)
 
@@ -42,7 +43,7 @@
                                xml-base
                                service-set
                                space-system)
-  (check-type long-description long-description)
+  (if long-description (check-type long-description long-description))
   (make-instance 'space-system :name name
                                :header header
                                :operational-status operational-status
@@ -57,17 +58,6 @@
 
 (defgeneric cxml-marshall (obj))
 
-(defmacro with-non-empty (var &body body)
-  "Eval whenever var is non empty. Use to skip processing optional elements and attributes."
-  `(when (not (null ,var))
-     ,@body))
-
-(defparameter *TEST* (make-space-system "Tuatha De Danaan"
-                                        :long-description (make-long-description "A not so long description")))
-
-(describe *TEST*)
-
-
 (defmethod cxml-marshall ((obj space-system))
   (with-slots (name
                short-description
@@ -80,17 +70,11 @@
     (cxml:with-element* ("xtce" "SpaceSystem")
       (cxml:attribute*  "xsi" "schemaLocation" "http://www.omg.org/spec/XTCE/20180204 XTCE12.xsd")
       (cxml:attribute "name" name)
-      (with-non-empty header (cxml:attribute "header" header))
-      (with-non-empty operational-status (cxml:attribute "operational-status" operational-status))
-      (with-non-empty xml-base (cxml:attribute "xml:base" xml-base))
-      (with-non-empty long-description (cxml-marshall long-description))
-      (with-non-empty telemetry-metadata (cxml-marshall telemetry-metadata)))))
-
-(cxml:with-xml-output (cxml:make-string-sink :indentation 4 :canonical nil)
-  (cxml:comment "Bifrost Integral")
-  (cxml:with-namespace ("xtce" "http://www.omg.org/spec/XTCE/20180204")
-    (cxml:with-namespace ("xsi" "http://www.w3.org/2001/XMLSchema-instance")
-        (cxml-marshall *TEST*))))
+      (if header (cxml:attribute "header" header))
+      (if operational-status (cxml:attribute "operational-status" operational-status))
+      (if xml-base (cxml:attribute "xml:base" xml-base))
+      (if long-description (cxml-marshall long-description))
+      (if telemetry-metadata (cxml-marshall telemetry-metadata)))))
 
 
 (defclass telemetry-metadata ()
@@ -101,89 +85,57 @@
    (stream-set)
    (algorithm-set)))
 
-(defun make-telemetry (&key parameter-type-set
-                            parameter-set
-                            container-set
-                            message-set
-                            stream-set
-                            algorithm-set)
-  (with-non-empty parameter-type-set (check-type parameter-type-set parameter-type-set))
-  )
+(defun make-telemetry-metadata (&key parameter-type-set
+                                     parameter-set
+                                     container-set
+                                     message-set
+                                     stream-set
+                                     algorithm-set)
+  (if parameter-type-set (check-type parameter-type-set parameter-type-set)))
 
-;;;;; Parameter Types
+(defclass unit-set () ((items :initarg :items
+                               :type list)))
 
-(deftype parameter-type-set () ())
+(defun make-unit-set (&rest items)
+  (let ((items (remove nil items))) 
+    (dolist (i items) 
+      (check-type i unit))
+    (make-instance 'unit-set :items items)))
 
-(defclass parameter () ())
+(defmethod cxml-marshall ((object unit-set))
+  (with-slots (items) object
+    (cxml:with-element* ("xtce" "UnitSet")
+      (dolist (i items)
+        (if i (cxml-marshall i))))))
 
-(defclass string-parameter (parameter) ())
+(defclass unit () ((power :initarg :power
+                          :type number)
+                   (factor :initarg :factor)
+                   (description :initarg :description
+                                :type string)
+                   (form :initarg :form)))
 
-(defclass float-parameter (parameter)
-  ((name :initarg :name
-         :type string)
-   (short-description :initarg :short-description
-                      :type string)
-   (base-type :initarg :base-type)
-   (initial-value :initarg :initial-value)
-   (size-in-bits :initarg :size-in-bits)
-   (long-description :initarg :long-description
-                     :type long-description)
-   (alias-set :initarg :alias-set
-              :type alias-set)
-   (ancillary-data-set :initarg :ancillary-data-set
-                       :type ancillary-data-set)
-   (encoding :initarg :encoding
-             :type encoding)
-   (to-string :initarg :to-string)
-   (valid-range :initarg :valid-range)
-   (default-alarm :initarg :default-alarm)
-   (context-alarm-list :initarg :context-alarm-list :type context-alarm-list)))
+(defun make-unit (&key power factor description form)
+  (make-instance 'unit :power power
+                       :factor factor
+                       :description description
+                       :form form))
 
-(defun make-float-parameter (&key name
-                                  short-description
-                                  base-type
-                                  initial-value
-                                  size-in-bits
-                                  long-description
-                                  alias-set
-                                  ancillary-data-set
-                                  encoding
-                                  to-string
-                                  valid-range
-                                  default-alarm
-                                  context-alarm-list)
-  (check-type name string)
-  ;(with-non-empty encoding (check-type encoding encoding))
-  (with-non-empty short-description (check-type short-description string))
-  (with-non-empty base-type nil)
-  (with-non-empty initial-value nil)
-  (with-non-empty size-in-bits nil)
-  (with-non-empty long-description nil)
-  (with-non-empty alias-set nil)
-  (with-non-empty ancillary-data-set nil)
-  (with-non-empty encoding nil)
-  (with-non-empty to-string nil)
-  (with-non-empty valid-range nil)
-  (with-non-empty default-alarm nil)
-  (with-non-empty context-alarm-list nil)
-  (make-instance 'float-parameter :name name
-                                  :short-description short-description
-                                  :base-type base-type
-                                  :initial-value initial-value
-                                  :size-in-bits size-in-bits
-                                  :long-description long-description
-                                  :alias-set alias-set
-                                  :ancillary-data-set ancillary-data-set
-                                  :encoding encoding
-                                  :to-string to-string
-                                  :valid-range valid-range
-                                  :default-alarm default-alarm
-                                  :context-alarm-list context-alarm-list))
+(defmethod cxml-marshall ((obj unit))
+  (with-slots (power factor description form) obj
+    (cxml:with-element* ("xtce" "unit") 
+      (if power (cxml:attribute "power" power))
+      (if factor (cxml:attribute "factor" factor))
+      (if description (cxml:attribute "description" description))
+      (if form (cxml:text form)))))
 
-(defmethod cxml-marshall ((obj float-parameter))
-  (with-slots (name short-description) obj
-    (cxml:attribute "name" name)
-    (with-non-empty short-description (cxml:attribute "shortDescription" short-description))))
+(defun dump-space-system-xml (space-system)
+  (cxml:with-xml-output (cxml:make-string-sink :indentation 4 :canonical nil)
+    (cxml:comment "Bifrost Integral")
+    (cxml:with-namespace ("xtce" "http://www.omg.org/spec/XTCE/20180204")
+      (cxml:with-namespace ("xsi" "http://www.w3.org/2001/XMLSchema-instance")
+        (cxml-marshall space-system)))))
 
-
-
+(defun require-unique-key (key)
+  (assert (null (member key *UNIQUE-KEYS*)) (key) "The key ~A must be a symbol unique to this XTCE system. If working interactively, reset using (setf *UNIQUE-KEYS* ())" key)
+  (setf *UNIQUE-KEYS* (cons key *UNIQUE-KEYS*)))

@@ -1,9 +1,12 @@
 (in-package :xtce)
 
 (defclass numeric-calibrator ()
-  ((name :documentation "Optional name" :initarg :name)
-   (short-description :documentation "Optional description" :initarg :short-description)
-   (ancillary-data-set :documentation "Optional additional information" :initarg :ancillary-data-set)))
+  ((name :documentation "Optional name"
+         :initarg :name)
+   (short-description :documentation "Optional description"
+                      :initarg :short-description)
+   (ancillary-data-set :documentation "Optional additional information"
+                       :initarg :ancillary-data-set)))
 
 (defclass context-calibrator ()
   ((context-match)
@@ -76,22 +79,63 @@
   '(satisfies spline-point-list-p))
 
 (defclass polynomial-calibrator (numeric-calibrator)
-  ((polynmial-term-list :type polynomial-term-list :initarg polynomial-term-list)))
+  ((term-list :type :term-list
+              :initarg :term-list)))
 
-(defclass polynomial-term-type ()
-  ((coefficient :initarg coefficient :type integer )
-   (exponent :initarg exponent :type coefficient)))
+(defclass term()
+  ((coefficient :initarg :coefficient
+                :type integer )
+   (exponent :initarg :exponent
+             :type float)))
 
-(defun make-polynomial-term-type (coefficient exponent)
+(defmethod cxml-marshall ((obj term))
+  (with-slots (coefficient exponent) obj
+    (cxml:with-element* ("xtce" "Term")
+      (cxml:attribute "coefficient" (format nil "~A" coefficient))
+      (cxml:attribute "exponent" (format nil "~A" exponent)))))
+
+(defmethod cxml::unparse-attribute ((obj term))
+  (with-slots (coefficient exponent) obj
+    "OK"))
+
+(defun make-term (&key coefficient exponent)
   (check-type coefficient number)
   (check-type exponent number)
-  (assert (>= 0 exponent) (exponent) "Exponent value ~A must be non-negative, use math-operation-calibrator" exponent)
-  (make-instance 'polynomial-term-type coefficient exponent))
+  (assert (>= exponent 0) (exponent) "Exponent value ~A must be non-negative, use math-operation-calibrator" exponent)
+  (make-instance 'term :coefficient coefficient
+                       :exponent exponent))
 
-(deftype polynomial-term-list () "list of polynomial terms points"
-  '(satisfies spline-point-list-p))
+(defclass term-list () ((terms :initarg :terms
+                               :type list)))
 
-(defun polynomial-term-list-p (l)
-  (and (listp l)
-       (every (lambda (i) (typep i 'polynomial-term-type)) l)))
+(defun make-term-list (&rest terms)
+  (assert (>= (length terms) 1) (terms) "Parameter TERMS: ~A must have at least one polynomial term." terms)
+  (dolist (i terms)
+    (check-type i term))
+  (make-instance 'term-list :terms terms))
+
+(defclass ancillary-data-set () ())
+
+(defun make-polynomial-calibrator (&key name short-description ancillary-data-set term-list)
+  (check-type term-list term-list)
+  (if name (check-type name symbol))
+  (if short-description (check-type short-description string))
+  (if ancillary-data-set (check-type ancillary-data-set ancillary-data-set))
+  (make-instance 'polynomial-calibrator :term-list term-list
+                                        :name name
+                                        :ancillary-data-set ancillary-data-set
+                                        :short-description short-description))
+
+(defmethod cxml-marshall ((obj polynomial-calibrator))
+  (with-slots (term-list name short-description ancillary-data-set) obj
+    (cxml:with-element* ("xtce" "PolynomialCalibrator")
+      (if name (cxml:attribute "name" (format nil "~A" name)))
+      (if short-description (cxml:attribute "shortDescription" short-description))
+      (if ancillary-data-set (cxml-marshall ancillary-data-set))
+      (cxml-marshall term-list))))
+
+(defmethod cxml-marshall ((obj term-list))
+  (with-slots (terms) obj 
+    (dolist (i terms)
+      (cxml-marshall i))))
 
