@@ -1,6 +1,7 @@
 (in-package :xtce)
 
-(defclass parameter-type () ())
+(defclass parameter-type () ((unit-set :initarg :unit-set
+                                       :type unit-set)))
 
 (deftype parameter-type-set ()
   '(and list (satisfies parameter-type-set-p)))
@@ -77,6 +78,40 @@
                                   :default-alarm default-alarm
                                   :context-alarm-list context-alarm-list))
 
+(defclass integer-parameter-type (parameter-type)
+  ((short-description :initarg :short-description
+                      :type string)
+   (name :initarg :name
+         :type symbol)
+   (base-type :initarg :base-type)
+   (initial-value :initarg :initial-value
+                  :type integer)
+   (size-in-bits :initarg :size-in-bits
+                 :type positive-integer)
+   (signed :initarg :signed
+           :type boole)
+   (long-description :initarg :long-description
+                     :type string)
+   (alias-set :initarg :alias-set
+              :type alias-set)
+   (ancialliary-data-set :initarg :ancillary-data-set
+                         :type ancillary-data-set)
+   (unit-set :initarg :unit-set
+             :type unit-set)
+   (to-string :initarg :to-string)
+   (valid-range :initarg :valid-range)
+   (default-alarm :initarg :default-alarm
+                  :type alarm)
+   (context-alarm-list :initarg :context-alarm-list
+                       :type context-alarm-list)))
+
+(class alarm () ())
+
+(class numeric-alarm () ())
+
+(deftype positive-integer ()
+  "A type for positive integers."
+  `(and integer (satisfies plusp)))
 
 (defmethod cxml-marshall ((obj float-parameter-type))
   (with-slots (name short-description) obj

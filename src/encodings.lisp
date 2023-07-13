@@ -33,7 +33,7 @@
 (defmethod cxml-marshall ((obj integer-data-encoding))
   (with-slots (size-in-bits encoding change-threshold default-calibrator context-calibrator-list) obj
     (cxml:with-element* ("xtce" "IntegerDataEncodingType")
-      (if encoding (cxml:attribute "encoding" encoding))
+      (if encoding (cxml:attribute "encoding" (format nil "~A" encoding)))
       (if size-in-bits (cxml:attribute "sizeInBits" size-in-bits))
       (if change-threshold (cxml:attribute "changeThreshold" change-threshold))
       (if default-calibrator (cxml-marshall default-calibrator))
