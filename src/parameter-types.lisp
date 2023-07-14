@@ -3,16 +3,24 @@
 (defclass parameter-type () ((unit-set :initarg :unit-set
                                        :type unit-set)))
 
-(deftype parameter-type-set ()
-  '(and list (satisfies parameter-type-set-p)))
+(defclass xtce-set ()
+  ((items :initarg :items
+          :type list)))
 
-(defun parameter-type-set-p (s)
-  (every (lambda (i) (typep i 'parameter-type)) s))
+
+(defclass parameter-type-set (xtce-set) ())
+  
+
+(defmethod cxml-marshall ((obj xtce-set))
+  (with-slots (items) obj
+    (dolist (i items)
+      (cxml-marshall i))))
 
 (defun make-parameter-type-set (&rest items)
   (let ((items (remove nil items))) 
     (dolist (i items) 
-      (check-type i pramater-type))))
+      (check-type i parameter-type)))
+  (make-instance 'parameter-type-set :items items))
 
 (defclass string-parameter-type (parameter-type) ())
 
@@ -72,7 +80,7 @@
                                   :long-description long-description
                                   :alias-set alias-set
                                   :ancillary-data-set ancillary-data-set
-                                  :encoding encoding
+                                  :encoding-type encoding-type
                                   :to-string to-string
                                   :valid-range valid-range
                                   :default-alarm default-alarm
@@ -94,10 +102,12 @@
                      :type string)
    (alias-set :initarg :alias-set
               :type alias-set)
-   (ancialliary-data-set :initarg :ancillary-data-set
-                         :type ancillary-data-set)
+   (ancillary-data-set :initarg :ancillary-data-set
+                        :type ancillary-data-set)
    (unit-set :initarg :unit-set
              :type unit-set)
+   (encoding-type :initarg :encoding-type
+                  :type encoding)
    (to-string :initarg :to-string)
    (valid-range :initarg :valid-range)
    (default-alarm :initarg :default-alarm
@@ -105,9 +115,105 @@
    (context-alarm-list :initarg :context-alarm-list
                        :type context-alarm-list)))
 
-(class alarm () ())
+(defmethod cxml-marshall ((obj integer-parameter-type))
+  (with-slots (short-description
+               name
+               base-type
+               initial-value
+               size-in-bits
+               signed
+               long-description alias-set
+               ancillary-data-set
+               unit-set
+               encoding-type
+               to-string
+               valid-range
+               default-alarm
+               context-alarm-list) obj
+    (cxml:with-element* ("xtce" "IntegerParameterType")
+      (if short-description (cxml:attribute "shortDescription" short-description))
+      (if name (cxml:attribute "name" (format nil "~A" name)))
+      (if base-type (cxml:attribute "baseType" base-type))
+      (if initial-value (cxml:attribute "initialValue" initial-value))
+      (if size-in-bits (cxml:attribute "sizeInBits" size-in-bits))
+      (if signed (cxml:attribute "signed" (format-bool signed)))
+      (if long-description (cxml-marshall  long-description))
+      (if alias-set (cxml-marshall alias-set))
+      (if unit-set (cxml-marshall unit-set))
+      (if encoding-type (cxml-marshall encoding-type))
+      (if to-string (cxml-marshall to-string))
+      (if valid-range (cxml-marshall valid-range))
+      (if default-alarm (cxml-marshall default-alarm))
+      (if context-alarm-list (cxml-marshall context-alarm-list)))))
 
-(class numeric-alarm () ())
+(defun make-integer-parameter-type (name
+                                    &key
+                                    short-description                                    
+                                    base-type
+                                    initial-value
+                                    size-in-bits
+                                    (signed t)
+                                    long-description
+                                    alias-set
+                                    ancillary-data-set
+                                    (unit-set (make-unit-set))
+                                    encoding-type
+                                    to-string
+                                    valid-range
+                                    default-alarm
+                                    context-alarm-list)
+  (check-type name symbol)
+  (if short-description (check-type short-description string))
+  
+  (if base-type nil)
+  (if initial-value nil)
+  (if size-in-bits (check-type size-in-bits positive-integer))
+  (if signed (check-type signed boolean))
+  (if long-description (check-type long-description long-description))
+  (if alias-set (check-type alias-set alias-set))
+  (if ancillary-data-set (check-type ancillary-data-set ancillary-data-set))
+  (if unit-set (check-type unit-set unit-set))
+  (if encoding-type (check-type encoding-type encoding))
+  (if valid-range (check-type valid-range valid-range))
+  (if default-alarm (check-type default-alarm alarm))
+  (if context-alarm-list (check-type context-alarm-list context-alarm-list))
+  (make-instance 'integer-parameter-type :name name
+                                         :short-description short-description
+                                         :base-type base-type
+                                         :initial-value initial-value
+                                         :size-in-bits size-in-bits
+                                         :signed signed
+                                         :long-description long-description
+                                         :to-string to-string
+                                         :alias-set alias-set
+                                         :ancillary-data-set ancillary-data-set
+                                         :unit-set unit-set
+                                         :encoding-type encoding-type
+                                         :valid-range valid-range
+                                         :default-alarm default-alarm
+                                         :context-alarm-list context-alarm-list))
+
+(defclass valid-range () ())
+
+(defclass alias-set () ())
+
+(defclass alarm () ())
+
+(defclass numeric-alarm (alarm) ())
+
+(defclass alarm-conditions () ())
+
+(defclass static-alarm-ranges () ())
+
+(defclass change-alarm-ranges () ())
+
+(defclass alarm-mutliranges () ())
+
+(defclass custom-alarm () ())
+
+(defclass alarm-multi-ranges () ())
+
+(defclass context-alarm-list () ())
 
 (deftype positive-integer ()
   "A type for positive integers."

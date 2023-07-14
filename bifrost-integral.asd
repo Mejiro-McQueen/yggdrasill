@@ -9,6 +9,7 @@
                  (:file "encodings")
                  (:file "values")		
                  (:file "calibrators")
+                 (:file "parameter-types")
 				 )))
   :description ""
   :in-order-to ((test-op (test-op "bifrost-integral/tests"))))

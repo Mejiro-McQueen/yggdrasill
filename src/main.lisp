@@ -8,4 +8,7 @@
   (cxml-marshall (make-space-system "SpaceVechicle")))
 
 
-(make-telemetry-metadata )
+(make-parameter-type-set (make-integer-parameter-type
+                          'IDType
+                          :signed nil))
+

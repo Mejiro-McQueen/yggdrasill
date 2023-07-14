@@ -8,11 +8,16 @@
   t)
 
 (defclass integer-data-encoding (encoding)
-  ((encoding :documentation "Specifies integer numeric value to raw encoding method." :initarg :encoding)
-   (size-in-bits :documentation "Number of bits to use for the raw encoding." :initarg :size-in-bits :type integer)
-   (change-threshold :documentation "Error detection algorithm" :initarg :change-threshold)
-   (default-calibrator :documentation "TODO" :initarg :default-calibrator)
-   (context-calibrator-list :documentation "TODO" :initarg :context-calibrator-list)))
+  ((encoding :documentation "Specifies integer numeric value to raw encoding method."
+             :initarg :encoding)
+   (size-in-bits :documentation "Number of bits to use for the raw encoding."
+                 :initarg :size-in-bits :type integer)
+   (change-threshold :documentation "Error detection algorithm"
+                     :initarg :change-threshold)
+   (default-calibrator :documentation "TODO"
+                       :initarg :default-calibrator)
+   (context-calibrator-list :documentation "TODO"
+                            :initarg :context-calibrator-list)))
 
 (defun make-integer-data-encoding (&key (size-in-bits 8)
                                         (encoding 'UNSIGNED)
