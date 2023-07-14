@@ -78,12 +78,18 @@
 
 
 (defclass telemetry-metadata ()
-  ((parameter-type-set)
-   (parameter-set)
-   (container-set)
-   (message-set)
-   (stream-set)
-   (algorithm-set)))
+  ((parameter-type-set :initarg :parameter-type-set
+                       :type parameter-type-set)
+   (parameter-set :initarg :parameter-set
+                  :type parameter-set)
+   (container-set :initarg :container-set
+                  :type container-set)
+   (message-set :initarg :message-set
+                :type message-set)
+   (stream-set :initarg :stream-set
+               :type stream-set)
+   (algorithm-set :initarg :algorithm-set
+                  :type algorithm-set)))
 
 (defun make-telemetry-metadata (&key parameter-type-set
                                      parameter-set
@@ -91,7 +97,23 @@
                                      message-set
                                      stream-set
                                      algorithm-set)
-  (if parameter-type-set (check-type parameter-type-set parameter-type-set)))
+  (if parameter-type-set (check-type parameter-type-set parameter-type-set))
+  (make-instance 'telemetry-metadata
+                 :parameter-type-set parameter-type-set
+                 :parameter-set parameter-set
+                 :container-set container-set
+                 :message-set message-set
+                 :stream-set stream-set
+                 :algorithm-set algorithm-set))
+
+(defmethod cxml-marshall ((obj telemetry-metadata))
+  (with-slots (parameter-type-set parameter-set container-set message-set stream-set algorithm-set) obj
+    (if parameter-type-set (cxml-marshall parameter-type-set))
+    (if parameter-set (cxml-marshall parameter-set))
+    (if container-set (cxml-marshall container-set))
+    (if message-set (cxml-marshall message-set))
+    (if stream-set (cxml-marshall stream-set))
+    (if algorithm-set (cxml-marshall algorithm-set))))
 
 (defclass unit-set () ((items :initarg :items
                                :type list)))
@@ -139,3 +161,6 @@
 (defun require-unique-key (key)
   (assert (null (member key *UNIQUE-KEYS*)) (key) "The key ~A must be a symbol unique to this XTCE system. If working interactively, reset using (setf *UNIQUE-KEYS* ())" key)
   (setf *UNIQUE-KEYS* (cons key *UNIQUE-KEYS*)))
+
+(defun format-bool (a)
+  (if a "True" "False"))
