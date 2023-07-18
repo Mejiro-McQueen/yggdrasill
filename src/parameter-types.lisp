@@ -136,7 +136,7 @@
       (if base-type (cxml:attribute "baseType" base-type))
       (if initial-value (cxml:attribute "initialValue" initial-value))
       (if size-in-bits (cxml:attribute "sizeInBits" size-in-bits))
-      (if signed (cxml:attribute "signed" (format-bool signed)))
+      (cxml:attribute "signed" (format-bool signed))
       (if long-description (cxml-marshall  long-description))
       (if alias-set (cxml-marshall alias-set))
       (if unit-set (cxml-marshall unit-set))
@@ -152,7 +152,7 @@
                                     base-type
                                     initial-value
                                     size-in-bits
-                                    (signed t)
+                                    (signed 'NOTHING)
                                     long-description
                                     alias-set
                                     ancillary-data-set
@@ -168,7 +168,10 @@
   (if base-type nil)
   (if initial-value nil)
   (if size-in-bits (check-type size-in-bits positive-integer))
-  (if signed (check-type signed boolean))
+  (if (eq signed 'NOTHING)
+	  (progn
+		(setf signed nil)
+		(check-type signed boolean)))
   (if long-description (check-type long-description long-description))
   (if alias-set (check-type alias-set alias-set))
   (if ancillary-data-set (check-type ancillary-data-set ancillary-data-set))
