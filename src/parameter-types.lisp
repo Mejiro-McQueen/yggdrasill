@@ -1,8 +1,19 @@
 (in-package :xtce)
 
-(defclass parameter-type () ((unit-set :initarg :unit-set
-                                       :type unit-set)))
-
+(defclass parameter-type ()
+  ((name :initarg :name
+		 :type symbol)
+   (short-description :initarg :short-description
+					  :type string)
+   (long-description :initarg :long-description
+					 :type string)
+   (alias-set :initarg :alias-set
+			  :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set
+					   :type ancillary-data-set)
+   (unit-set :initarg :unit-set
+             :type unit-set)))
+   
 (defclass xtce-set ()
   ((items :initarg :items
           :type list)))
@@ -226,3 +237,79 @@
   (with-slots (name short-description) obj
     (cxml:attribute "name" name)
     (if short-description (cxml:attribute "shortDescription" short-description))))
+
+(defclass enumerated-parameter-type (parameter-type)
+  ((inital-value :initarg :initial-value)
+   (encoding-type :initarg :encoding-type
+				  :type encoding)
+   (enumeration-list :initarg :enumeration-list
+					 :type enumeration-list)
+   (default-alarm :initarg :default-alarm
+				  :type enumeration-alarm-type)
+   (context-alarm-list :initarg :context-alarm-list
+					   :type context-alarm-list)))
+
+(defun make-enumerated-parameter-type (name
+									   &key
+										 short-description
+										 base-type
+										 initial-value
+										 long-description
+										 alias-set
+										 ancillary-data-set
+										 unit-set
+										 encoding-type
+										 enumeration-list
+										 default-alarm
+										 context-alarm-list)
+  (check-type name string)
+  (check-optional-type short-description string)
+  (check-optional-type base-type t)
+  (check-optional-type long-description string)
+  (check-optional-type alias-set alias-set)
+  (check-optional-type ancillary-data-set ancillary-data-set)
+  (check-optional-type unit-set unit-set)
+  (check-optional-type encoding-type encoding)
+  (check-optional-type enumeration-list enumeration-list)
+  (check-optional-type default-alarm enumeration-alarm)
+  (check-optional-type context-alarm-list context-alarm-list)
+  (check-optional-type initial-value t)
+  ; Need to check if inital value is in enumeration list
+  (make-instance 'enumerated-parameter-type )
+  )
+
+(defclass enumeration-alarm (alarm)
+  (ancillary-data-set :initarg ancillary-data-set)
+  (alarm-conditions :initarg :alarm-conditions)
+  (alarm-co))
+
+(defclass enumeration-list (xtce-set) ())
+
+(defclass enumeration ()
+  (value :initarg :value)
+  (max-value :initarg :max-value)
+  (label :initarg :label
+		 :type symbol)
+  (short-description :initarg :short-description
+					 :type string))
+
+(defun make-enumeration (value label &key max-value short-description)
+  (check-type value number)
+  (check-type label symbol)
+  (if max-value (check-type max-value number))
+  (if short-description (check-type short-description string))
+  (make-instance 'enumeration :value value :label label :max-value max-value :short-description short-description))
+
+(defmethod cxml-unmarshall ((obj enumeration))
+  (with-slots (value label max-value short-description) obj
+	(cxml:with-element* ("xtce" "Enumeration")
+	  (cxml:attribute "label" (format nil "~A" label))
+	  (cxml:attribute "value" (format nil "~A" value))
+	  (if max-value (cxml:attribute "maxValue" max-value))
+	  (if short-description (cxml:attribute "shortDescription" short-description)))))
+
+(defun make-enumeration-list (&rest items)
+  (make-xtce-set 'enumeration items))
+
+(describe (make-instance 'enumerated-parameter-type))
+

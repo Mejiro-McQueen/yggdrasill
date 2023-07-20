@@ -3,11 +3,6 @@
 
 (in-package :xtce)
 
-(defparameter *unique-keys* ())
-
-
-
-
 (defparameter *ROOT*
   (make-space-system
    "SpaceVechicle"
@@ -38,11 +33,3 @@
 
 
 (dump-space-system-xml *ROOT*)
-
-
-(make-telemetry-metadata :parameter-type-set
-                         (make-parameter-type-setq (make-integer-parameter-type 'IDType
-                                                                               :encoding-type (make-integer-data-encoding)))))
-
-()
-(asdf:*central-registry*)

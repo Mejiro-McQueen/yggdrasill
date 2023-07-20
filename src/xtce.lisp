@@ -6,6 +6,9 @@
 
 (in-package :xtce)
 
+
+(defparameter *unique-keys* ())
+
 (defclass space-system ()
   ((header :initarg :header)
    (name :initarg :name)
@@ -115,14 +118,22 @@
     (if stream-set (cxml-marshall stream-set))
     (if algorithm-set (cxml-marshall algorithm-set))))
 
-(defclass unit-set () ((items :initarg :items
-                               :type list)))
+(defclass xtce-set ()
+  ((type :initarg :type)
+   (items :initarg :items
+          :type list)))
+
+(defclass unit-set (xtce-set) ())
+
+(defun make-xtce-set (xtce-type &rest items)
+  (let ((items (remove nil items))
+		(xtce-type-set (intern (format nil "~A-SET" xtce-type))))
+	(dolist (i items) 
+      (check-type i xtce-type))
+	(make-instance xtce-type-set :type xtce-type :items items)))
 
 (defun make-unit-set (&rest items)
-  (let ((items (remove nil items))) 
-    (dolist (i items) 
-      (check-type i unit))
-    (make-instance 'unit-set :items items)))
+  (make-xtce-set 'unit items))
 
 (defmethod cxml-marshall ((object unit-set))
   (with-slots (items) object
@@ -164,3 +175,8 @@
 
 (defun format-bool (a)
   (if a "True" "False"))
+
+(defmacro check-optional-type (place type &optional type-string)
+  `(if ,place
+	   (check-type ,place ,type ,type-string)
+	   nil))
