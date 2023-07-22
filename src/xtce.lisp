@@ -111,35 +111,44 @@
 
 (defmethod cxml-marshall ((obj telemetry-metadata))
   (with-slots (parameter-type-set parameter-set container-set message-set stream-set algorithm-set) obj
-    (if parameter-type-set (cxml-marshall parameter-type-set))
-    (if parameter-set (cxml-marshall parameter-set))
-    (if container-set (cxml-marshall container-set))
-    (if message-set (cxml-marshall message-set))
-    (if stream-set (cxml-marshall stream-set))
-    (if algorithm-set (cxml-marshall algorithm-set))))
+    (cxml-marshall parameter-type-set)
+    (cxml-marshall parameter-set)
+    (cxml-marshall container-set)
+    (cxml-marshall message-set)
+    (cxml-marshall stream-set)
+    (cxml-marshall algorithm-set)))
 
 (defclass xtce-set ()
-  ((type :initarg :type)
+  ((base-type :initarg :base-type)
    (items :initarg :items
-          :type list)))
+          :type list)
+   (xml-element-name :initarg :xml-element-name
+					 :type string)))
+
+(defclass xtce-list ()
+  ((base-type :initarg :base-type)
+   (items :initarg :items
+          :type list)
+   (xml-element-name :initarg :xml-element-name
+					 :type string)))
 
 (defclass unit-set (xtce-set) ())
 
-(defun make-xtce-set (xtce-type &rest items)
+(defun make-xtce-list (xtce-type xml-element-name items)
+  (let ((items (remove nil items))
+		(xtce-type-list (intern (format nil "~A-LIST" xtce-type))))
+	(dolist (i items) 
+      `(check-type i ,xtce-type))
+	(make-instance xtce-type-list :base-type xtce-type :items items :xml-element-name xml-element-name)))
+
+(defun make-xtce-set (xtce-type xml-element-name items)
   (let ((items (remove nil items))
 		(xtce-type-set (intern (format nil "~A-SET" xtce-type))))
 	(dolist (i items) 
-      (check-type i xtce-type))
-	(make-instance xtce-type-set :type xtce-type :items items)))
+      `(check-type i ,xtce-type))
+	(make-instance xtce-type-set :base-type xtce-type :items items :xml-element-name xml-element-name)))
 
-(defun make-unit-set (&rest items)
-  (make-xtce-set 'unit items))
-
-(defmethod cxml-marshall ((object unit-set))
-  (with-slots (items) object
-    (cxml:with-element* ("xtce" "UnitSet")
-      (dolist (i items)
-        (if i (cxml-marshall i))))))
+(describe (make-instance 'xtce-set ))
 
 (defclass unit () ((power :initarg :power
                           :type number)
@@ -153,6 +162,9 @@
                        :factor factor
                        :description description
                        :form form))
+
+(defun make-unit-set (&rest items)
+  (make-xtce-set 'unit "UnitSet" items))
 
 (defmethod cxml-marshall ((obj unit))
   (with-slots (power factor description form) obj
@@ -176,7 +188,40 @@
 (defun format-bool (a)
   (if a "True" "False"))
 
+(defun format-symbol (a)
+  (if a
+	  (format nil "~A" a)))
+
 (defmacro check-optional-type (place type &optional type-string)
   `(if ,place
 	   (check-type ,place ,type ,type-string)
 	   nil))
+
+(defmacro optional-xml-attribute (qname value)
+  `(if , value
+	   (cxml:attribute ,qname ,value) 
+	   nil))
+
+(defun print-element-xml (element)
+  (cxml:with-xml-output (cxml:make-string-sink :indentation 4 :canonical nil)
+	(cxml-marshall element)))
+
+(defmethod cxml-marshall ((obj NULL)))
+
+(defmethod cxml-marshall ((obj xtce-list))
+  (with-slots (items xml-element-name) obj
+	(if xml-element-name
+		(cxml:with-element* ("xtce" xml-element-name)
+		  (dolist (i items)
+			(cxml-marshall i)))
+		(dolist (i items)
+		  	(cxml-marshall i)))))
+
+(defmethod cxml-marshall ((obj xtce-set))
+  (with-slots (items xml-element-name) obj
+	(if xml-element-name
+		(cxml:with-element* ("xtce" xml-element-name)
+		  (dolist (i items)
+			(cxml-marshall i)))
+		(dolist (i items)
+		  	(cxml-marshall i)))))

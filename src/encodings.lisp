@@ -1,13 +1,13 @@
 (in-package :xtce)
 
-(defclass encoding () ())
+(defclass data-encoding () ())
 
 (defun valid-integer-encoding-p (enc)
-  (assert (member enc '(unsigned sign-magnitude twos-compliment ones-compliment bcd packed-bcd)) (enc)
-          "Int Encoding ~A is not <Unsigned | twos-compliment | ones-compliment | bcd | packed-bcd" enc) 
+  (assert (member enc '(unsigned sign-magnitude twos-complement ones-compliment bcd packed-bcd)) (enc)
+          "Int Encoding ~A is not <Unsigned | twos-complement | ones-compliment | bcd | packed-bcd" enc) 
   t)
 
-(defclass integer-data-encoding (encoding)
+(defclass integer-data-encoding (data-encoding)
   ((encoding :documentation "Specifies integer numeric value to raw encoding method."
              :initarg :encoding)
    (size-in-bits :documentation "Number of bits to use for the raw encoding."
@@ -38,13 +38,13 @@
 (defmethod cxml-marshall ((obj integer-data-encoding))
   (with-slots (size-in-bits encoding change-threshold default-calibrator context-calibrator-list) obj
     (cxml:with-element* ("xtce" "IntegerDataEncodingType")
-      (if encoding (cxml:attribute "encoding" (format nil "~A" encoding)))
-      (if size-in-bits (cxml:attribute "sizeInBits" size-in-bits))
-      (if change-threshold (cxml:attribute "changeThreshold" change-threshold))
-      (if default-calibrator (cxml-marshall default-calibrator))
-      (if context-calibrator-list (cxml-marshall context-calibrator-list)))))
+      (optional-xml-attribute "encoding" (format-symbol encoding))
+      (optional-xml-attribute "sizeInBits" size-in-bits)
+      (optional-xml-attribute "changeThreshold" change-threshold)
+      (cxml-marshall default-calibrator)
+      (cxml-marshall context-calibrator-list))))
 
-(defclass string-data-encoding ()
+(defclass string-data-encoding (data-encoding)
   ((size-in-bits :initarg :size-in-bits
                  :type size-in-bits)
    (bit-order :initarg :bit-order)
@@ -62,8 +62,6 @@
 (defun valid-string-encoding-p (enc)
   (let ((valid-encodings '(US-ASCII WINDOWS-1252 ISO-UTF-8 UTF-16 UTF-16LE UTF-16BE UTF-32 UTF-32LE UTF-32BE) )) 
     (assert (member enc valid-encodings) (enc) "String encoding ~A is not one of: ~A" enc valid-encodings)) t)
-
-
 
 (defclass binary-data-encoding ()
   ((bit-order :initarg :bit-order)
@@ -87,7 +85,7 @@
                  :from-binary-transform-algorithm from-binary-transform-algorithm
                  :to-binary-transform-algorithm to-binary-transform-algorithm))
 
-(defclass float-data-encoding ()
+(defclass float-data-encoding (data-encoding)
   ((bit-order :documentation "Bit-Order"
               :initarg :bit-order)
    (byte-order :documentation "Byte-order"
@@ -130,6 +128,7 @@
                  :context-calibrator-list context-calibrator-list))
 
 (defun valid-bit-order-p (bit-order)
+  
   (assert (member bit-order '(MSB LSB)) (bit-order) "Bit Order ~A is not <LSB | MSB>" bit-order) t)
 
 (defun valid-float-encoding-p (enc)

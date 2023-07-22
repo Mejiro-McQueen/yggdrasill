@@ -79,7 +79,7 @@
   '(satisfies spline-point-list-p))
 
 (defclass polynomial-calibrator (numeric-calibrator)
-  ((term-list :type :term-list
+  ((term-list :type term-list
               :initarg :term-list)))
 
 (defclass term()
@@ -105,22 +105,21 @@
   (make-instance 'term :coefficient coefficient
                        :exponent exponent))
 
-(defclass term-list () ((terms :initarg :terms
-                               :type list)))
-
+(defclass term-list (xtce-list) ())
+                              
 (defun make-term-list (&rest terms)
   (assert (>= (length terms) 1) (terms) "Parameter TERMS: ~A must have at least one polynomial term." terms)
   (dolist (i terms)
     (check-type i term))
-  (make-instance 'term-list :terms terms))
+  (make-instance 'term-list :items terms))
 
 (defclass ancillary-data-set () ())
 
 (defun make-polynomial-calibrator (&key name short-description ancillary-data-set term-list)
   (check-type term-list term-list)
-  (if name (check-type name symbol))
-  (if short-description (check-type short-description string))
-  (if ancillary-data-set (check-type ancillary-data-set ancillary-data-set))
+  (check-optional-type name symbol)
+  (check-optional-type short-description string)
+  (check-optional-type ancillary-data-set ancillary-data-set)
   (make-instance 'polynomial-calibrator :term-list term-list
                                         :name name
                                         :ancillary-data-set ancillary-data-set
@@ -133,9 +132,4 @@
       (if short-description (cxml:attribute "shortDescription" short-description))
       (if ancillary-data-set (cxml-marshall ancillary-data-set))
       (cxml-marshall term-list))))
-
-(defmethod cxml-marshall ((obj term-list))
-  (with-slots (terms) obj 
-    (dolist (i terms)
-      (cxml-marshall i))))
 
