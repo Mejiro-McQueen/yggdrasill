@@ -505,3 +505,83 @@
 
 (defun format-number (n)
   (format nil "~A" n))
+
+
+(defclass parameter ()
+  ((name :initarg :name :type symbol)
+   (parameter-type-ref :initarg :parameter-type-ref :type symbol)
+   (short-description :initarg :short-description :type string)
+   (initial-value :initarg :initial-value)
+   (long-description :initarg :long-description :type long-description)
+   (alias-set :initarg :alias-set :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+   (parameter-properties :initarg :parameter-properties :type parameter-properties)))
+
+
+(defun make-parameter (name
+					   parameter-type-ref
+					   &key
+						 short-description
+						 initial-value
+						 long-description
+						 alias-set
+						 ancillary-data-set)
+  (make-instance
+   'parameter
+   :name name
+   :parameter-type-ref parameter-type-ref
+   :short-description short-description
+   :long-description long-description
+   :initial-value initial-value
+   :alias-set alias-set
+   :ancillary-data-set ancillary-data-set))
+
+(defmethod cxml-marshall ((obj parameter))
+  (with-slots (name
+			   parameter-type-ref
+			   short-description
+			   initial-value
+			   long-description alias-set
+			   ancillary-data-set
+			   parameter-properties)
+	  obj
+	(cxml:with-element* ("xtce" "Parameter") 
+	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "parameterTypeRef" (format-symbol parameter-type-ref))
+	  (optional-xml-attribute "shortDescription" short-description)
+	  (optional-xml-attribute "initialValue" initial-value)
+	  (cxml-marshall long-description)
+	  (cxml-marshall alias-set)
+	  (cxml-marshall ancillary-data-set)
+	  (cxml-marshall parameter-type-ref))))
+
+(defun make-parameter-set (&rest items)
+  (make-xtce-set 'parameter "Parameter" items))
+
+(defclass parameter-properties () ((data-source :initarg :data-source)
+								   (read-only :initarg :read-only)
+								   (persistence :initarg :persistence)
+								   (system-name :initarg :system-name :type system-name)
+								   (validity-condition :initarg :validity-condition :type validity-condition)
+								   (physical-address-set :initarg :physical-address-set :type physical-address-set)
+								   (time-assosciation :initarg :time-association :type time-association)))
+
+(defmethod cxml-marshall ((obj parameter-properties))
+  (with-slots (data-source read-only persistence system-name validity-condition physical-address-set time-association) obj
+	(cxml:with-element* ("xtce" "ParameterProperties")
+	  (optional-xml-attribute "dataSource" data-source)
+	  (optional-xml-attribute read-only (format-bool read-only))
+	  (optional-xml-attribute persistence)
+	  (cxml-marshall system-name)
+	  (cxml-marshall validity-condition)
+	  (cxml-marshall physical-address-set)
+	  (cxml-marshall time-association))))
+  
+
+(defclass system-name () ())
+
+(defclass validity-condition ()())
+
+(defclass physical-address-set () ())
+
+(defclass time-association () ())

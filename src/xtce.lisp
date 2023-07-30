@@ -6,8 +6,10 @@
 
 (in-package :xtce)
 
-
-(defparameter *unique-keys* ())
+(defmacro check-optional-type (place type &optional type-string)
+  `(if ,place
+	   (check-type ,place ,type ,type-string)
+	   nil))
 
 (defclass space-system ()
   ((header :initarg :header)
@@ -21,10 +23,75 @@
    (command-metadata :initarg :command-metadata)
    (xml-base :initarg :xml-base)
    (service-set :initarg :service-set)
-   (space-system :initarg :space-system)))
+   (space-systems-list :initarg :space-systems-list :type space-system-list)
+   (parent-system :initarg :parent-system)
+   (symbol-table :initarg :symbol-table :initform (make-hash-table))
+   (short-description :initarg :short-description)))
+
+(defmethod print-object ((obj space-system) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (name short-description) obj
+          (format stream "name: ~a, description: ~a" name short-description))))
+
+(defclass space-system-list (xtce-list) ())
+
+(defun make-space-systems-list (&rest items)
+  (make-xtce-list 'space-system "SpaceSystem" items))
+
+(defun make-space-system (name
+                          &key
+							parent-system
+							header
+                            operational-status
+                            long-description
+                            alias-set
+                            ancilliary-data-set
+                            telemetry-metadata
+                            command-metadata
+                            xml-base
+                            service-set
+                            space-systems-list
+							short-description)
+  (check-type name symbol)
+  (check-optional-type long-description long-description)
+  
+  (let ((sys (make-instance 'space-system
+				 :name name
+				 :parent-system parent-system
+				 :header header
+				 :operational-status operational-status
+				 :long-description long-description
+				 :alias-set alias-set
+				 :ancilliary-data-set ancilliary-data-set
+				 :telemetry-metadata telemetry-metadata
+				 :command-metadata command-metadata
+				 :xml-base xml-base
+				 :service-set service-set
+				 :space-systems-list space-systems-list
+				 :short-description short-description)))
+	(register-system-keys sys)
+	(if (not parent-system)
+		  (eval `(defvar ,name ,sys "Represents the root space system."))
+		sys)))
 
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
+
+(trace register-system-keys)
+
+(defun register-unique-key (symbol-table symbol value)
+  ;(describe symbol-table)
+  (assert (not (gethash symbol symbol-table)))
+  (setf (gethash symbol symbol-table) value))
+
+(defun register-system-keys (space-system)
+  (With-slots (symbol-table space-systems-list telemetry-metadata) space-system 
+	(if space-systems-list
+		(dolist (subsystem (slot-value space-systems-list 'items))
+		  (register-unique-key symbol-table (slot-value subsystem 'name) subsystem)))
+	(if telemetry-metadata
+		(dolist (parameter-type (slot-value (slot-value telemetry-metadata 'parameter-type-set) 'items))
+		  (print parameter-type)))))
 
 (defun make-long-description (s)
   (check-type s string)
@@ -35,29 +102,6 @@
     (cxml:with-element* ("xtce" "LongDescription"))
     (cxml:text long-description)))
 
-(defun make-space-system (name
-                          &key header
-                               operational-status
-                               long-description
-                               alias-set
-                               ancilliary-data-set
-                               telemetry-metadata
-                               command-metadata
-                               xml-base
-                               service-set
-                               space-system)
-  (if long-description (check-type long-description long-description))
-  (make-instance 'space-system :name name
-                               :header header
-                               :operational-status operational-status
-                               :long-description long-description
-                               :alias-set alias-set
-                               :ancilliary-data-set ancilliary-data-set
-                               :telemetry-metadata telemetry-metadata
-                               :command-metadata command-metadata
-                               :xml-base xml-base
-                               :service-set service-set
-                               :space-system space-system))
 
 (defgeneric cxml-marshall (obj))
 
@@ -72,13 +116,12 @@
                telemetry-metadata) obj
     (cxml:with-element* ("xtce" "SpaceSystem")
       (cxml:attribute*  "xsi" "schemaLocation" "http://www.omg.org/spec/XTCE/20180204 XTCE12.xsd")
-      (cxml:attribute "name" name)
-      (if header (cxml:attribute "header" header))
-      (if operational-status (cxml:attribute "operational-status" operational-status))
-      (if xml-base (cxml:attribute "xml:base" xml-base))
-      (if long-description (cxml-marshall long-description))
-      (if telemetry-metadata (cxml-marshall telemetry-metadata)))))
-
+      (cxml:attribute "name" (format-symbol name))
+      (optional-xml-attribute "header" header)
+      (optional-xml-attribute "operational-status" operational-status)
+      (optional-xml-attribute "xml:base" xml-base)
+      (cxml-marshall long-description)
+      (cxml-marshall telemetry-metadata))))
 
 (defclass telemetry-metadata ()
   ((parameter-type-set :initarg :parameter-type-set
@@ -124,11 +167,16 @@
           :type list)
    (xml-element-name :initarg :xml-element-name
 					 :type string)))
-
+  
 (defclass xtce-list ()
   ((base-type :initarg :base-type)
    (items :initarg :items
           :type list)
+   (xml-element-name :initarg :xml-element-name
+					 :type string)))
+
+(defclass xtce-table ()
+  ((items :initarg :items)
    (xml-element-name :initarg :xml-element-name
 					 :type string)))
 
@@ -181,21 +229,12 @@
       (cxml:with-namespace ("xsi" "http://www.w3.org/2001/XMLSchema-instance")
         (cxml-marshall space-system)))))
 
-(defun require-unique-key (key)
-  (assert (null (member key *UNIQUE-KEYS*)) (key) "The key ~A must be a symbol unique to this XTCE system. If working interactively, reset using (setf *UNIQUE-KEYS* ())" key)
-  (setf *UNIQUE-KEYS* (cons key *UNIQUE-KEYS*)))
-
 (defun format-bool (a)
   (if a "True" "False"))
 
 (defun format-symbol (a)
   (if a
-	  (format nil "~A" a)))
-
-(defmacro check-optional-type (place type &optional type-string)
-  `(if ,place
-	   (check-type ,place ,type ,type-string)
-	   nil))
+	  (format nil "~:" a)))
 
 (defmacro optional-xml-attribute (qname value)
   `(if , value
@@ -225,3 +264,32 @@
 			(cxml-marshall i)))
 		(dolist (i items)
 		  	(cxml-marshall i)))))
+
+
+(defclass parameter-set (xtce-set) ())
+
+(defun make-parameter-set (&rest items)
+  (make-xtce-set 'parameter "ParameterSet" items))
+
+(defclass parameter ()
+   ((short-description :initarg :short-description
+					  :type string)
+
+   (name :initarg :name
+		 :type symbol)
+   (parameter-type-ref :initarg :parameter-type-ref :type symbol)
+   (initial-value :initarg :initial-value)
+   (long-description :initarg :long-description
+					 :type string)
+   (alias-set :initarg :alias-set
+			  :type alias-set)
+   (ancilliary-data-set :initarg :ancilliary-data-set
+						:type ancilliary-data-set)
+   (parameter-properties :initarg :parameter-type-properties
+						 :type paramater-properties)))
+
+
+(defmethod print-object ((obj xtce-list) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (items) obj
+          (format stream "items: ~a" items))))

@@ -2,7 +2,7 @@
   :version "0.1.0"
   :author "Adrian Vazquez"
   :license "MIT"
-  :depends-on ("cxml" "alexandria")
+  :depends-on ("cxml" "alexandria" "uiop")
   :components ((:module "src"
                 :components
                 ((:file "xtce")
