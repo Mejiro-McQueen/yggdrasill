@@ -234,14 +234,14 @@
 
 (defun format-symbol (a)
   (if a
-	  (format nil "~:" a)))
+	  (format nil "~a" a)))
 
 (defmacro optional-xml-attribute (qname value)
   `(if , value
 	   (cxml:attribute ,qname ,value) 
 	   nil))
 
-(defun print-element-xml (element)
+(defun xml-dump (element)
   (cxml:with-xml-output (cxml:make-string-sink :indentation 4 :canonical nil)
 	(cxml-marshall element)))
 

@@ -525,7 +525,10 @@
 						 initial-value
 						 long-description
 						 alias-set
-						 ancillary-data-set)
+						 ancillary-data-set
+						 parameter-properties)
+  (check-type name symbol)
+  (check-type parameter-type-ref symbol)
   (make-instance
    'parameter
    :name name
@@ -534,7 +537,8 @@
    :long-description long-description
    :initial-value initial-value
    :alias-set alias-set
-   :ancillary-data-set ancillary-data-set))
+   :ancillary-data-set ancillary-data-set
+   :parameter-properties parameter-properties))
 
 (defmethod cxml-marshall ((obj parameter))
   (with-slots (name
@@ -553,7 +557,7 @@
 	  (cxml-marshall long-description)
 	  (cxml-marshall alias-set)
 	  (cxml-marshall ancillary-data-set)
-	  (cxml-marshall parameter-type-ref))))
+	  (cxml-marshall parameter-properties))))
 
 (defun make-parameter-set (&rest items)
   (make-xtce-set 'parameter "Parameter" items))
@@ -564,19 +568,37 @@
 								   (system-name :initarg :system-name :type system-name)
 								   (validity-condition :initarg :validity-condition :type validity-condition)
 								   (physical-address-set :initarg :physical-address-set :type physical-address-set)
-								   (time-assosciation :initarg :time-association :type time-association)))
+								   (time-association :initarg :time-association :type time-association)))
+
+(defun make-parameter-properties (&key data-source (read-only :null) persistence system-name validity-condition physical-address-set time-association)
+  (make-instance 'parameter-properties
+				 :read-only read-only
+				 :data-source data-source
+				 :persistence persistence
+				 :system-name system-name
+				 :validity-condition validity-condition
+				 :physical-address-set physical-address-set
+				 :time-association time-association))
 
 (defmethod cxml-marshall ((obj parameter-properties))
   (with-slots (data-source read-only persistence system-name validity-condition physical-address-set time-association) obj
 	(cxml:with-element* ("xtce" "ParameterProperties")
 	  (optional-xml-attribute "dataSource" data-source)
-	  (optional-xml-attribute read-only (format-bool read-only))
-	  (optional-xml-attribute persistence)
+	  (if (not (equal read-only :null))
+		(optional-xml-attribute "readOnly" (format-bool read-only)))
+	  (optional-xml-attribute "persistence" persistence)
 	  (cxml-marshall system-name)
 	  (cxml-marshall validity-condition)
 	  (cxml-marshall physical-address-set)
 	  (cxml-marshall time-association))))
-  
+
+(trace xml-dump)
+
+(xml-dump (make-parameter 'MissionTime 'MissionTimeType
+						  :parameter-properties
+						  (make-parameter-properties
+						   :data-source "derived")))
+
 
 (defclass system-name () ())
 

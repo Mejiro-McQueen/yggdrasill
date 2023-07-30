@@ -102,14 +102,12 @@
    (make-parameter 'Milliseconds 'MillisecondsType)
    (make-parameter 'PBATMTEMP 'PBATMTEMPType)
    (make-parameter 'PSWHLTIMFLG 'PSWHLTIMFLGType)
-   (make-parameter 'MissionTime 'MissionTimeType))
+   (make-parameter 'MissionTime 'MissionTimeType
+				   :parameter-properties
+				   (make-parameter-properties :data-source "derived")))
   ))
 
 (dump-space-system-xml (symbol-value 'SPACEVECHICLE))
-
-
-
-;(dump-space-system-xml Nice)
 
 (defparameter *P1* '/NICE/LMAO/ROFLCOPTER)
 (defparameter *P1* './NICE/LMAO/ROFLCOPTER)
