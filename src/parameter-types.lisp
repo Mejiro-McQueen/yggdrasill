@@ -559,8 +559,11 @@
 	  (cxml-marshall ancillary-data-set)
 	  (cxml-marshall parameter-properties))))
 
+
+(defclass parameter-set (xtce-set) ())
+
 (defun make-parameter-set (&rest items)
-  (make-xtce-set 'parameter "Parameter" items))
+  (make-xtce-set 'parameter nil items))
 
 (defclass parameter-properties () ((data-source :initarg :data-source)
 								   (read-only :initarg :read-only)
@@ -591,13 +594,6 @@
 	  (cxml-marshall validity-condition)
 	  (cxml-marshall physical-address-set)
 	  (cxml-marshall time-association))))
-
-(trace xml-dump)
-
-(xml-dump (make-parameter 'MissionTime 'MissionTimeType
-						  :parameter-properties
-						  (make-parameter-properties
-						   :data-source "derived")))
 
 
 (defclass system-name () ())

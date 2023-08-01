@@ -11,6 +11,12 @@
 	   (check-type ,place ,type ,type-string)
 	   nil))
 
+
+(defmacro optional-xml-attribute (qname value)
+  `(if , value
+	   (cxml:attribute ,qname ,value) 
+	   nil))
+
 (defclass space-system ()
   ((header :initarg :header)
    (name :initarg :name)
@@ -236,11 +242,6 @@
   (if a
 	  (format nil "~a" a)))
 
-(defmacro optional-xml-attribute (qname value)
-  `(if , value
-	   (cxml:attribute ,qname ,value) 
-	   nil))
-
 (defun xml-dump (element)
   (cxml:with-xml-output (cxml:make-string-sink :indentation 4 :canonical nil)
 	(cxml-marshall element)))
@@ -265,31 +266,143 @@
 		(dolist (i items)
 		  	(cxml-marshall i)))))
 
-
-(defclass parameter-set (xtce-set) ())
-
-(defun make-parameter-set (&rest items)
-  (make-xtce-set 'parameter "ParameterSet" items))
-
-(defclass parameter ()
-   ((short-description :initarg :short-description
-					  :type string)
-
-   (name :initarg :name
-		 :type symbol)
-   (parameter-type-ref :initarg :parameter-type-ref :type symbol)
-   (initial-value :initarg :initial-value)
-   (long-description :initarg :long-description
-					 :type string)
-   (alias-set :initarg :alias-set
-			  :type alias-set)
-   (ancilliary-data-set :initarg :ancilliary-data-set
-						:type ancilliary-data-set)
-   (parameter-properties :initarg :parameter-type-properties
-						 :type paramater-properties)))
-
-
 (defmethod print-object ((obj xtce-list) stream)
       (print-unreadable-object (obj stream :type t)
         (with-slots (items) obj
           (format stream "items: ~a" items))))
+
+(defclass container-set (xtce-set) () )
+
+(defmethod make-container-set (&rest items)
+  (make-xtce-set 'sequence-container "ContainerSet" items))
+
+(defclass sequence-container () ((name :initarg :name :type symbol)
+								 (short-description :initarg short-description :type string)
+								 (abstract :initarg :abstract)
+								 (idle-patter :initarg :idle-pattern)
+								 (long-description :initarg :long-description :type long-description)
+								 (alias-set :initarg :alias-set :type alias-set)
+								 (ancilliary-data-set :initarg :ancilliary-data-set :type ancilliary-data-set)
+								 (rate-in-stream-type :initarg :rate-in-stream-type)
+								 (entry-list :initarg :entry-list :type entry-list)
+								 (base-container :initarg :base-container :type base-container)))
+
+(defclass default-rate-in-stream () ((basis :initarg :basis)
+									 (minimum-value :initarg :minimum-value)
+									 (maximum-value :initarg :maximum-value)
+									 (stream-ref :initarg :stream-ref)))
+
+(defclass entry-list () ((parameter-ref-entry :initarg :parameter-ref-entry :type parameter-ref-entry)
+						 (parameter-segment-ref-entry :initarg :parameter-segment-ref-entry :type parameter-segment-ref-entry)
+						 (container-ref-entry :initarg :container-ref-entry :type container-ref-entry)
+						 (container-segment-ref-entry :initarg :container-segment-ref-entry :type container-segment-ref-entry)
+						 (stream-segment-entry :initarg :stream-segment-entry :type stream-segment-entry)
+						 (indirect-parameter-ref-entry :initarg :indirect-parameter-ref-entry :type indirect-parameter-ref-entry)
+						 (array-parameter-ref-entry :initarg :array-parameter-ref-entry :type array-parameter-ref-entry)))
+
+(defclass parameter-ref-entry () ((parameter-ref :initarg :parameter-ref)
+								  (short-description :initarg :short-description :type string)
+								  (location-in-container-in-bits
+								   :initarg :location-in-container-in-bits
+								   :type location-in-container-in-bits)
+								  (repeat-entry :initarg :repeat-entry :type repeat-entry)
+								  (include-condition :initarg :include-condition :type include-condition)
+								  (time-assosciation :initarg :time-association :type time-association)
+								  (ancilliary-data-set :initarg :ancillary-data-set :type ancilliary-data-set)))
+
+(defclass rate-in-stream () ((stream-ref :initarg :stream-ref)
+							 (basis :initarg :basis)
+							 (minimum-value :initarg :minimum-value)
+							 (maximum-value :initarg :maximum-value)))
+
+(defclass parameter-segment-ref-entry () ((parameter-ref :initarg :parameter-ref)
+										  (size-in-bits :initarg :size-in-bits)
+										  (short-description :initarg :short-description)
+										  (order :initarg :order)
+										  (location-in-container-in-bits
+										   :initarg :location-in-container-in-bits
+										   :type location-in-container-in-bits)
+										  (repeat-entry :initarg :repeat-entry :type repeat-entry)
+										  (include-condition :initarg :include-condition :type include-condition)
+										  (time-association :initarg time-association :type time-association)
+										  (ancilliary-data-set :initarg :ancillary-data-set :type ancilliary-data-set)))
+
+(defclass container-ref-entry () ((container-ref :initarg :container-ref)
+								  (short-description :initarg short-description :type string)
+								  (location-in-container-in-bits :initarg location-in-container-in-bits :type location-in-container-in-bits)
+								  (repeat-entry :initarg :repeat-entry :type repeat-entry)
+								  (include-condition :initarg :include-condition :type include-condition)
+								  (time-association :initarg :time-association :type time-association)
+								  (ancilliary-data-set :initarg :ancillary-data-set :type ancilliary-data-set)))
+
+
+(defclass container-segment-ref-entry () ((container-ref :initarg :container-ref)
+										  (size-in-bits :initarg :size-in-bits :type positive-integer)
+										  (short-description :initarg :short-description :type string)
+										  (order :initarg :order)
+										  (location-in-container-in-bits :initarg :location-in-container-in-bits
+																		 :type location-in-container-in-bits) 
+										  (repeat-entry :initarg :repeat-entry :type repeat-entry)
+										  (include-condition :initarg :include-condition :type include-condition)
+										  (time-association :initarg :time-association :type time-association)
+										  (ancilliary-data-set :initarg :ancillary-data-set :type ancilliary-data-set)))
+
+(defclass stream-sgment-ref-entry () ((stream-ref :initarg :stream-ref)
+									  (size-in-bits :initarg :size-in-bits :type positive-integer)
+									  (short-description :initarg :short-description :type string)
+									  (location-in-container-in-bits :initarg :location-in-container-in-bits
+																	 :type location-in-container-in-bits)
+									  (repeat-entry :initarg :repeat-entry :type repeat-entry)
+									  (include-condition :initarg :include-condition :type include-condition)
+									  (time-association :initarg :time-association :type time-association)
+									  (ancilliary-data-set :initarg :ancillary-data-set :type ancilliary-data-set)))
+
+(defclass indirect-parameter-ref-entry () ((short-description :initarg :short-description :type string)
+										   (alias-name-space :initarg :alias-name-space)
+										   (location-in-container-in-bits :initarg :location-in-container-in-bits
+																		  :type location-in-container-in-bits)
+										   (repeat-entry :initarg :repeat-entry :type repeat-entry)
+										   (include-condition :initarg :include-condition :type include-condition)
+										   (time-association :initarg :time-association :type time-association)
+										   (ancilliary-data-set :initarg :ancillary-data-set :type ancilliary-data-set)
+										   (parameter-instance :initarg :parameter-ref :type parameter-instance)))
+
+(defclass array-parameter-ref-entry () ((parameter-ref :initarg :parameter-ref)
+										(short-description :initarg :short-description :type string)
+										(location-in-container-in-bits :initarg :location-in-container-in-bits
+																		  :type location-in-container-in-bits)
+										(repeat-entry :initarg :repeat-entry :type repeat-entry)
+										(include-condition :initarg :include-condition :type include-condition)
+										(time-association :initarg :time-association :type time-association)
+										(ancilliary-data-set :initarg :ancillary-data-set :type ancilliary-data-set)
+										(dimension-list :initarg :dimension-list :type dimension-list)))
+
+
+(defclass dimension () ((starting-index :initarg :starting-index :type starting-index)
+						(ending-index :initarg :ending-index :type ending-index)))
+
+(defclass starting-index () ((value :initarg :value)))
+
+(defclass ending-index () ((value :initarg :value)))
+
+(defclass location-in-container-in-bits () ((reference-location :initarg :reference-location)
+											(value :initarg :value :type value)))
+
+(defclass repeat-entry () ((count :initarg :count :type count_t)
+						   (offset :initarg :offset :type offset)))
+  
+(defclass count_t () ((value :initarg :value :type value)))
+
+(defclass offset () ((value :initarg :value :type value)))
+
+(defclass include-condition () ((match :initarg :match :type match)))
+
+(defclass base-container () ((container-ref :initarg :container-ref)
+							 (restriction-criteria :initarg :restriction-criteria :type restriction-criteria)))
+
+(defclass restriction-criteria () ((restriction :initarg :restriction)
+								   (next-container :initarg :next-container :type next-container)))
+
+(defclass next-container () ((container-ref :initarg :container-ref)))
+
+; Note: CCSDS 660.1-G-2 typo Page 4-142, figure caption says ContainrRefEntry
