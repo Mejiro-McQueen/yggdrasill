@@ -21,12 +21,22 @@
    (comparison-operator :initarg :comparison-operator)
    (value :initarg :value)))
 
-(defun make-comparison (parameter-ref value &optional (instance 0) (use-calibrated-value t) (comparison-operator '=))
+(defun make-comparison (parameter-ref value &optional (instance 0) (use-calibrated-value t) (comparison-operator 'equal))
   (make-instance 'comparison
                  :parameter-ref parameter-ref
                  :instance instance
                  :use-calibrated-value use-calibrated-value
-                 :value value))
+                 :value value
+				 :comparison-operator comparison-operator))
+
+(defmethod cxml-marshall ((obj comparison))
+  (with-slots (parameter-ref value instance use-calibrated-value comparison-operator) obj
+	(cxml:with-element* ("xtce" "Comparison")
+	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
+	  (cxml:attribute "value" value)
+	  (optional-xml-attribute "instance" instance)
+	  (optional-xml-attribute "useCalibratedValue" (format-bool use-calibrated-value))
+	  (optional-xml-attribute "comparisonOperator" (format-symbol comparison-operator)))))
 
 (deftype comparison-list ()
   '(satisfies comparison-list-p))

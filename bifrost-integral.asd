@@ -7,7 +7,6 @@
                 :components
                 ((:file "xtce")
                  (:file "encodings")
-                 (:file "values")		
                  (:file "calibrators")
                  (:file "parameter-types")
 				 )))

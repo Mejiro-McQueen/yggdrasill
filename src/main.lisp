@@ -105,6 +105,21 @@
    (make-parameter 'MissionTime 'MissionTimeType
 				   :parameter-properties
 				   (make-parameter-properties :data-source "derived")))
+  :container-set
+  (make-container-set
+   (make-sequence-container
+	'Header
+	(make-entry-list
+	 (make-parameter-ref-entry 'ID)
+	 (make-parameter-ref-entry 'SecH)
+	 (make-parameter-ref-entry 'Type)
+	 (make-parameter-ref-entry 'Length)
+	 (make-parameter-ref-entry 'SecondaryHeader
+							   :include-condition
+							   (make-include-condition (make-comparison 'SecH 1)))
+	 )
+	)
+   )
   ))
 
 (dump-space-system-xml (symbol-value 'SPACEVECHICLE))
@@ -118,6 +133,9 @@
 (defparameter *paths* nil)
 (defparameter *namestring* nil)
 (defparameter *just-path* nil)
+
+
+(describe (make-comparison 'ref 1) )
 
 ;; (defun search-xtce-key (requested-key)
 ;;   (check-type requested-key symbol)
@@ -137,3 +155,5 @@
 ; climb down as needed
 ; grab symbol from symbol table
 ; optionally-teleport to *ROOT*
+
+(readtable-case *readtable*)
