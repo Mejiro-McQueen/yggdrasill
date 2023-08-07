@@ -35,8 +35,8 @@
 
 (defmethod print-object ((obj space-system) stream)
       (print-unreadable-object (obj stream :type t)
-        (with-slots (name short-description) obj
-          (format stream "name: ~a, description: ~a" name short-description))))
+        (with-slots (name short-description abstract) obj
+          (format stream "name: ~a, description: ~a, abstract:~a " name short-description abstract))))
 
 (defclass space-system-list (xtce-list) ())
 
@@ -240,7 +240,7 @@
   (if a
 	  (format nil "~a" a)))
 
-(defun xml-dump (element)
+(defun dump-xml (element)
   (cxml:with-xml-output (cxml:make-string-sink :indentation 4 :canonical nil)
 	(cxml-marshall element)))
 
@@ -345,6 +345,11 @@
 	  (cxml-marshall entry-list)
 	  (cxml-marshall base-container))))
 
+(defmethod print-object ((obj sequence-container) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (name short-description) obj
+          (format stream "name: ~a, description: ~a" name short-description))))
+
 (defclass default-rate-in-stream () ((basis :initarg :basis)
 									 (minimum-value :initarg :minimum-value)
 									 (maximum-value :initarg :maximum-value)))
@@ -414,6 +419,11 @@
 
 (defun make-rate-in-stream (stream-ref &key basis minimum-value maximum-value)
   (make-instance 'rate-in-stream :stream-ref stream-ref :basis basis :minimum-value minimum-value :maximum-value maximum-value))
+
+(defclass rate-in-stream-set (xtce-set) ())
+
+(defun make-rate-in-stream-set (&rest items)
+  (make-xtce-set 'rate-in-stream "RateInStreamSet" items))
 
 (defmethod cxml-marshall ((obj rate-in-stream))
   (with-slots (stream-ref basis minimum-value maximum-value) obj

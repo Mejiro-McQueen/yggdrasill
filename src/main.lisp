@@ -214,17 +214,26 @@
 			 containers-map)
   resolveable-containers))
 
+(defun resolve (parent child container-map)
+  (cond ((not parent) child)
+		((resolveable-container-p parent)
+		 (let* ((parent-base-container (slot-value parent 'base-container))
+			   (parent-container-ref (slot-value parent-base-container 'container-ref))
+			   (grand-parent (gethash parent-container-ref container-map)))
+		   (resolve grand-parent parent container-map)))
+		(t (deep-inherit parent child))))
+
+(resolve-containers *HASH*)
+
 (defun resolve-containers (container-map)
   (let ((resolvable-containers (find-resolvable-containers container-map))
-		(resolved-containers '()))
-	(dolist (container resolvable-containers)
-	  (append resolved-containers (resolve (gethash (slot-value container 'base-container) container-map) container container-map))
-	resolved-containers)))
-
-(defun resolve (parent child container-map)
-  (cond ((not (resolveable-container-p child)) (deep-inherit parent child))
-		(t (resolve (gethash (slot-value child 'base-container) container-map) child container-map))))
-
+		(resolved '()))
+	(dolist (child resolvable-containers)
+	  (let* ((base-container (slot-value child 'base-container))
+			 (parent-reference (slot-value base-container 'container-ref))
+			 (parent (gethash parent-reference container-map)))
+		(push (resolve parent child container-map) resolved)))
+	resolved))
 
 (defun resolveable-container-p (container)
   (when container
@@ -236,7 +245,6 @@
   (declare (ignore parent))
   child)
 
-
 (defmethod deep-inherit ((parent sequence-container) (child sequence-container))
   (let* ((name (slot-value child 'name))
 		 (abstract (slot-value child 'abstract))
@@ -246,11 +254,25 @@
 		 (alias-set (slot-value child 'long-description))
 		 (ancillary-data-set (append (slot-value child 'ancillary-data-set) (slot-value parent 'ancillary-data-set)))
 		 (default-rate-in-stream (if (slot-value child 'default-rate-in-stream) (slot-value parent 'default-rate-in-stream)))
-		 (rate-in-stream-set (union (items (slot-value child 'rate-in-stream-set))
-									(items (slot-value parent 'rate-in-stream-set)) :key 'stream-ref))
+		 (child-rate-in-stream-set (slot-value child 'rate-in-stream-set))
+		 (parent-rate-in-stream-set (slot-value parent 'rate-in-stream-set))
+		 (rate-in-stream-set (make-rate-in-stream-set
+							  (union (if child-rate-in-stream-set
+										 (items child-rate-in-stream-set)
+										 nil)
+									 (if parent-rate-in-stream-set
+										 (items parent-rate-in-stream-set)
+										 nil) :key 'stream-ref)))
 		 
 		 (binary-encoding (if (slot-value child 'binary-encoding) (slot-value parent 'binary-encoding)))
-		 (entry-list (append (slot-value parent 'entry-list) (slot-value child 'entry-list)))
+		 (parent-entry-list (slot-value parent 'entry-list))
+		 (child-entry-list (slot-value child 'entry-list))
+		 (entry-list (make-entry-list
+					  (append (if child-entry-list
+								  (items child-entry-list)
+								  nil)
+							  (if parent-entry-list
+								  (items parent-entry-list)))))
 		 (base-container nil)
 		 (new (make-sequence-container name
 									   entry-list
@@ -266,33 +288,37 @@
 									   :binary-encoding binary-encoding)))
 	new))
 
-
-(step (resolve-containers *HASH*))
-
-(resolve-containers *HASH*)
+;(mapcar 'describe (resolve-containers *HASH*))
 
 
-(defparameter t1
-  (make-sequence-container
-   "MyFormatHeader"
-   (make-entry-list
-	(make-parameter-ref-entry "Version")
-	(make-parameter-ref-entry "Type")
-	(make-parameter-ref-entry "ID")
-	(make-parameter-ref-entry "Length"))
-   :abstract t))
 
-(defparameter t2
-  (make-sequence-container
-   "MyTimeStampHeader"
-   (make-entry-list
-	(make-parameter-ref-entry "TimeStamp"))
-   :abstract t
-   :base-container
-   (make-base-container
-	"MyFormatHeader"
-	:restriction-criteria
-	(make-restriction-criteria
-	 (make-comparison-list
-	  (make-comparison "Version" 1)
-	  (make-comparison "Type" 1))))))
+;; (step (resolve-containers *HASH*))
+
+;; (trace resolve)
+;; (trace resolve-containers)
+
+
+;; (defparameter t1
+;;   (make-sequence-container
+;;    "MyFormatHeader"
+;;    (make-entry-list
+;; 	(make-parameter-ref-entry "Version")
+;; 	(make-parameter-ref-entry "Type")
+;; 	(make-parameter-ref-entry "ID")
+;; 	(make-parameter-ref-entry "Length"))
+;;    :abstract t))
+
+;; (defparameter t2
+;;   (make-sequence-container
+;;    "MyTimeStampHeader"
+;;    (make-entry-list
+;; 	(make-parameter-ref-entry "TimeStamp"))
+;;    :abstract t
+;;    :base-container
+;;    (make-base-container
+;; 	"MyFormatHeader"
+;; 	:restriction-criteria
+;; 	(make-restriction-criteria
+;; 	 (make-comparison-list
+;; 	  (make-comparison "Version" 1)
+;; 	  (make-comparison "Type" 1))))))
