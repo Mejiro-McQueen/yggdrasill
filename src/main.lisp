@@ -207,45 +207,51 @@
 
 (defun find-resolvable-containers (containers-map)
   (let ((resolveable-containers '()))
-	(maphash (lambda (key value)
+	(maphash (lambda (key container)
 			   (declare (ignore key))
-			   (when (resolveable-container-p value)
-				 (push value resolveable-containers)))
+			   (when (resolveable-container-p container)
+				 (push container resolveable-containers)))
 			 containers-map)
   resolveable-containers))
 
-(defun resolve (parent child container-map)
-  (cond ((not parent) child)
-		((resolveable-container-p parent)
-		 (let* ((parent-base-container (slot-value parent 'base-container))
-			   (parent-container-ref (slot-value parent-base-container 'container-ref))
-			   (grand-parent (gethash parent-container-ref container-map)))
-		   (resolve grand-parent parent container-map)))
-		(t (deep-inherit parent child))))
+(defun abstract-container-p (container)
+  (when container
+	(slot-value container 'abstract)))
+
+(defun concrete-container-p (container)
+  (when container
+  (not (abstract-container-p container))))
+		  
+(defun resolveable-container-p (container)
+  (when container
+	(and (concrete-container-p container)
+		 (slot-value container 'base-container))))
+
+(defun unresolvable-container-p (container)
+  (not (resolveable-container-p container)))
+
+(defun resolve (container container-map)
+  (let* ((base-container (if container (slot-value container 'base-container)))
+		 (parent-container-ref (if base-container (slot-value base-container 'container-ref)))
+		 (parent-container (gethash parent-container-ref container-map)))
+	(print container)
+	(print parent-container)
+	(print (unresolvable-container-p parent-container))
+	;(print (deep-inherit container (resolve parent-container container-map)))
+	(if (unresolvable-container-p parent-container)
+		(deep-inherit container parent-container)
+		(deep-inherit container (resolve parent-container container-map)))))
 
 (resolve-containers *HASH*)
 
 (defun resolve-containers (container-map)
   (let ((resolvable-containers (find-resolvable-containers container-map))
 		(resolved '()))
-	(dolist (child resolvable-containers)
-	  (let* ((base-container (slot-value child 'base-container))
-			 (parent-reference (slot-value base-container 'container-ref))
-			 (parent (gethash parent-reference container-map)))
-		(push (resolve parent child container-map) resolved)))
+	(dolist (container resolvable-containers)
+	  (push (resolve container container-map) resolved))
 	resolved))
 
-(defun resolveable-container-p (container)
-  (when container
-  (let ((abstract (slot-value container 'abstract))
-		(base-container (slot-value container 'base-container)))
-		(and base-container abstract))))
-
-(defmethod deep-inherit ((parent null) (child sequence-container))
-  (declare (ignore parent))
-  child)
-
-(defmethod deep-inherit ((parent sequence-container) (child sequence-container))
+(defmethod deep-inherit ((child sequence-container) (parent sequence-container))
   (let* ((name (slot-value child 'name))
 		 (abstract (slot-value child 'abstract))
 		 (idle-pattern (slot-value child 'idle-pattern))
@@ -296,29 +302,5 @@
 
 ;; (trace resolve)
 ;; (trace resolve-containers)
+;(find-resolvable-containers *HASH*)
 
-
-;; (defparameter t1
-;;   (make-sequence-container
-;;    "MyFormatHeader"
-;;    (make-entry-list
-;; 	(make-parameter-ref-entry "Version")
-;; 	(make-parameter-ref-entry "Type")
-;; 	(make-parameter-ref-entry "ID")
-;; 	(make-parameter-ref-entry "Length"))
-;;    :abstract t))
-
-;; (defparameter t2
-;;   (make-sequence-container
-;;    "MyTimeStampHeader"
-;;    (make-entry-list
-;; 	(make-parameter-ref-entry "TimeStamp"))
-;;    :abstract t
-;;    :base-container
-;;    (make-base-container
-;; 	"MyFormatHeader"
-;; 	:restriction-criteria
-;; 	(make-restriction-criteria
-;; 	 (make-comparison-list
-;; 	  (make-comparison "Version" 1)
-;; 	  (make-comparison "Type" 1))))))

@@ -347,8 +347,8 @@
 
 (defmethod print-object ((obj sequence-container) stream)
       (print-unreadable-object (obj stream :type t)
-        (with-slots (name short-description) obj
-          (format stream "name: ~a, description: ~a" name short-description))))
+        (with-slots (name short-description abstract base-container) obj
+          (format stream "name: ~a, description: ~a, abstract:~a, base-container?:~a" name short-description abstract base-container))))
 
 (defclass default-rate-in-stream () ((basis :initarg :basis)
 									 (minimum-value :initarg :minimum-value)
