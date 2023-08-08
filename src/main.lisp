@@ -1,4 +1,4 @@
-(ql:quickload "bifrost-integral")
+(ql:quickload "bifrost-yggdrasill")
 (ql:quickload "uiop")
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 
@@ -225,10 +225,17 @@
 (defun resolveable-container-p (container)
   (when container
 	(and (concrete-container-p container)
-		 (slot-value container 'base-container))))
+		 (heir-container-p container))))
+
+(defun heir-container-p (container)
+  (when container
+	(if (slot-value container 'base-container)
+		t)))
 
 (defun unresolvable-container-p (container)
   (not (resolveable-container-p container)))
+
+;; (dump-xml (first (resolve-containers *HASH*)))
 
 (defun resolve (container container-map)
   (let* ((base-container (if container (slot-value container 'base-container)))
@@ -236,11 +243,11 @@
 		 (parent-container (gethash parent-container-ref container-map)))
 	(print container)
 	(print parent-container)
-	(print (unresolvable-container-p parent-container))
+	(print (heir-container-p parent-container))
 	;(print (deep-inherit container (resolve parent-container container-map)))
-	(if (unresolvable-container-p parent-container)
-		(deep-inherit container parent-container)
-		(deep-inherit container (resolve parent-container container-map)))))
+	(if (heir-container-p parent-container)
+		(deep-inherit container (resolve parent-container container-map))
+		(deep-inherit container parent-container))))
 
 (defun resolve-containers (container-map)
   (let ((resolvable-containers (find-resolvable-containers container-map))
@@ -275,11 +282,14 @@
 		 (parent-entry-list (slot-value parent 'entry-list))
 		 (child-entry-list (slot-value child 'entry-list))
 		 (entry-list (apply #'make-entry-list
-							(append (if child-entry-list
-										(items child-entry-list)
-										nil)
-									(if parent-entry-list
-										(items parent-entry-list)))))
+							(append
+							 (if parent-entry-list
+								 (items parent-entry-list)
+								 nil)
+							 (if child-entry-list
+								 (items child-entry-list)
+								 nil)
+							 )))
 		 ;I'm keeping the base container so that we can neatly check the restriction criteria.
 		 ;I don't know how I feel about making a non XTCE construct to hold it at the top level.
 		 ;Descending the inheritance tree shouldn't bee too expensive.
@@ -296,7 +306,6 @@
 									   :base-container base-container
 									   :default-rate-in-stream default-rate-in-stream
 									   :binary-encoding binary-encoding)))
-	
 	new))
 
 ;(mapcar 'describe (resolve-containers *HASH*))
@@ -311,7 +320,6 @@
 ;(find-resolvable-containers *HASH*)
 
 
-
 ;; <xtce:SequenceContainer name="IdlePacket" idlePattern="0xabba505">
 ;; <xtce:EntryList/>
 ;; <xtce:BaseContainer containerRef="Header">
@@ -320,3 +328,17 @@
 ;; </xtce:RestrictionCriteria>
 ;; </xtce:BaseContainer>
 ;; </xtce:SequenceContainer>
+
+(heir-container-p  (make-sequence-container
+  "MyTimeStampHeader"
+  (make-entry-list
+   (make-parameter-ref-entry "TimeStamp"))
+  :abstract t
+  :base-container
+  (make-base-container
+   "MyFormatHeader"
+   :restriction-criteria
+   (make-restriction-criteria
+	(make-comparison-list
+	 (make-comparison "Version" 1)
+	 (make-comparison "Type" 1))))))

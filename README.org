@@ -1,6 +1,10 @@
-* Bifrost-Integral 
+* Bifrost-Yggdrasill
+
+XTCE authoring and stream processing tools
 
 ** Usage
+It's unusuable!
+Currently under development, come back later.
 
 ** Installation
 
