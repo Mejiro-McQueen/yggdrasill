@@ -242,8 +242,6 @@
 		(deep-inherit container parent-container)
 		(deep-inherit container (resolve parent-container container-map)))))
 
-(resolve-containers *HASH*)
-
 (defun resolve-containers (container-map)
   (let ((resolvable-containers (find-resolvable-containers container-map))
 		(resolved '()))
@@ -252,6 +250,9 @@
 	resolved))
 
 (defmethod deep-inherit ((child sequence-container) (parent sequence-container))
+  ;NOTE: It looks like nextContainer just means that container's restriction's must pass for this container to take effect.
+  ;See: 4.3.4.9.4 NextContainer Element
+  ;5.5 DYNAMIC CONTAINER MATCHING seems to take effect in order to dynamically resolve that container if it is abstract
   (let* ((name (slot-value child 'name))
 		 (abstract (slot-value child 'abstract))
 		 (idle-pattern (slot-value child 'idle-pattern))
@@ -262,7 +263,7 @@
 		 (default-rate-in-stream (if (slot-value child 'default-rate-in-stream) (slot-value parent 'default-rate-in-stream)))
 		 (child-rate-in-stream-set (slot-value child 'rate-in-stream-set))
 		 (parent-rate-in-stream-set (slot-value parent 'rate-in-stream-set))
-		 (rate-in-stream-set (make-rate-in-stream-set
+		 (rate-in-stream-set (apply #' make-rate-in-stream-set
 							  (union (if child-rate-in-stream-set
 										 (items child-rate-in-stream-set)
 										 nil)
@@ -273,13 +274,16 @@
 		 (binary-encoding (if (slot-value child 'binary-encoding) (slot-value parent 'binary-encoding)))
 		 (parent-entry-list (slot-value parent 'entry-list))
 		 (child-entry-list (slot-value child 'entry-list))
-		 (entry-list (make-entry-list
-					  (append (if child-entry-list
-								  (items child-entry-list)
-								  nil)
-							  (if parent-entry-list
-								  (items parent-entry-list)))))
-		 (base-container nil)
+		 (entry-list (apply #'make-entry-list
+							(append (if child-entry-list
+										(items child-entry-list)
+										nil)
+									(if parent-entry-list
+										(items parent-entry-list)))))
+		 ;I'm keeping the base container so that we can neatly check the restriction criteria.
+		 ;I don't know how I feel about making a non XTCE construct to hold it at the top level.
+		 ;Descending the inheritance tree shouldn't bee too expensive.
+		 (base-container nil) ;(slot-value child 'base-container))
 		 (new (make-sequence-container name
 									   entry-list
 									   :abstract abstract
@@ -292,11 +296,13 @@
 									   :base-container base-container
 									   :default-rate-in-stream default-rate-in-stream
 									   :binary-encoding binary-encoding)))
+	
 	new))
 
 ;(mapcar 'describe (resolve-containers *HASH*))
 
-
+(resolve-containers *HASH*)
+(dump-xml (first (resolve-containers *HASH*)))
 
 ;; (step (resolve-containers *HASH*))
 
@@ -304,3 +310,13 @@
 ;; (trace resolve-containers)
 ;(find-resolvable-containers *HASH*)
 
+
+
+;; <xtce:SequenceContainer name="IdlePacket" idlePattern="0xabba505">
+;; <xtce:EntryList/>
+;; <xtce:BaseContainer containerRef="Header">
+;; <xtce:RestrictionCriteria>
+;; <xtce:Comparison parameterRef="ID" value="2047"/>
+;; </xtce:RestrictionCriteria>
+;; </xtce:BaseContainer>
+;; </xtce:SequenceContainer>

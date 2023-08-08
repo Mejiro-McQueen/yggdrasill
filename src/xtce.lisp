@@ -314,8 +314,7 @@
 									 :rate-in-stream-set rate-in-stream-set
 									 :default-rate-in-stream default-rate-in-stream
 									 :binary-encoding binary-encoding
-									 :base-container base-container
-									 :short-description short-description))
+									 :base-container base-container))
 
 (defmethod cxml-marshall ((obj sequence-container))
   (with-slots (name
@@ -344,6 +343,67 @@
 	  (cxml-marshall binary-encoding)
 	  (cxml-marshall entry-list)
 	  (cxml-marshall base-container))))
+
+;TODO: I think I would rather just have a conditional reader macro to choose that suggested non-XTCE format 
+;; (defclass resolved-sequence-container (sequence-container)
+;;   ((restriction-criteria-set :initarg :restriction-criteria-set :type restriction-criteria-set)))
+
+;; (defun make-resolved-sequence-container (name
+;; 										 entry-list
+;; 										 &key
+;; 										   abstract
+;; 										   idle-pattern
+;; 										   short-description
+;; 										   long-description
+;; 										   alias-set
+;; 										   ancillary-data-set
+;; 										   rate-in-stream-set
+;; 										   default-rate-in-stream
+;; 										   binary-encoding
+;; 										   restriction-criteria-set)
+;;   "This is suggested but not defined in XTCE. For use when resolving containers. It's a regular sequence  base-container. The sequence-container's base-container criteria is collected during resolution. Use when dumping a non XTCE"
+
+;;   (make-instance 'resolved-sequence-container :name name
+;; 											  :entry-list entry-list
+;; 											  :short-description short-description
+;; 											  :abstract abstract
+;; 											  :idle-pattern idle-pattern
+;; 											  :long-description long-description
+;; 											  :alias-set alias-set
+;; 											  :ancillary-data-set ancillary-data-set
+;; 											  :rate-in-stream-set rate-in-stream-set
+;; 											  :default-rate-in-stream default-rate-in-stream
+;; 											  :binary-encoding binary-encoding
+;; 											  :base-container base-container
+;; 											  :restriction-criteria restriction-criteria-set))
+
+;; (defmethod cxml-marshall ((obj resolved-sequence-container))
+;;   (with-slots (name
+;; 			   entry-list
+;; 			   defmethod
+;; 			   abstract
+;; 			   idle-pattern
+;; 			   short-description
+;; 			   long-description
+;; 			   alias-set
+;; 			   ancillary-data-set
+;; 			   rate-in-stream-set
+;; 			   default-rate-in-stream
+;; 			   binary-encoding
+;; 			   restriction-criteria-set) obj
+;; 	(cxml:with-element* ("xtce" "SequenceContainer")
+;; 	  (cxml:attribute "name" name)
+;; 	  (optional-xml-attribute "shortDescription" short-description)
+;; 	  (optional-xml-attribute "abstract" (format-bool abstract))
+;; 	  (optional-xml-attribute "idlePattern" idle-pattern)
+;; 	  (cxml-marshall long-description)
+;; 	  (cxml-marshall alias-set)
+;; 	  (cxml-marshall ancillary-data-set)
+;; 	  (cxml-marshall rate-in-stream-set)
+;; 	  (cxml-marshall default-rate-in-stream)
+;; 	  (cxml-marshall binary-encoding)
+;; 	  (cxml-marshall entry-list)
+;; 	  (cxml-marshall restriction-criteria-set))))
 
 (defmethod print-object ((obj sequence-container) stream)
       (print-unreadable-object (obj stream :type t)
