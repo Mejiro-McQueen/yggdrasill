@@ -471,6 +471,51 @@
 	(cxml-marshall time-association)
 	(cxml-marshall ancillary-data-set))))
 
+;;;
+
+(defclass resolved-parameter-ref-entry () ((parameter-ref :initarg :parameter-ref)
+										   (short-description :initarg :short-description :type string)
+												 (location-in-container-in-bits
+												  :initarg :location-in-container-in-bits
+												  :type location-in-container-in-bits)
+												 (repeat-entry :initarg :repeat-entry :type repeat-entry)
+												 (include-condition :initarg :include-condition :type include-condition)
+												 (time-association :initarg :time-association :type time-association)
+												 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
+
+(defun make-parameter-ref-entry (parameter-ref
+								 &key
+								   short-description
+								   location-in-container-in-bits
+								   repeat-entry
+								   include-condition
+								   time-association
+								   ancillary-data-set)
+  (make-instance 'parameter-ref-entry :parameter-ref parameter-ref
+									  :location-in-container-in-bits location-in-container-in-bits
+									  :repeat-entry repeat-entry
+									  :include-condition include-condition
+									  :time-association time-association
+									  :ancillary-data-set ancillary-data-set
+									  :short-description short-description))
+
+(defmethod cxml-marshall ((obj parameter-ref-entry))
+  (with-slots (parameter-ref
+			   short-description
+			   location-in-container-in-bits
+			   repeat-entry
+			   include-condition
+			   time-association
+			   ancillary-data-set) obj
+  (cxml:with-element* ("xtce" "ParameterRefEntry")
+	(cxml:attribute "parameterRef" parameter-ref)
+	(cxml-marshall location-in-container-in-bits)
+	(cxml-marshall repeat-entry)
+	(cxml-marshall include-condition)
+	(cxml-marshall time-association)
+	(cxml-marshall ancillary-data-set))))
+
+
 (defclass rate-in-stream () ((stream-ref :initarg :stream-ref
 										 :accessor stream-ref)
 							 (basis :initarg :basis)
@@ -1902,3 +1947,6 @@
 ; Note 4.3.4.8.7 StreamSegmentRefEntry Figure 4-84 describes stream segment and not stream segment ref
 ;Figure 3-13: DiscreteLookup describes discretelookuplisttype
 ; PG. 5-14 Typo "revolved"
+
+
+

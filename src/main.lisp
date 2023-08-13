@@ -1,4 +1,4 @@
-(ql:quickload "bifrost-yggdrasill")
+1(ql:quickload "bifrost-yggdrasill")
 (ql:quickload "uiop")
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 
@@ -237,24 +237,22 @@
 
 ;; (dump-xml (first (resolve-containers *HASH*)))
 
-(defun resolve (container container-map)
+(defun resolve (func container container-map)
   (let* ((base-container (if container (slot-value container 'base-container)))
 		 (parent-container-ref (if base-container (slot-value base-container 'container-ref)))
 		 (parent-container (gethash parent-container-ref container-map)))
-	(print container)
-	(print parent-container)
-	(print (heir-container-p parent-container))
-	;(print (deep-inherit container (resolve parent-container container-map)))
 	(if (heir-container-p parent-container)
-		(deep-inherit container (resolve parent-container container-map))
-		(deep-inherit container parent-container))))
+		(funcall func container (resolve func parent-container container-map))
+		(funcall func container parent-container))))
 
-(defun resolve-containers (container-map)
-  (let ((resolvable-containers (find-resolvable-containers container-map))
-		(resolved '()))
-	(dolist (container resolvable-containers)
-	  (push (resolve container container-map) resolved))
-	resolved))
+(defun resolve-containers (f container-map)
+  "Map a function on all concrete containers, descending recurs down their inheritance chain.
+
+   Args:
+   function: (container container-parent container-jump-table)
+   container-map: jump table for containers."
+  (let ((resolvable-containers (find-resolvable-containers container-map)))
+		(mapcar #'(lambda (container) (resolve f container container-map)) resolvable-containers)))
 
 (defmethod deep-inherit ((child sequence-container) (parent sequence-container))
   ;NOTE: It looks like nextContainer just means that container's restriction's must pass for this container to take effect.
@@ -310,8 +308,8 @@
 
 ;(mapcar 'describe (resolve-containers *HASH*))
 
-(resolve-containers *HASH*)
-(dump-xml (first (resolve-containers *HASH*)))
+(resolve-containers #'deep-inherit *HASH*)
+(dump-xml (first (resolve-containers #'deep-inherit *HASH*)))
 
 ;; (step (resolve-containers *HASH*))
 
@@ -320,25 +318,215 @@
 ;(find-resolvable-containers *HASH*)
 
 
-;; <xtce:SequenceContainer name="IdlePacket" idlePattern="0xabba505">
-;; <xtce:EntryList/>
-;; <xtce:BaseContainer containerRef="Header">
-;; <xtce:RestrictionCriteria>
-;; <xtce:Comparison parameterRef="ID" value="2047"/>
-;; </xtce:RestrictionCriteria>
-;; </xtce:BaseContainer>
-;; </xtce:SequenceContainer>
+; Generate and store speculative container match
+; When container is called again, check for speculative match, then check against restriction criteria.
+; When the full container match occurs, you win
 
-(heir-container-p  (make-sequence-container
-  "MyTimeStampHeader"
-  (make-entry-list
-   (make-parameter-ref-entry "TimeStamp"))
-  :abstract t
-  :base-container
-  (make-base-container
-   "MyFormatHeader"
-   :restriction-criteria
-   (make-restriction-criteria
-	(make-comparison-list
-	 (make-comparison "Version" 1)
-	 (make-comparison "Type" 1))))))
+(defclass data-stream () ())
+
+(defclass steam-set (xtce-set) ())
+
+
+(defun make-data-stream-set (&rest items)
+  (make-xtce-set 'data-stream "StreamSet" items))
+
+(defclass variable-frame-stream (data-stream) ())
+
+(defclass custom-stream (data-stream) ())
+
+(defclass fixed-frame-stream (data-stream) ((name :initarg :name :type string)
+											(short-description :initarg :short-description :type short-description)
+											(long-description :initarg :long-description :type string)
+											(alias-set :initarg :alias-set :type alias-set)
+											(ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+											(bit-rate-in-bps :initarg :bit-rate-in-bips)
+											(pcm-type :initarg :pcm-type)
+											(inverted :initarg :inverted :type boole)
+											(sync-apeture-in-bits :initarg :sync-apeture-in-bits :type sync-apeture-in-bits)
+											(frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer)
+											(reference-type :initarg :reference-type :type reference-type)
+											(stream-ref :initarg :stream-ref :type string)
+											(sync-strategy :initarg :sync-strategy :type sync-strategy)))
+
+(defun make-fixed-frame-stream (sync-strategy frame-length-in-bits &key sync-apeture-in-bits)
+  "For streams that contain a series of frames with a fixed frame length where the frames are found by looking for a marker in the data. This marker is sometimes called the frame sync pattern and sometimes the Asynchronous Sync Marker (ASM). This marker need not be contiguous although it usually is."
+  (make-instance 'fixed-frame-stream
+				 :sync-strategy sync-strategy
+				 :sync-apeture-in-bits sync-apeture-in-bits
+				 :frame-length-in-bits frame-length-in-bits))
+
+
+(defclass sync-strategy () ((auto-invert :initarg :auto-invert :type auto-invert)
+							(sync-pattern :initarg :sync-pattern :type sync-pattern)
+							(verify-to-lock-good-frames :initarg :verify-to-lock-good-frames :type postiive-integer)
+							(check-to-lock-good-frames :initarg :check-to-lock-good-frames :type postiive-integer)
+							(max-bit-errors-in-sync-pattern :initarg :max-bit-errors-in-sync-pattern :type postiive-integer)))
+
+(defun make-sync-strategy (&key (verify-to-lock-good-frames 4) (check-to-lock-good-frames 1) (max-bit-errors-in-sync-pattern 0))
+  "CCSDS: A Sync Strategy specifies the strategy on how to find frames within a stream of PCM data. The sync strategy is based upon a state machine that begins in the 'Search' state until the first sync marker is found. Then it goes into the 'Verify' state until a specified number of successive good sync markers are found. Then, the state machine goes into the 'Lock' state, in the 'Lock' state frames are considered good. Should a sync marker be missed in the 'Lock' state, the state machine will transition into the 'Check' state, if the next sync marker is where it's expected within a specified number of frames, then the state machine will transition back to the 'Lock' state, it not it will transition back to 'Search'"
+  (make-instance 'sync-strategy
+				 :verify-to-lock-good-frames verify-to-lock-good-frames
+				 :check-to-lock-good-frames check-to-lock-good-frames
+				 :max-bit-errors-in-sync-pattern max-bit-errors-in-sync-pattern))
+
+(defclass sync-pattern ()
+  ((pattern :initarg :pattern
+			:documentation "Hexadecimal pattern to match against a potential synchronization marker. e.g. CCSDS ASM for non-turbocoded frames is #x1acffc1d")
+   (pattern-length-in-bits :initarg :pattern-length-in-bits
+						   :type positive-integer
+						   :documentation "Truncate the pattern from the left so that the pattern is exactly this many bits.")
+   (bit-location-from-start :initarg :bit-location-from-start
+							:type positive-integer
+							:documentation "After the synchronization marker is truncated, truncate this amount more so that the left most bit of the frame corresponds to the start of the container.")
+   (mask :initarg :mask
+		 :documentation "Apply this mask (e.g. #x0x29a) to the potential synchronization marker before checking against the pattern.")
+   (mask-length-in-bits :initarg :mask-length-in-bits
+						:type postive-integer
+						:documentation "Truncate the mask from the left so that the pattern is exactly this many bits.")))
+
+(defun make-sync-pattern (&key (pattern #x1acffc1d) (pattern-length-bits (integer-length pattern)) mask mask-length-bits (bit-location-from-start 0))
+  "CCSDS: The pattern of bits used to look for frame synchronization. See SyncPatternType.
+   Bifrost: Define a synchronization pattern and masks. Used as metadata to search the synchronization markers of fixed frames."
+  (make-instance 'sync-pattern
+				 :pattern pattern
+				 :pattern-length-in-bits pattern-length-bits
+				 :bit-location-from-start bit-location-from-start
+				 :mask mask
+				 :mask-length-in-bits mask-length-bits))
+
+(defun find-sync-pattern (frame sync-pattern &optional (max-bit-errors 0))
+  "Use to check for a synchronized frame.
+
+   Args:
+     frame (hex): the frame to check for synchronization pattern.
+     sync-pattern (sync-pattern): sync-pattern type.
+     max-errors (positive-integer): Maximum number of bit errors (inclusive) for a match to occur.
+     
+  Returns:
+    hex: Frame truncated from the left up to the start of the container (i.e. truncate synchronization marker + start of container)
+    nil: No synchronization marker was found. "
+
+  (with-slots (pattern pattern-length-in-bits bit-location-from-start mask mask-length-bits) sync-pattern
+	(let* ((truncated-mask (if (and mask mask-length-bits)
+							   (truncate-from-left-to-size mask mask-length-bits)
+							   pattern))
+		   
+		   (truncated-pattern (if pattern-length-in-bits
+								  (truncate-from-left-to-size pattern pattern-length-in-bits)
+								  pattern))
+		   
+		   (speculative-match (ldb-msb (integer-length truncated-pattern) 0 frame))
+		   
+		   (match? (logand speculative-match truncated-mask))
+		   (error-count (logcount (logxor pattern match?)))
+		   (frame-truncation (+ bit-location-from-start (integer-length truncated-pattern))))
+	  (when (<= error-count max-bit-errors)
+		(truncate-msb frame frame-truncation)))))
+
+
+(defun process-fixed-frame (check-counter verify-counter state-symbol sync-strategy sync-pattern frame)
+  (let ((sync-result (find-sync-pattern frame sync-pattern)))
+	
+	(labels ((reset-verify-counter () (setf verify-counter 0))
+			 (increment-verify-counter () (setf verify-counter (+ verify-counter 1)))
+			 (reset-check-counter () (setf check-counter 0))
+			 (increment-check-counter () (setf check-counter (+ check-counter 1))))
+	  
+	  (case state-symbol
+		
+		(LOCK
+		 (reset-check-counter)
+		 (when sync-result
+		   (increment-verify-counter)
+		   (return-from process-fixed-frame (values check-counter verify-counter 'LOCK sync-result)))
+		 (unless sync-result
+		   (increment-check-counter)
+		   (return-from process-fixed-frame (values check-counter verify-counter 'CHECK sync-result))))
+
+		(CHECK
+		 (when sync-result
+		   (reset-check-counter)
+		   (increment-verify-counter)
+		   (return-from process-fixed-frame (values check-counter verify-counter 'LOCK sync-result)))
+		 (unless sync-result
+		   (if (> check-counter (slot-value sync-strategy 'check-to-lock-good-frames))
+			   (progn
+				 (reset-check-counter)
+				 (reset-verify-counter)
+				 (return-from process-fixed-frame(values check-counter verify-counter 'SEARCH sync-result)))
+			   (progn
+				 (increment-check-counter)
+				 (return-from process-fixed-frame (values check-counter verify-counter 'CHECK sync-result))))))
+
+		(VERIFY
+		 (reset-check-counter)
+		 (when sync-result
+		   (if (> verify-counter (slot-value sync-strategy 'verify-to-lock-good-frames))
+			   (progn
+				 (increment-verify-counter)
+				 (return-from process-fixed-frame (values check-counter verify-counter 'LOCK sync-result)))
+			   (return-from process-fixed-frame (values check-counter verify-counter 'VERIFY sync-result))))
+		 (unless sync-result
+		   (reset-verify-counter)
+		   (return-from process-fixed-frame (values check-counter verify-counter 'SEARCH sync-result))))
+
+		(SEARCH
+		 (reset-check-counter)
+		 (when sync-result
+		   (increment-verify-counter)
+		   (return-from process-fixed-frame (values check-counter verify-counter 'VERIFY sync-result)))
+		 (unless sync-result
+		   (reset-verify-counter)
+		   (return-from process-fixed-frame (values check-counter verify-counter 'SEARCH sync-result))))))))
+
+(process-fixed-frame 0 16 'LOCK (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+
+(defun process-fixed-frame-stream ()
+  
+  )
+
+(defun ldb-msb (size position integer)
+  "Extract (size) bits starting at MSB bit (position) from integer
+   Example: 
+     ldb-msb (16 0 #xABCD) = #xABCD
+     ldb-msb (4 2) = #xA
+     ldb-msb (4 4) = #xC
+     
+"
+  (let* ((msb (integer-length integer))
+		 (msb-pos (+ 0 (- msb position size))))
+	(ldb (byte size msb-pos) integer)))
+
+(format nil "~X" (ldb-msb 16 0 #xABCD))
+(format nil "~X" (ldb-msb 4 4 #xABCD))
+(format nil "~X" (ldb-msb 4 2 #xABCD))
+
+
+(defun print-bin (n)
+  (format nil "~1,'0b" n))
+
+(defun print-hex (n)
+  (format nil "~X" n))
+
+(logand #x29a #xFFFF)
+
+
+(defun truncate-from-left (data bits)
+  (let ((length-from-lsb (- (integer-length data) bits)))
+	(ldb (byte length-from-lsb 0) data)))
+
+(defun truncate-from-left-to-size (data bits)
+  (truncate-from-left data (- (integer-length data) bits)))
+
+(logxor #xABCE #xABCD)
+
+(progn
+  (print (print-bin #xABCE))
+  (print (print-bin #xABCD))
+  (print (print-bin (logxor #XABCE #XABCD)))
+  )
+
+
+(progn
+  (print (print-bin #xFFFFFFFF))
+  (print (print-bin (truncate-msb-to #xFFFFFFFF 104)))

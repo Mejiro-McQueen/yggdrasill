@@ -14,9 +14,11 @@
   :author "Adrian Vazquez"
   :license "MIT"
   :depends-on ("bifrost-yggdrasill"
-               "rove")
+               "fiveam")
   :components ((:module "tests"
                 :components
                 ((:file "main"))))
   :description "Test system for bifrost-yggdrasill"
-  :perform (test-op (op c) (symbol-call :rove :run c)))
+  :perform (test-op (op c)
+                    (symbol-call :fiveam :run!
+                                 (find-symbol* :bifrost-yggdrasill  :bifrost-yggdrasill/test))))
