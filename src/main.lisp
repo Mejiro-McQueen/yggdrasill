@@ -1,8 +1,35 @@
 1(ql:quickload "bifrost-yggdrasill")
 (ql:quickload "uiop")
+(ql:quickload "alexandria")
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 
 (in-package :xtce)
+
+
+(defun ldb-msb (size position integer)
+  "Extract (size) bits starting at MSB bit (position) from integer
+   Example: 
+     ldb-msb (16 0 #xABCD) = #xABCD
+     ldb-msb (4 2) = #xA
+     ldb-msb (4 4) = #xC
+     
+"
+  (let* ((msb (integer-length integer))
+		 (msb-pos (+ 0 (- msb position size))))
+	(ldb (byte size msb-pos) integer)))
+
+(defun print-bin (n)
+  (format nil "~1,'0b" n))
+
+(defun print-hex (n)
+  (format nil "~X" n))
+
+(defun truncate-from-left (data bits)
+  (let ((length-from-lsb (- (integer-length data) bits)))
+	(ldb (byte length-from-lsb 0) data)))
+
+(defun truncate-from-left-to-size (data bits)
+  (truncate-from-left data (- (integer-length data) bits)))
 
 (make-space-system
  "SpaceVechicle"
@@ -421,7 +448,7 @@
 		   (error-count (logcount (logxor pattern match?)))
 		   (frame-truncation (+ bit-location-from-start (integer-length truncated-pattern))))
 	  (when (<= error-count max-bit-errors)
-		(truncate-msb frame frame-truncation)))))
+		(truncate-from-left frame frame-truncation)))))
 
 
 (defun process-fixed-frame (check-counter verify-counter state-symbol sync-strategy sync-pattern frame)
@@ -433,30 +460,29 @@
 			 (increment-check-counter () (setf check-counter (+ check-counter 1))))
 	  
 	  (case state-symbol
-		
 		(LOCK
 		 (reset-check-counter)
 		 (when sync-result
 		   (increment-verify-counter)
-		   (return-from process-fixed-frame (values check-counter verify-counter 'LOCK sync-result)))
+		   (return-from process-fixed-frame (list check-counter verify-counter 'LOCK sync-result)))
 		 (unless sync-result
 		   (increment-check-counter)
-		   (return-from process-fixed-frame (values check-counter verify-counter 'CHECK sync-result))))
+		   (return-from process-fixed-frame (list check-counter verify-counter 'CHECK sync-result))))
 
 		(CHECK
 		 (when sync-result
 		   (reset-check-counter)
 		   (increment-verify-counter)
-		   (return-from process-fixed-frame (values check-counter verify-counter 'LOCK sync-result)))
+		   (return-from process-fixed-frame (list check-counter verify-counter 'LOCK sync-result)))
 		 (unless sync-result
 		   (if (> check-counter (slot-value sync-strategy 'check-to-lock-good-frames))
 			   (progn
 				 (reset-check-counter)
 				 (reset-verify-counter)
-				 (return-from process-fixed-frame(values check-counter verify-counter 'SEARCH sync-result)))
+				 (return-from process-fixed-frame (list check-counter verify-counter 'SEARCH sync-result)))
 			   (progn
 				 (increment-check-counter)
-				 (return-from process-fixed-frame (values check-counter verify-counter 'CHECK sync-result))))))
+				 (return-from process-fixed-frame (list check-counter verify-counter 'CHECK sync-result))))))
 
 		(VERIFY
 		 (reset-check-counter)
@@ -464,69 +490,38 @@
 		   (if (> verify-counter (slot-value sync-strategy 'verify-to-lock-good-frames))
 			   (progn
 				 (increment-verify-counter)
-				 (return-from process-fixed-frame (values check-counter verify-counter 'LOCK sync-result)))
-			   (return-from process-fixed-frame (values check-counter verify-counter 'VERIFY sync-result))))
+				 (return-from process-fixed-frame (list check-counter verify-counter 'LOCK sync-result)))
+			   (return-from process-fixed-frame (list check-counter verify-counter 'VERIFY sync-result))))
 		 (unless sync-result
 		   (reset-verify-counter)
-		   (return-from process-fixed-frame (values check-counter verify-counter 'SEARCH sync-result))))
+		   (return-from process-fixed-frame (list check-counter verify-counter 'SEARCH sync-result))))
 
 		(SEARCH
 		 (reset-check-counter)
 		 (when sync-result
 		   (increment-verify-counter)
-		   (return-from process-fixed-frame (values check-counter verify-counter 'VERIFY sync-result)))
+		   (return-from process-fixed-frame (list check-counter verify-counter 'VERIFY sync-result)))
 		 (unless sync-result
 		   (reset-verify-counter)
-		   (return-from process-fixed-frame (values check-counter verify-counter 'SEARCH sync-result))))))))
+		   (return-from process-fixed-frame (list check-counter verify-counter 'SEARCH sync-result))))))))
 
 (process-fixed-frame 0 16 'LOCK (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-(defun process-fixed-frame-stream ()
-  
-  )
-
-(defun ldb-msb (size position integer)
-  "Extract (size) bits starting at MSB bit (position) from integer
-   Example: 
-     ldb-msb (16 0 #xABCD) = #xABCD
-     ldb-msb (4 2) = #xA
-     ldb-msb (4 4) = #xC
-     
-"
-  (let* ((msb (integer-length integer))
-		 (msb-pos (+ 0 (- msb position size))))
-	(ldb (byte size msb-pos) integer)))
-
-(format nil "~X" (ldb-msb 16 0 #xABCD))
-(format nil "~X" (ldb-msb 4 4 #xABCD))
-(format nil "~X" (ldb-msb 4 2 #xABCD))
+;; (defun process-fixed-frame-stream (fixed-frame-stream data-stream)
+;;   (labels ((dither-values (n)
+;; 	(append '(0) (alexandria:iota n :start 1) (alexandria:iota n :start -1 :step -1))))
+;; 	(loop for dither in (dither-values 5)
+;; 		  when (all sync-result)
+;; 		  collect dither)))
+	
+;(process-fixed-frame-stream nil #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
 
-(defun print-bin (n)
-  (format nil "~1,'0b" n))
 
-(defun print-hex (n)
-  (format nil "~X" n))
-
-(logand #x29a #xFFFF)
-
-
-(defun truncate-from-left (data bits)
-  (let ((length-from-lsb (- (integer-length data) bits)))
-	(ldb (byte length-from-lsb 0) data)))
-
-(defun truncate-from-left-to-size (data bits)
-  (truncate-from-left data (- (integer-length data) bits)))
-
-(logxor #xABCE #xABCD)
-
-(progn
-  (print (print-bin #xABCE))
-  (print (print-bin #xABCD))
-  (print (print-bin (logxor #XABCE #XABCD)))
-  )
-
-
-(progn
-  (print (print-bin #xFFFFFFFF))
-  (print (print-bin (truncate-msb-to #xFFFFFFFF 104)))
+(loop
+	  for dither in '(1 2 3)
+	  for res = (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFF)
+	  when (fourth res)
+	  return res)
+	  
+		   
