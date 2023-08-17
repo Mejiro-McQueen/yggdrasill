@@ -161,21 +161,30 @@
 (defparameter *namestring* nil)
 (defparameter *just-path* nil)
 
+(defparameter *TEST* (make-hash-table :test 'equalp))
+(setf (gethash "admire" *TEST*) 'vega)
+(setf (gethash "machikane" *TEST*) 'TANEHAUSER)
+(setf (gethash "Mejiro" *TEST*) 'DOBER)
 
-;(describe (make-comparison 'ref 1) )
 
-;; (defun search-xtce-key (requested-key)
-;;   (check-type requested-key symbol)
-;;   (multiple-value-bind (flag path-list)
-;; 	  (uiop::split-unix-namestring-directory-components (string requested-key) :ensure-directory t)
-;; 	(print flag)
-;; 	(print path-list)
-;; 	(cond
-;; 	  ( (equal flag :absolute)
-;; 		(redu))
-;;   ))
+(defun search-xtce-key (requested-key current-space-system-symbol-table)
+  (multiple-value-bind (flag path-list) (uiop::split-unix-namestring-directory-components
+										 requested-key :ensure-directory t)
+	  (case flag
+		(:absolute
+		 ; Get next subsystem table by looking up first path in the current hashmap
+		 ; Recurse with REST joined as string
+		 (print "ZABPW!"))
+		
+		(:relative
+		 (return-from search-xtce-key (gethash (first path-list) current-space-system-symbol-table))))))
 
-;(search-xtce-key '/NICE/LMAO/ROFLCOPTER)
+(describe *TEST*)
+(search-xtce-key "machikane" *TEST* )
+
+(loop for key being the hash-keys in *TEST*
+      using (hash-value value)
+      do (format t "Key: ~A, Value: ~A~%" key value))
 
 ;When evaluating a qualified path:
 ; climb parents until nil is reached
@@ -421,7 +430,8 @@
 				 :mask mask
 				 :mask-length-in-bits mask-length-bits))
 
-(defun find-sync-pattern (frame sync-pattern &optional (max-bit-errors 0))
+(defun find-sync-pattern (frame sync-pattern &optional (max-bit-errors 0) (apeture 0))
+  ; Need to double check if aperture does what we think it does
   "Use to check for a synchronized frame.
 
    Args:
@@ -442,7 +452,7 @@
 								  (truncate-from-left-to-size pattern pattern-length-in-bits)
 								  pattern))
 		   
-		   (speculative-match (ldb-msb (integer-length truncated-pattern) 0 frame))
+		   (speculative-match (ldb-msb (integer-length truncated-pattern) apeture frame))
 		   
 		   (match? (logand speculative-match truncated-mask))
 		   (error-count (logcount (logxor pattern match?)))
@@ -451,77 +461,108 @@
 		(truncate-from-left frame frame-truncation)))))
 
 
-(defun process-fixed-frame (check-counter verify-counter state-symbol sync-strategy sync-pattern frame)
-  (let ((sync-result (find-sync-pattern frame sync-pattern)))
+(defun process-fixed-frame (state-check-counter verify-counter state-symbol sync-strategy sync-pattern frame)
+  (let ((sync-result (find-sync-pattern frame sync-pattern))
+		(state-result nil))
 	
 	(labels ((reset-verify-counter () (setf verify-counter 0))
-			 (increment-verify-counter () (setf verify-counter (+ verify-counter 1)))
-			 (reset-check-counter () (setf check-counter 0))
-			 (increment-check-counter () (setf check-counter (+ check-counter 1))))
+			 (reset-state-check-counter () (setf state-check-state-counter 0)))
 	  
 	  (case state-symbol
 		(LOCK
-		 (reset-check-counter)
+		 (reset-state-check-counter)
 		 (when sync-result
-		   (increment-verify-counter)
-		   (return-from process-fixed-frame (list check-counter verify-counter 'LOCK sync-result)))
+		   (incf verify-counter)
+		   (setf state-result 'LOCK)))
 		 (unless sync-result
-		   (increment-check-counter)
-		   (return-from process-fixed-frame (list check-counter verify-counter 'CHECK sync-result))))
+		   (incf state-check-counter)
+		   (setf state-result 'CHECK))
 
 		(CHECK
 		 (when sync-result
-		   (reset-check-counter)
-		   (increment-verify-counter)
-		   (return-from process-fixed-frame (list check-counter verify-counter 'LOCK sync-result)))
+		   (reset-state-check-counter)
+		   (incf verify-counter)
+		   (setf state-result 'LOCK))
 		 (unless sync-result
 		   (if (> check-counter (slot-value sync-strategy 'check-to-lock-good-frames))
 			   (progn
-				 (reset-check-counter)
+				 (reset-state-check-counter)
 				 (reset-verify-counter)
-				 (return-from process-fixed-frame (list check-counter verify-counter 'SEARCH sync-result)))
+				 (setf state-result 'SEARCH))
 			   (progn
-				 (increment-check-counter)
-				 (return-from process-fixed-frame (list check-counter verify-counter 'CHECK sync-result))))))
+				 (incf state-check-counter)
+				 (setf state-result 'CHECK)))))
 
 		(VERIFY
-		 (reset-check-counter)
+		 (reset-state-check-counter)
 		 (when sync-result
 		   (if (> verify-counter (slot-value sync-strategy 'verify-to-lock-good-frames))
 			   (progn
-				 (increment-verify-counter)
-				 (return-from process-fixed-frame (list check-counter verify-counter 'LOCK sync-result)))
-			   (return-from process-fixed-frame (list check-counter verify-counter 'VERIFY sync-result))))
+				 (incf verify-counter)
+				 (setf state-result 'LOCK))
+			   (setf state-result 'VERIFY)))
 		 (unless sync-result
 		   (reset-verify-counter)
-		   (return-from process-fixed-frame (list check-counter verify-counter 'SEARCH sync-result))))
+		   (setf state-result 'SEARCH)))
 
 		(SEARCH
-		 (reset-check-counter)
+		 (reset-state-check-counter)
 		 (when sync-result
-		   (increment-verify-counter)
-		   (return-from process-fixed-frame (list check-counter verify-counter 'VERIFY sync-result)))
+		   (incf verify-counter)
+		   (setf state-result 'VERIFY))
 		 (unless sync-result
 		   (reset-verify-counter)
-		   (return-from process-fixed-frame (list check-counter verify-counter 'SEARCH sync-result))))))))
+		   (setf state-result 'SEARCH))))
+	(list state-result frame (lambda (frame) (process-fixed-frame state-check-counter
+															 verify-counter
+															 state-result
+															 sync-strategy
+															 sync-pattern
+															 frame)))
+	)))
 
-(process-fixed-frame 0 16 'LOCK (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+(defparameter *TEST* (process-fixed-frame 0 4 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
 
-;; (defun process-fixed-frame-stream (fixed-frame-stream data-stream)
-;;   (labels ((dither-values (n)
-;; 	(append '(0) (alexandria:iota n :start 1) (alexandria:iota n :start -1 :step -1))))
-;; 	(loop for dither in (dither-values 5)
-;; 		  when (all sync-result)
-;; 		  collect dither)))
+(print *TEST*)
+
+(funcall (third *TEST*) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+
+
+(defun process-fixed-frame-stream (fixed-frame-stream data-stream &key previous-frame)
+  (let ((result nil))
+  (labels ((dither-values (n)
+	(append '(0) (alexandria:iota n :start 1) (alexandria:iota n :start -1 :step -1))))
+	(setf result (loop
+				   for dither in (dither-values 5)
+				   for res = (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFF)
+				   when (third res)
+					 return res))
+
+	(case (first result)
+
+	  (LOCK)
+
+	  (VERIFY)
+
+	  (SEARCH)
+
+	  (CHECK)
+
+	  )
+  
+	result
+	;COND find-out what to do with the data
+	;return computation and lambda
+	)))
 	
-;(process-fixed-frame-stream nil #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+(process-fixed-frame-stream nil #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
 
 
-(loop
-	  for dither in '(1 2 3)
-	  for res = (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFF)
-	  when (fourth res)
-	  return res)
-	  
-		   
+
+
+
+(progn 
+(print (print-bin (- #XFFFF #xF)))
+(print (print-bin #XFFF))
+(print (print-bin #xF)))

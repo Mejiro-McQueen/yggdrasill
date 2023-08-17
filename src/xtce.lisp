@@ -85,17 +85,29 @@
 
 (defun register-unique-key (symbol-table symbol value)
   ;(describe symbol-table)
+  (print symbol)
   (assert (not (gethash symbol symbol-table)))
   (setf (gethash symbol symbol-table) value))
 
 (defun register-system-keys (space-system)
-  (With-slots (symbol-table space-systems-list telemetry-metadata) space-system 
-	(if space-systems-list
+  (macrolet ((register-keys-in-sequence (sequence slot-name)
+			   `(let* ((slot-name-sequence (slot-value ,sequence ,slot-name))
+					   (slot-name-items (when slot-name-sequence
+										  (slot-value slot-name-sequence 'items))))
+				 (dolist (item slot-name-items)
+				   (register-unique-key symbol-table (slot-value item 'name) item)))))
+	
+  (With-slots (symbol-table space-systems-list telemetry-metadata) space-system
+	(print 'SPACE-SYSTEMS)
+	(when space-systems-list
 		(dolist (subsystem (slot-value space-systems-list 'items))
 		  (register-unique-key symbol-table (slot-value subsystem 'name) subsystem)))
-	(if telemetry-metadata
-		(dolist (parameter-type (slot-value (slot-value telemetry-metadata 'parameter-type-set) 'items))
-		  (print parameter-type)))))
+
+	(print 'TELEMETRY-METADATA)
+	(register-keys-in-sequence telemetry-metadata 'parameter-type-set)
+	(register-keys-in-sequence telemetry-metadata 'parameter-set)
+	(register-keys-in-sequence telemetry-metadata 'algorithm-set)
+	(register-keys-in-sequence telemetry-metadata 'stream-set))))
 
 (defun make-long-description (s)
   (check-type s string)
