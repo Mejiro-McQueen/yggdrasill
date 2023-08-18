@@ -6,23 +6,21 @@
 (in-package :xtce)
 
 
-(defun ldb-msb (size position integer)
-  "Extract (size) bits starting at MSB bit (position) from integer
-   Example: 
-     ldb-msb (16 0 #xABCD) = #xABCD
-     ldb-msb (4 2) = #xA
-     ldb-msb (4 4) = #xC
-     
-"
-  (let* ((msb (integer-length integer))
-		 (msb-pos (+ 0 (- msb position size))))
-	(ldb (byte size msb-pos) integer)))
-
 (defun print-bin (n)
-  (format nil "~1,'0b" n))
+  (let ((pad (hex-length-in-bits n)))
+	(format nil "~v,'0b" pad n)))
 
 (defun print-hex (n)
   (format nil "~X" n))
+
+(defun hex-length-in-bits (hex-val)
+  "Use to count how large a frame is in bits"
+  ;integer-length only counts significant bits (i.e. #x5555 = 010101... resulting in 15)  
+  (let ((number-of-hex-characters (length (format nil "~X" hex-val)))
+		(bits-per-hex 4))
+	(if hex-val
+		(* bits-per-hex number-of-hex-characters)
+		0)))
 
 (defun truncate-from-left (data bits)
   (let ((length-from-lsb (- (integer-length data) bits)))
@@ -30,6 +28,21 @@
 
 (defun truncate-from-left-to-size (data bits)
   (truncate-from-left data (- (integer-length data) bits)))
+
+(defun ldb-left (size position integer)
+  "Extract (size) bits starting at MSB bit (position) from integer
+   Example: 
+     ldb-msb (16 0 #xABCD) = #xABCD
+     ldb-msb (4 2) = #xA
+     ldb-msb (4 4) = #xC
+     
+"
+  (let* ((msb (hex-length-in-bits integer))
+		 (msb-pos (- msb position size)))
+	(ldb (byte size msb-pos) integer)))
+
+(defun hamming-distance (integer-1 integer-2)
+  (logcount (logxor integer-1 integer-2)))
 
 (make-space-system
  "SpaceVechicle"
@@ -107,7 +120,7 @@
 	 (make-offset-from "Milliseconds")))
    
    (make-absolute-time-parameter
-	"Milliseconds"
+	"MillisecondsType"
 	:encoding
 	(make-encoding
 	 :units "seconds"
@@ -142,29 +155,25 @@
 	 (make-parameter-ref-entry "Length")
 	 (make-parameter-ref-entry "SecondaryHeader"
 							   :include-condition
-							   (make-include-condition (make-comparison "SecH" 1)))
-	 )
-	)
-   )
-  ))
+							   (make-include-condition (make-comparison "SecH" 1))))))))
 
 
-(dump-space-system-xml (symbol-value 'SPACEVECHICLE))
+(time (dump-space-system-xml (symbol-value 'SPACEVECHICLE)))
 
-(defparameter *P1* '/NICE/LMAO/ROFLCOPTER)
-(defparameter *P1* './NICE/LMAO/ROFLCOPTER)
-(defparameter *P1* '../NICE/LMAO/ROFLCOPTER)
-(defparameter *P1* 'ROFLCOPTER)
+;; (defparameter *P1* '/NICE/LMAO/ROFLCOPTER)
+;; (defparameter *P1* './NICE/LMAO/ROFLCOPTER)
+;; (defparameter *P1* '../NICE/LMAO/ROFLCOPTER)
+;; (defparameter *P1* 'ROFLCOPTER)
 
-(defparameter *flags* nil)
-(defparameter *paths* nil)
-(defparameter *namestring* nil)
-(defparameter *just-path* nil)
+;; (defparameter *flags* nil)
+;; (defparameter *paths* nil)
+;; (defparameter *namestring* nil)
+;; (defparameter *just-path* nil)
 
-(defparameter *TEST* (make-hash-table :test 'equalp))
-(setf (gethash "admire" *TEST*) 'vega)
-(setf (gethash "machikane" *TEST*) 'TANEHAUSER)
-(setf (gethash "Mejiro" *TEST*) 'DOBER)
+;; (defparameter *TEST* (make-hash-table :test 'equalp))
+;; (setf (gethash "admire" *TEST*) 'vega)
+;; (setf (gethash "machikane" *TEST*) 'TANEHAUSER)
+;; (setf (gethash "Mejiro" *TEST*) 'DOBER)
 
 
 (defun search-xtce-key (requested-key current-space-system-symbol-table)
@@ -179,12 +188,12 @@
 		(:relative
 		 (return-from search-xtce-key (gethash (first path-list) current-space-system-symbol-table))))))
 
-(describe *TEST*)
-(search-xtce-key "machikane" *TEST* )
+;; (describe *TEST*)
+;; (search-xtce-key "machikane" *TEST* )
 
-(loop for key being the hash-keys in *TEST*
-      using (hash-value value)
-      do (format t "Key: ~A, Value: ~A~%" key value))
+;; (loop for key being the hash-keys in *TEST*
+;;       using (hash-value value)
+;;       do (format t "Key: ~A, Value: ~A~%" key value))
 
 ;When evaluating a qualified path:
 ; climb parents until nil is reached
@@ -420,7 +429,7 @@
 						:type postive-integer
 						:documentation "Truncate the mask from the left so that the pattern is exactly this many bits.")))
 
-(defun make-sync-pattern (&key (pattern #x1acffc1d) (pattern-length-bits (integer-length pattern)) mask mask-length-bits (bit-location-from-start 0))
+(defun make-sync-pattern (&key (pattern #x1acffc1d) (pattern-length-bits (hex-length-in-bits pattern)) mask mask-length-bits (bit-location-from-start 0))
   "CCSDS: The pattern of bits used to look for frame synchronization. See SyncPatternType.
    Bifrost: Define a synchronization pattern and masks. Used as metadata to search the synchronization markers of fixed frames."
   (make-instance 'sync-pattern
@@ -430,7 +439,7 @@
 				 :mask mask
 				 :mask-length-in-bits mask-length-bits))
 
-(defun find-sync-pattern (frame sync-pattern &optional (max-bit-errors 0) (apeture 0))
+(defun find-sync-pattern (frame sync-pattern &key (max-bit-errors 0) (aperture 0))
   ; Need to double check if aperture does what we think it does
   "Use to check for a synchronized frame.
 
@@ -451,22 +460,20 @@
 		   (truncated-pattern (if pattern-length-in-bits
 								  (truncate-from-left-to-size pattern pattern-length-in-bits)
 								  pattern))
-		   
-		   (speculative-match (ldb-msb (integer-length truncated-pattern) apeture frame))
+		   (speculative-match (ldb-left pattern-length-in-bits aperture frame))
 		   
 		   (match? (logand speculative-match truncated-mask))
-		   (error-count (logcount (logxor pattern match?)))
-		   (frame-truncation (+ bit-location-from-start (integer-length truncated-pattern))))
+		   (error-count (hamming-distance truncated-pattern match?))
+		   (frame-truncation (+ 1 bit-location-from-start pattern-length-in-bits aperture)))
 	  (when (<= error-count max-bit-errors)
 		(truncate-from-left frame frame-truncation)))))
 
-
-(defun process-fixed-frame (state-check-counter verify-counter state-symbol sync-strategy sync-pattern frame)
-  (let ((sync-result (find-sync-pattern frame sync-pattern))
+(defun process-fixed-frame (state-check-counter verify-counter state-symbol sync-strategy sync-pattern frame &key (aperture 0))
+  (let ((sync-result (find-sync-pattern frame sync-pattern :aperture aperture))
 		(state-result nil))
 	
 	(labels ((reset-verify-counter () (setf verify-counter 0))
-			 (reset-state-check-counter () (setf state-check-state-counter 0)))
+			 (reset-state-check-counter () (setf state-check-counter 0)))
 	  
 	  (case state-symbol
 		(LOCK
@@ -484,7 +491,7 @@
 		   (incf verify-counter)
 		   (setf state-result 'LOCK))
 		 (unless sync-result
-		   (if (> check-counter (slot-value sync-strategy 'check-to-lock-good-frames))
+		   (if (> state-check-counter (slot-value sync-strategy 'check-to-lock-good-frames))
 			   (progn
 				 (reset-state-check-counter)
 				 (reset-verify-counter)
@@ -513,56 +520,94 @@
 		 (unless sync-result
 		   (reset-verify-counter)
 		   (setf state-result 'SEARCH))))
-	(list state-result frame (lambda (frame) (process-fixed-frame state-check-counter
-															 verify-counter
-															 state-result
-															 sync-strategy
-															 sync-pattern
-															 frame)))
-	)))
+	(list state-result sync-result (lambda (frame) (process-fixed-frame
+											   state-check-counter
+											   verify-counter
+											   state-result
+											   sync-strategy
+											   sync-pattern
+											   frame))))))
+(progn 
+  (defparameter *TEST* (process-fixed-frame 0 6 'LOCK (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF :aperture 0))
+  (print *TEST*))
 
-(defparameter *TEST* (process-fixed-frame 0 4 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
 
-(print *TEST*)
+(process-fixed-frame 0 8 'LOCK (make-sync-strategy) (make-sync-pattern) #x1acffc1eFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+
+(print-hex (second (process-fixed-frame 0 1 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)))
+
+
+
 
 (funcall (third *TEST*) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
+(defun emit! (message)
+  (format t "~A" message))
 
-(defun process-fixed-frame-stream (fixed-frame-stream data-stream &key previous-frame)
-  (let ((result nil))
-  (labels ((dither-values (n)
-	(append '(0) (alexandria:iota n :start 1) (alexandria:iota n :start -1 :step -1))))
-	(setf result (loop
-				   for dither in (dither-values 5)
-				   for res = (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFF)
-				   when (third res)
-					 return res))
+(defun process-fixed-frame-stream
+  (fixed-frame-stream
+   &key
+   (continuation (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture))))
+   
+	(labels ((aperture-values (n)
+			   (append '(0)
+					   (alexandria:iota n :start 1)
+					   (alexandria:iota n :start -1 :step -1)))
 
-	(case (first result)
+			 (find-marker-with-aperture (aperture)
+			   (loop for aperture in (aperture-values aperture)
+					 for res = (funcall continuation fixed-frame-stream aperture)
+					 when (second res)
+					   return (cons aperture res)
+					 finally (return (cons 0 res)))))
 
-	  (LOCK)
+	  (destructuring-bind (aperture state frame next-continuation) (find-marker-with-aperture 5)
+		;;(print state)
+		;; (print aperture)
+		;; (print (print-hex frame))
+		(unless aperture
+		  (emit! (list "Aperture greater than zero:" aperture)))
+		(case state
+		  (LOCK
+		   (accept-frame frame)
+		   (emit! state))
+		  
+		  (VERIFY
+		   (emit! state)
+		   )
+		  
+		  (SEARCH
+		   (emit! (list "Could not find synchronization marker!")))
+		  
+		  (CHECK))
+		
+		(return-from process-fixed-frame-stream (list state next-continuation)))))
 
-	  (VERIFY)
 
-	  (SEARCH)
+; (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture)))))))
+		  
+(process-fixed-frame-stream #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-	  (CHECK)
+;Fixed frames do not span, immediately move to next level
+;Variable sized frames may span, need to move to accumulator (e.g. simulators)
 
-	  )
-  
-	result
-	;COND find-out what to do with the data
-	;return computation and lambda
-	)))
+(defun accept-frame (frame))
+
+
 	
-(process-fixed-frame-stream nil #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
 
+(logtest #b1010101010101010 #b1010101010101010)
 
+(logand #xFFFF #xFFFF)
 
+(print-hex (ldb-left 4 4  #x5555555555555555))
+(print-hex (ldb-left 4 0  #xAFFFFFFFFFFFFFFF))
 
+(hex-length-in-bits #x5555)
 
-(progn 
-(print (print-bin (- #XFFFF #xF)))
-(print (print-bin #XFFF))
-(print (print-bin #xF)))
+(print-hex 0)
+
+(hamming-distance #x029a #x029b)
+
+(logcount 36)
