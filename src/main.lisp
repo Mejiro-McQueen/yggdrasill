@@ -550,76 +550,13 @@
 
 ;Rule: references must use ./ or /, or neither for local.
 
-(defparameter TEST (make-hash-table :test 'equalp))
-(defparameter SPICA (make-hash-table :test 'equalp))
-(defparameter SPICA-1 (make-hash-table :test 'equalp))
-(defparameter SPICA-2 (make-hash-table :test 'equalp))
-(defparameter SYMBOLI (make-hash-table :test 'equalp))
-(defparameter MEJIRO (make-hash-table :test 'equalp))
-(defparameter MEJIRO-1 (make-hash-table :test 'equalp))
-(defparameter MEJIRO-2 (make-hash-table :test 'equalp))
-(defparameter MEJIRO-3 (make-hash-table :test 'equalp))
 
-;TEST
-(setf (gethash '|Admire| TEST) 'VEGA)
-(setf (gethash '|Machikane| TEST) 'TANEHAUSER)
-(setf (gethash '|Manhattan| TEST) 'CAFE)
-(setf (gethash 'SPICA TEST) SPICA)
-(setf (gethash 'SYMBOLI TEST) SYMBOLI)
-(setf (gethash 'MEJIRO TEST) MEJIRO)
-
-;SPICA
-(setf (gethash 'PARENT SPICA) TEST)
-(setf (gethash 'SPICA-1 SPICA) SPICA-1)
-(setf (gethash 'SPICA-2 SPICA) SPICA-2)
-
-; SPICA/1
-(setf (gethash 'PARENT SPICA-1) SPICA )
-(setf (gethash '|Special| SPICA-1) 'WEEK)
-(setf (gethash '|Silence| SPICA-1) 'SUZUKA)
-(setf (gethash '|Mejiro| SPICA-1) 'MCQUEEN)
-
-; SPICA/2
-(setf (gethash 'PARENT SPICA-2) SPICA)
-(setf (gethash '|Vodka| SPICA-2) 'VODKA)
-(setf (gethash '|Gold| SPICA-2) 'SHIP)
-(setf (gethash '|Daiwa| SPICA-2) 'SCARLET)
-(setf (gethash '|Tokai| SPICA-2) 'TEIO)
-
-;SYMBOLI
-
-(setf (gethash 'PARENT SYMBOLI) TEST)
-(setf (gethash '|KRIS| SYMBOLI) 'KRIS)
-(setf (gethash '|RUDOLF| SYMBOLI) 'RUDOLF)
-(setf (gethash '|SIRIUS| SYMBOLI) 'SIRIUS)
-
-;MEJIRO
-(setf (gethash 'PARENT MEJIRO) TEST)
-(setf (gethash 'MEJIRO-1 MEJIRO) MEJIRO-1)
-(setf (gethash 'MEJIRO-2 MEJIRO) MEJIRO-2)
-(setf (gethash 'MEJIRO-3 MEJIRO) MEJIRO-3)
-(setf (gethash '|McQueen| MEJIRO) 'MCQUEEN)
-(setf (gethash '|Palmer| MEJIRO) 'PALMER)
-(setf (gethash '|Ramonu| MEJIRO) 'RAMONU)
-
-;MEJIRO/1
-(setf (gethash 'PARENT MEJIRO-1) MEJIRO)
-(setf (gethash '|Ardan| MEJIRO-1) 'ARDAN)
-(setf (gethash '|Bright| MEJIRO-1) 'BRIGHT)
-
-;MEJIRO/2
-(setf (gethash 'PARENT MEJIRO-2) MEJIRO)
-(setf (gethash '|Dober| MEJIRO-2) 'DOBER)
-
-;MEJIRO/3
-(setf (gethash 'PARENT MEJIRO-3) MEJIRO)
-(setf (gethash '|Ryan| MEJIRO-3) 'RYAN)
-
-(defun search-xtce-key (requested-key current-space-system-symbol-table)
+(defun find-xtce-key (requested-key current-space-system-symbol-table root-table)
+  (print (find-symbol "PARENT"))
   (unless current-space-system-symbol-table
-	(print "No Table")
-	(return-from search-xtce-key nil) 
-	)
+	(print "No Hash Table Found: Are your references broken?")
+	(return-from find-xtce-key nil))
+  
   (print (format nil "~%"))
   (print (alexandria:hash-table-keys current-space-system-symbol-table))
   (labels ((format-map (string-list)
@@ -629,74 +566,40 @@
 	  (let* ((target (intern file))
 			 (match-in-current-map? (gethash target current-space-system-symbol-table))
 			 (parent-table (if current-space-system-symbol-table
-							   (gethash 'parent current-space-system-symbol-table)))
-			 (restored-requested-key (format-map (append (cdr path-list) (list (format-symbol target))))))
+							   (gethash (intern "PARENT") current-space-system-symbol-table)))
+			 (next-requested-key (format-map (append (cdr path-list) (list (format-symbol target))))))
 
 		(print (format nil "Target: ~A" target))
-		(print (format nil "Restored ~A" restored-requested-key))
+		(print (format nil "Restored ~A" next-requested-key))
 		(print path-list)
-		
+		(print flag)
+		(print (alexandria:hash-table-keys current-space-system-symbol-table))
+	
 		(case flag
 		  (:absolute
 		   (print 'ABSOLUTE)
-		   (unless (equal path-list '(:BACK) )
 			 (print 'continue)
-			 (print (format nil "Getting ~A from ROOT" (intern (second path-list))))
-			 (return-from search-xtce-key (search-xtce-key restored-requested-key TEST))))
-		  
+			 ;(print (format nil "Getting ~A from ROOT" (intern (second path-list))))
+			 (return-from find-xtce-key (find-xtce-key next-requested-key root-table root-table)))
+
 		  (:relative
-		   (print 'RELATIVE)
 		   (when (member :BACK path-list)
-			 (return-from search-xtce-key (search-xtce-key restored-requested-key parent-table )))
-		   
+			 ;Enforce Path Recursion
+			 (print 'Go-Back)
+			 (print (alexandria:hash-table-keys current-space-system-symbol-table))
+			 ;(print (gethash (find-symbol "PARENT") current-space-system-symbol-table))
+			 (print parent-table)
+			 (return-from find-xtce-key (find-xtce-key next-requested-key parent-table root-table)))
+
 		   (when match-in-current-map?
-			 (print "GET!")
-			 (return-from search-xtce-key match-in-current-map?))
+			 (print 'Hit!)
+			 (return-from find-xtce-key match-in-current-map?))
 
 		   (unless match-in-current-map?
-			 (unless (null path-list) )
-			   (print 'continue)
-			   (print path-list)
-			   ;(print (intern (car path-list)))
-			   ;(print (gethash (intern (car path-list)) current-space-system-symbol-table))
-			   ;(print (format nil "Getting ~A from ~A" (intern (second path-list)) (alexandria:hash-table-keys current-space-system-symbol-table) ))
-			   (if (car path-list)
-				   (search-xtce-key restored-requested-key (gethash (intern (car path-list)) current-space-system-symbol-table))))))))))
+			 (print 'Keep-looking)
+			 (return-from find-xtce-key (find-xtce-key next-requested-key (gethash (intern (car path-list)) current-space-system-symbol-table) root-table)))))))))
 
-(search-xtce-key "/TEST/SPICA/SPICA-1/Mejiro" SPICA)
-
-(search-xtce-key "../McQueen" MEJIRO-1)
-
-;User is being a goober and absoluting a usable relative: OK
-(search-xtce-key "/TEST/SPICA/SPICA-1/Mejiro" MEJIRO)
-
-;TODO: Test broken hash chain
-
-;Relative: OK
-(search-xtce-key "McQueen" MEJIRO)
-(search-xtce-key "./McQueen" MEJIRO)
-
-
-;VALID:
-; (/TEST/SPICA/1/MEJIRO ./SPICA/1/MEJIRO MEJIRO ./MEJIRO) 
-;INVALID:
-; (TEST/SPICA/1/MEJIRO  /TEST/SPICA/1/MEJIRO/ /SPICA/1/MEJIRO /MEJIRO ../1/MEJIRO)
-;
-
-;; (describe *TEST*)
-;; (search-xtce-key "machikane" *TEST* )
-
-;; (loop for key being the hash-keys in *TEST*
-;;       using (hash-value value)
-;;       do (format t "Key: ~A, Value: ~A~%" key value))
-
-;When evaluating a qualified path:
-; climb parents until nil is reached
-; climb down as needed
-; grab symbol from symbol table
-; optionally-teleport to *ROOT*
-
-; Note: Containers need to be resolved. It is possible that conditions eval in such a way that different sub containers can be dynamically swapped in and out (include conditions).
+(find-xtce-key "/TEST/Admire" SPICA TEST)
 
 (defun accept-frame (frame)
   

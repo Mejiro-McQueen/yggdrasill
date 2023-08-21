@@ -2,7 +2,8 @@
   (:use :cl)
   (:documentation "XTCE")
   (:export :make-space-system
-           :make-telemetry-metadata))
+           :make-telemetry-metadata
+		   :find-xtce-key))
 
 (in-package :xtce)
 
