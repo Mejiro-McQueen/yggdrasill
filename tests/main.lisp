@@ -1,9 +1,13 @@
+(ql:quickload "fiveam")
 (in-package :cl-user)
 (defpackage bifrost-yggdrasill-test 
   (:use :cl
 		:xtce
         :fiveam))
 (in-package :bifrost-yggdrasill-test)
+
+(setf fiveam:*run-test-when-defined* t)
+(setf fiveam:*on-failure* :debug)
 
 (def-suite my-system
   :description "Test my system")
@@ -42,13 +46,8 @@
                          :error-if-not-exists t)))
 
 
-(setf fiveam:*run-test-when-defined* t)
-(setf fiveam:*on-failure* :debug)
-
-
-(+ 10 (random 71))
-
-
 ;; (setf *TEST* #x1acffc1dFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA)
 ;; (print-hex (look-for-pattern *TEST*
 ;; 							 (make-sync-pattern #x1acffc1d (integer-length #x1acffc1d))))
+
+

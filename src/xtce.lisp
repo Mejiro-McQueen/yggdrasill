@@ -76,9 +76,10 @@
 				 :space-systems-list space-systems-list
 				 :short-description short-description)))
 	(register-system-keys sys)
-	(if (not parent-system)
+	(unless parent-system)
 		(eval `(defparameter ,name-as-sym ,sys "Represents the root space system."))
-		sys)))
+		(defparameter *CONTAINER-ROOT* (slot-value sys 'symbol-table) "")
+		sys))
 
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
@@ -360,34 +361,35 @@
 (defclass resolved-sequence-container (sequence-container)
   ((restriction-criteria-set :initarg :restriction-criteria-set :type restriction-criteria-set)))
 
-(defun make-resolved-sequence-container (name
-										 entry-list
-										 &key
-										   abstract
-										   idle-pattern
-										   short-description
-										   long-description
-										   alias-set
-										   ancillary-data-set
-										   rate-in-stream-set
-										   default-rate-in-stream
-										   binary-encoding
-										   restriction-criteria-set)
-  "This is suggested but not defined in XTCE. For use when resolving containers. It's a regular sequence  base-container. The sequence-container's base-container criteria is collected during resolution. Use when dumping a non XTCE"
+;; (defun make-resolved-sequence-container (name
+;; 										 entry-list
+;; 										 &key
+;; 										   abstract
+;; 										   idle-pattern
+;; 										   short-description
+;; 										   long-description
+;; 										   alias-set
+;; 										   ancillary-data-set
+;; 										   rate-in-stream-set
+;; 										   default-rate-in-stream
+;; 										   binary-encoding
+;; 										   restriction-criteria-set
+;; 										   base-container)
+;;   "This is suggested but not defined in XTCE. For use when resolving containers. It's a regular sequence  base-container. The sequence-container's base-container criteria is collected during resolution. Use when dumping a non XTCE"
 
-  (make-instance 'resolved-sequence-container :name name
-											  :entry-list entry-list
-											  :short-description short-description
-											  :abstract abstract
-											  :idle-pattern idle-pattern
-											  :long-description long-description
-											  :alias-set alias-set
-											  :ancillary-data-set ancillary-data-set
-											  :rate-in-stream-set rate-in-stream-set
-											  :default-rate-in-stream default-rate-in-stream
-											  :binary-encoding binary-encoding
-											  :base-container base-container
-											  :restriction-criteria restriction-criteria-set))
+;;   (make-instance 'resolved-sequence-container :name name
+;; 											  :entry-list entry-list
+;; 											  :short-description short-description
+;; 											  :abstract abstract
+;; 											  :idle-pattern idle-pattern
+;; 											  :long-description long-description
+;; 											  :alias-set alias-set
+;; 											  :ancillary-data-set ancillary-data-set
+;; 											  :rate-in-stream-set rate-in-stream-set
+;; 											  :default-rate-in-stream default-rate-in-stream
+;; 											  :binary-encoding binary-encoding
+;; 											  :base-container base-container
+;; 											  :restriction-criteria restriction-criteria-set))
 
 (defmethod cxml-marshall ((obj resolved-sequence-container))
   (with-slots (name
@@ -495,21 +497,6 @@
 												 (time-association :initarg :time-association :type time-association)
 												 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
 
-(defun make-parameter-ref-entry (parameter-ref
-								 &key
-								   short-description
-								   location-in-container-in-bits
-								   repeat-entry
-								   include-condition
-								   time-association
-								   ancillary-data-set)
-  (make-instance 'parameter-ref-entry :parameter-ref parameter-ref
-									  :location-in-container-in-bits location-in-container-in-bits
-									  :repeat-entry repeat-entry
-									  :include-condition include-condition
-									  :time-association time-association
-									  :ancillary-data-set ancillary-data-set
-									  :short-description short-description))
 
 (defmethod cxml-marshall ((obj parameter-ref-entry))
   (with-slots (parameter-ref
@@ -1959,6 +1946,6 @@
 ; Note 4.3.4.8.7 StreamSegmentRefEntry Figure 4-84 describes stream segment and not stream segment ref
 ;Figure 3-13: DiscreteLookup describes discretelookuplisttype
 ; PG. 5-14 Typo "revolved"
-
+                                                                                                                                                                                                                                                        
 
 

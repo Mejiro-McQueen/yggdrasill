@@ -5,7 +5,6 @@
 
 (in-package :xtce)
 
-
 (defun print-bin (n)
   (let ((pad (hex-length-in-bits n)))
 	(format nil "~v,'0b" pad n)))
@@ -159,51 +158,6 @@
 
 
 (time (dump-space-system-xml (symbol-value 'SPACEVECHICLE)))
-
-;; (defparameter *P1* '/NICE/LMAO/ROFLCOPTER)
-;; (defparameter *P1* './NICE/LMAO/ROFLCOPTER)
-;; (defparameter *P1* '../NICE/LMAO/ROFLCOPTER)
-;; (defparameter *P1* 'ROFLCOPTER)
-
-;; (defparameter *flags* nil)
-;; (defparameter *paths* nil)
-;; (defparameter *namestring* nil)
-;; (defparameter *just-path* nil)
-
-;; (defparameter *TEST* (make-hash-table :test 'equalp))
-;; (setf (gethash "admire" *TEST*) 'vega)
-;; (setf (gethash "machikane" *TEST*) 'TANEHAUSER)
-;; (setf (gethash "Mejiro" *TEST*) 'DOBER)
-
-
-(defun search-xtce-key (requested-key current-space-system-symbol-table)
-  (multiple-value-bind (flag path-list) (uiop::split-unix-namestring-directory-components
-										 requested-key :ensure-directory t)
-	  (case flag
-		(:absolute
-		 ; Get next subsystem table by looking up first path in the current hashmap
-		 ; Recurse with REST joined as string
-		 (print "ZABPW!"))
-		
-		(:relative
-		 (return-from search-xtce-key (gethash (first path-list) current-space-system-symbol-table))))))
-
-;; (describe *TEST*)
-;; (search-xtce-key "machikane" *TEST* )
-
-;; (loop for key being the hash-keys in *TEST*
-;;       using (hash-value value)
-;;       do (format t "Key: ~A, Value: ~A~%" key value))
-
-;When evaluating a qualified path:
-; climb parents until nil is reached
-; climb down as needed
-; grab symbol from symbol table
-; optionally-teleport to *ROOT*
-
-; Note: Containers need to be resolved. It is possible that conditions eval in such a way that different sub containers can be dynamically sswapped in and out (include conditions).
-
-;Need to build DAG and resolve at leaves
 
 
 (defparameter *TEST* (make-container-set 
@@ -379,19 +333,20 @@
 
 (defclass custom-stream (data-stream) ())
 
-(defclass fixed-frame-stream (data-stream) ((name :initarg :name :type string)
-											(short-description :initarg :short-description :type short-description)
-											(long-description :initarg :long-description :type string)
-											(alias-set :initarg :alias-set :type alias-set)
-											(ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
-											(bit-rate-in-bps :initarg :bit-rate-in-bips)
-											(pcm-type :initarg :pcm-type)
-											(inverted :initarg :inverted :type boole)
-											(sync-apeture-in-bits :initarg :sync-apeture-in-bits :type sync-apeture-in-bits)
-											(frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer)
-											(reference-type :initarg :reference-type :type reference-type)
-											(stream-ref :initarg :stream-ref :type string)
-											(sync-strategy :initarg :sync-strategy :type sync-strategy)))
+(defclass fixed-frame-stream (data-stream)
+  ((name :initarg :name :type string)
+   (short-description :initarg :short-description :type short-description)
+   (long-description :initarg :long-description :type string)
+   (alias-set :initarg :alias-set :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+   (bit-rate-in-bps :initarg :bit-rate-in-bips)
+   (pcm-type :initarg :pcm-type)
+   (inverted :initarg :inverted :type boole)
+   (sync-apeture-in-bits :initarg :sync-apeture-in-bits :type sync-apeture-in-bits)
+   (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer)
+   (reference-type :initarg :reference-type :type reference-type)
+   (stream-ref :initarg :stream-ref :type string)
+   (sync-strategy :initarg :sync-strategy :type sync-strategy)))
 
 (defun make-fixed-frame-stream (sync-strategy frame-length-in-bits &key sync-apeture-in-bits)
   "For streams that contain a series of frames with a fixed frame length where the frames are found by looking for a marker in the data. This marker is sometimes called the frame sync pattern and sometimes the Asynchronous Sync Marker (ASM). This marker need not be contiguous although it usually is."
@@ -546,54 +501,211 @@
 
 (defun process-fixed-frame-stream
   (fixed-frame-stream
+   data-stream
    &key
-   (continuation (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture))))
-   
-	(labels ((aperture-values (n)
-			   (append '(0)
-					   (alexandria:iota n :start 1)
-					   (alexandria:iota n :start -1 :step -1)))
+	 (continuation (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture))))
+  
+  (declare (ignore fixed-frame-stream))
+  (labels ((aperture-values (n)
+			 (append '(0)
+					 (alexandria:iota n :start 1)
+					 (alexandria:iota n :start -1 :step -1)))
 
-			 (find-marker-with-aperture (aperture)
-			   (loop for aperture in (aperture-values aperture)
-					 for res = (funcall continuation fixed-frame-stream aperture)
-					 when (second res)
-					   return (cons aperture res)
-					 finally (return (cons 0 res)))))
+		   (find-marker-with-aperture (aperture)
+			 (loop for aperture in (aperture-values aperture)
+				   for res = (funcall continuation data-stream aperture)
+				   when (second res)
+					 return (cons aperture res)
+				   finally (return (cons 0 res)))))
 
-	  (destructuring-bind (aperture state frame next-continuation) (find-marker-with-aperture 5)
-		;;(print state)
-		;; (print aperture)
-		;; (print (print-hex frame))
-		(unless aperture
-		  (emit! (list "Aperture greater than zero:" aperture)))
-		(case state
-		  (LOCK
-		   (accept-frame frame)
-		   (emit! state))
+	(destructuring-bind (aperture state frame next-continuation) (find-marker-with-aperture 5)
+	  ;;(print state)
+	  ;; (print aperture)
+	  ;; (print (print-hex frame))
+	  (unless aperture
+		(emit! (list "Aperture greater than zero:" aperture)))
+	  (case state
+		(LOCK
+		 (accept-frame frame)
+		 (emit! state))
 		  
-		  (VERIFY
-		   (emit! state)
-		   )
+		(VERIFY
+		 (emit! state)
+		 )
 		  
-		  (SEARCH
-		   (emit! (list "Could not find synchronization marker!")))
+		(SEARCH
+		 (emit! (list "Could not find synchronization marker!")))
 		  
-		  (CHECK))
+		(CHECK))
 		
-		(return-from process-fixed-frame-stream (list state next-continuation)))))
+	  (return-from process-fixed-frame-stream (list state next-continuation)))))
 
 
 ; (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture)))))))
 		  
-(process-fixed-frame-stream #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+(process-fixed-frame-stream (make-fixed-frame-stream (make-sync-strategy) 1024) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
 ;Fixed frames do not span, immediately move to next level
 ;Variable sized frames may span, need to move to accumulator (e.g. simulators)
 
-(defun accept-frame (frame))
+;Rule: references must use ./ or /, or neither for local.
+
+(defparameter TEST (make-hash-table :test 'equalp))
+(defparameter SPICA (make-hash-table :test 'equalp))
+(defparameter SPICA-1 (make-hash-table :test 'equalp))
+(defparameter SPICA-2 (make-hash-table :test 'equalp))
+(defparameter SYMBOLI (make-hash-table :test 'equalp))
+(defparameter MEJIRO (make-hash-table :test 'equalp))
+(defparameter MEJIRO-1 (make-hash-table :test 'equalp))
+(defparameter MEJIRO-2 (make-hash-table :test 'equalp))
+(defparameter MEJIRO-3 (make-hash-table :test 'equalp))
+
+;TEST
+(setf (gethash '|Admire| TEST) 'VEGA)
+(setf (gethash '|Machikane| TEST) 'TANEHAUSER)
+(setf (gethash '|Manhattan| TEST) 'CAFE)
+(setf (gethash 'SPICA TEST) SPICA)
+(setf (gethash 'SYMBOLI TEST) SYMBOLI)
+(setf (gethash 'MEJIRO TEST) MEJIRO)
+
+;SPICA
+(setf (gethash 'PARENT SPICA) TEST)
+(setf (gethash 'SPICA-1 SPICA) SPICA-1)
+(setf (gethash 'SPICA-2 SPICA) SPICA-2)
+
+; SPICA/1
+(setf (gethash 'PARENT SPICA-1) SPICA )
+(setf (gethash '|Special| SPICA-1) 'WEEK)
+(setf (gethash '|Silence| SPICA-1) 'SUZUKA)
+(setf (gethash '|Mejiro| SPICA-1) 'MCQUEEN)
+
+; SPICA/2
+(setf (gethash 'PARENT SPICA-2) SPICA)
+(setf (gethash '|Vodka| SPICA-2) 'VODKA)
+(setf (gethash '|Gold| SPICA-2) 'SHIP)
+(setf (gethash '|Daiwa| SPICA-2) 'SCARLET)
+(setf (gethash '|Tokai| SPICA-2) 'TEIO)
+
+;SYMBOLI
+
+(setf (gethash 'PARENT SYMBOLI) TEST)
+(setf (gethash '|KRIS| SYMBOLI) 'KRIS)
+(setf (gethash '|RUDOLF| SYMBOLI) 'RUDOLF)
+(setf (gethash '|SIRIUS| SYMBOLI) 'SIRIUS)
+
+;MEJIRO
+(setf (gethash 'PARENT MEJIRO) TEST)
+(setf (gethash 'MEJIRO-1 MEJIRO) MEJIRO-1)
+(setf (gethash 'MEJIRO-2 MEJIRO) MEJIRO-2)
+(setf (gethash 'MEJIRO-3 MEJIRO) MEJIRO-3)
+(setf (gethash '|McQueen| MEJIRO) 'MCQUEEN)
+(setf (gethash '|Palmer| MEJIRO) 'PALMER)
+(setf (gethash '|Ramonu| MEJIRO) 'RAMONU)
+
+;MEJIRO/1
+(setf (gethash 'PARENT MEJIRO-1) MEJIRO)
+(setf (gethash '|Ardan| MEJIRO-1) 'ARDAN)
+(setf (gethash '|Bright| MEJIRO-1) 'BRIGHT)
+
+;MEJIRO/2
+(setf (gethash 'PARENT MEJIRO-2) MEJIRO)
+(setf (gethash '|Dober| MEJIRO-2) 'DOBER)
+
+;MEJIRO/3
+(setf (gethash 'PARENT MEJIRO-3) MEJIRO)
+(setf (gethash '|Ryan| MEJIRO-3) 'RYAN)
+
+(defun search-xtce-key (requested-key current-space-system-symbol-table)
+  (unless current-space-system-symbol-table
+	(print "No Table")
+	(return-from search-xtce-key nil) 
+	)
+  (print (format nil "~%"))
+  (print (alexandria:hash-table-keys current-space-system-symbol-table))
+  (labels ((format-map (string-list)
+			 (reduce (lambda (str1 str2)
+					   (concatenate 'string str1 "/"  str2)) string-list :initial-value ".")))
+	(multiple-value-bind (flag path-list file) (uiop::split-unix-namestring-directory-components requested-key)
+	  (let* ((target (intern file))
+			 (match-in-current-map? (gethash target current-space-system-symbol-table))
+			 (parent-table (if current-space-system-symbol-table
+							   (gethash 'parent current-space-system-symbol-table)))
+			 (restored-requested-key (format-map (append (cdr path-list) (list (format-symbol target))))))
+
+		(print (format nil "Target: ~A" target))
+		(print (format nil "Restored ~A" restored-requested-key))
+		(print path-list)
+		
+		(case flag
+		  (:absolute
+		   (print 'ABSOLUTE)
+		   (unless (equal path-list '(:BACK) )
+			 (print 'continue)
+			 (print (format nil "Getting ~A from ROOT" (intern (second path-list))))
+			 (return-from search-xtce-key (search-xtce-key restored-requested-key TEST))))
+		  
+		  (:relative
+		   (print 'RELATIVE)
+		   (when (member :BACK path-list)
+			 (return-from search-xtce-key (search-xtce-key restored-requested-key parent-table )))
+		   
+		   (when match-in-current-map?
+			 (print "GET!")
+			 (return-from search-xtce-key match-in-current-map?))
+
+		   (unless match-in-current-map?
+			 (unless (null path-list) )
+			   (print 'continue)
+			   (print path-list)
+			   ;(print (intern (car path-list)))
+			   ;(print (gethash (intern (car path-list)) current-space-system-symbol-table))
+			   ;(print (format nil "Getting ~A from ~A" (intern (second path-list)) (alexandria:hash-table-keys current-space-system-symbol-table) ))
+			   (if (car path-list)
+				   (search-xtce-key restored-requested-key (gethash (intern (car path-list)) current-space-system-symbol-table))))))))))
+
+(search-xtce-key "/TEST/SPICA/SPICA-1/Mejiro" SPICA)
+
+(search-xtce-key "../McQueen" MEJIRO-1)
+
+;User is being a goober and absoluting a usable relative: OK
+(search-xtce-key "/TEST/SPICA/SPICA-1/Mejiro" MEJIRO)
+
+;TODO: Test broken hash chain
+
+;Relative: OK
+(search-xtce-key "McQueen" MEJIRO)
+(search-xtce-key "./McQueen" MEJIRO)
 
 
+;VALID:
+; (/TEST/SPICA/1/MEJIRO ./SPICA/1/MEJIRO MEJIRO ./MEJIRO) 
+;INVALID:
+; (TEST/SPICA/1/MEJIRO  /TEST/SPICA/1/MEJIRO/ /SPICA/1/MEJIRO /MEJIRO ../1/MEJIRO)
+;
+
+;; (describe *TEST*)
+;; (search-xtce-key "machikane" *TEST* )
+
+;; (loop for key being the hash-keys in *TEST*
+;;       using (hash-value value)
+;;       do (format t "Key: ~A, Value: ~A~%" key value))
+
+;When evaluating a qualified path:
+; climb parents until nil is reached
+; climb down as needed
+; grab symbol from symbol table
+; optionally-teleport to *ROOT*
+
+; Note: Containers need to be resolved. It is possible that conditions eval in such a way that different sub containers can be dynamically swapped in and out (include conditions).
+
+(defun accept-frame (frame)
+  
+
+  )
+
+
+
+(describe #'accept-frame)
 	
 
 
@@ -611,3 +723,6 @@
 (hamming-distance #x029a #x029b)
 
 (logcount 36)
+
+
+(concatenate 'string "LOL" "LMAO")
