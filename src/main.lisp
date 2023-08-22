@@ -551,62 +551,63 @@
 ;Rule: references must use ./ or /, or neither for local.
 
 
+
+
 (defun find-xtce-key (requested-key current-space-system-symbol-table root-table)
-  (print (find-symbol "PARENT"))
   (unless current-space-system-symbol-table
 	(print "No Hash Table Found: Are your references broken?")
 	(return-from find-xtce-key nil))
   
-  (print (format nil "~%"))
-  (print (alexandria:hash-table-keys current-space-system-symbol-table))
   (labels ((format-map (string-list)
 			 (reduce (lambda (str1 str2)
-					   (concatenate 'string str1 "/"  str2)) string-list :initial-value ".")))
+					   (concatenate 'string str1 "/" (if (equalp str2 :BACK) "../" str2))) string-list :initial-value ".")))
 	(multiple-value-bind (flag path-list file) (uiop::split-unix-namestring-directory-components requested-key)
 	  (let* ((target (intern file))
 			 (match-in-current-map? (gethash target current-space-system-symbol-table))
 			 (parent-table (if current-space-system-symbol-table
-							   (gethash (intern "PARENT") current-space-system-symbol-table)))
+							   (gethash (intern "./") current-space-system-symbol-table)))
 			 (next-requested-key (format-map (append (cdr path-list) (list (format-symbol target))))))
 
-		(print (format nil "Target: ~A" target))
-		(print (format nil "Restored ~A" next-requested-key))
-		(print path-list)
-		(print flag)
-		(print (alexandria:hash-table-keys current-space-system-symbol-table))
+		#+ DEBUG
+		(progn
+		  (print (format nil "~%"))
+		  (print (format nil "Flag: ~A" flag))
+		  (print (format nil "Target: ~A" target))
+		  (print (format nil "Requested-Key: ~A" requested-key))
+		  (print (format nil "Next-Key: ~A" next-requested-key))
+		  (print (format nil "Target Components: ~A" path-list))
+		  (print (format nil "Current Table Keys: ~A" (alexandria:hash-table-keys current-space-system-symbol-table))))
 	
 		(case flag
 		  (:absolute
+		   #+ DEBUG
 		   (print 'ABSOLUTE)
-			 (print 'continue)
-			 ;(print (format nil "Getting ~A from ROOT" (intern (second path-list))))
-			 (return-from find-xtce-key (find-xtce-key next-requested-key root-table root-table)))
+		   ;Enforce Recursion
+		   (return-from find-xtce-key (find-xtce-key next-requested-key root-table root-table)))
 
 		  (:relative
 		   (when (member :BACK path-list)
-			 ;Enforce Path Recursion
+			 #+ DEBUG
 			 (print 'Go-Back)
-			 (print (alexandria:hash-table-keys current-space-system-symbol-table))
-			 ;(print (gethash (find-symbol "PARENT") current-space-system-symbol-table))
-			 (print parent-table)
 			 (return-from find-xtce-key (find-xtce-key next-requested-key parent-table root-table)))
 
+		   (when path-list
+			 #+ DEBUG
+			 (print 'Keep-Looking)
+			 (return-from find-xtce-key (find-xtce-key next-requested-key (gethash (intern (car path-list)) current-space-system-symbol-table) root-table)))
+
 		   (when match-in-current-map?
-			 (print 'Hit!)
+			 #+ DEBUG
+			 (print 'GET!)
 			 (return-from find-xtce-key match-in-current-map?))
 
 		   (unless match-in-current-map?
-			 (print 'Keep-looking)
-			 (return-from find-xtce-key (find-xtce-key next-requested-key (gethash (intern (car path-list)) current-space-system-symbol-table) root-table)))))))))
-
-(find-xtce-key "/TEST/Admire" SPICA TEST)
+			 (print 'Path-Exhausted-No-Match))
+		   ))))))
 
 (defun accept-frame (frame)
-  
-
+  frame
   )
-
-
 
 (describe #'accept-frame)
 	
