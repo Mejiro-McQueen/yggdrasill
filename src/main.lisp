@@ -589,6 +589,8 @@
 		   (when (member :BACK path-components)
 			 #+ *debug-mode*
 			 (print 'Go-Back)
+			 (when (equal current-table root-table)
+			   (warn "Cycle detected: Attempted to go to parent table but ended up at the same place"))
 			 (return-from find-key-by-path (find-key-by-path next-requested-key parent-table root-table)))
 
 		   (when path-components
@@ -608,6 +610,24 @@
 			 (print 'Path-Exhausted-No-Match)
 			 nil)
 		   ))))))
+
+(defun register-table (root-table table table-name)
+  "Add and register a table to a root table"
+  (setf (gethash './ table) root-table)
+  (add-unique-element root-table table-name table)
+  )
+
+(defun add-unique-element (table key value)
+  (check-type key symbol)
+  (assert (not (gethash key table)) (table key value) "Key: ~A is not unique in table ~A" key table)
+  (setf (gethash key table) value))
+
+
+(defparameter TEST (make-hash-table))
+(defparameter level-2 (make-hash-table))
+(register-table TEST level-2 'level-2)
+(add-unique-element level-2 'NICO 'NI)
+(alexandria:hash-table-keys level-2)
 
 (defun accept-frame (frame)
   frame

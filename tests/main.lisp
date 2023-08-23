@@ -57,21 +57,22 @@
 
 (in-suite find-xtce-key)
 (defmacro with-fixture-hash-table-tree (&body body)
-  `(let* ((TEST (make-hash-table :test 'equalp))
-		  (SPICA (make-hash-table :test 'equalp))
-		  (SPICA-1 (make-hash-table :test 'equalp))
-		  (SPICA-2 (make-hash-table :test 'equalp))
-		  (SPICA-Injured (make-hash-table :test 'equalp))
-		  (SPICA-Tenno-Sho (make-hash-table :test 'equalp))
-		  (SPICA-Tenno-Sho-Spring (make-hash-table :test 'equalp))
-		  (SPICA-Tenno-Sho-Autumn (make-hash-table :test 'equalp))
-		  (SYMBOLI (make-hash-table :test 'equalp))
-		  (MEJIRO (make-hash-table :test 'equalp))
-		  (MEJIRO-1 (make-hash-table :test 'equalp))
-		  (MEJIRO-2 (make-hash-table :test 'equalp))
-		  (MEJIRO-3 (make-hash-table :test 'equalp)))
+  `(let* ((TEST (make-hash-table))
+		  (SPICA (make-hash-table))
+		  (SPICA-1 (make-hash-table))
+		  (SPICA-2 (make-hash-table))
+		  (SPICA-Injured (make-hash-table))
+		  (SPICA-Tenno-Sho (make-hash-table))
+		  (SPICA-Tenno-Sho-Spring (make-hash-table))
+		  (SPICA-Tenno-Sho-Autumn (make-hash-table))
+		  (SYMBOLI (make-hash-table))
+		  (MEJIRO (make-hash-table))
+		  (MEJIRO-1 (make-hash-table))
+		  (MEJIRO-2 (make-hash-table))
+		  (MEJIRO-3 (make-hash-table)))
 
 										;TEST
+	 (setf (gethash './ TEST) TEST)
 	 (setf (gethash '|Admire| TEST) 'VEGA)
 	 (setf (gethash '|Machikane| TEST) 'TANEHAUSER)
 	 (setf (gethash '|Manhattan| TEST) 'CAFE)
@@ -180,9 +181,21 @@
 	))
 
 
+(test user-back-tracks-beyond-root
+  "User wants to find a key, but the table path is disconnected"
+  (with-fixture-hash-table-tree
+	(is (equal (find-key-by-path "../../../../../../../../../../McQueen" MEJIRO-1 TEST) nil))
+	(signals warn (find-key-by-path "../../McQueen" MEJIRO-1 TEST) '|Mejiro-McQueen|)
+	))
+  
+
 (test find-key-in-disconnected-path
   "User wants to find a key, but the table path is disconnected"
   (is (equal (find-key-by-path "../../McQueen" MEJIRO-1 TEST) '|Mejiro-McQueen|))
   
 
+  )
+  
+
 ; Cached results per space system?
+
