@@ -2,6 +2,7 @@
 (ql:quickload "uiop")
 (ql:quickload "alexandria")
 (declaim (optimize (speed 0) (space 0) (debug 3)))
+(defvar debug-mode t)
 
 (in-package :xtce)
 
@@ -551,58 +552,61 @@
 ;Rule: references must use ./ or /, or neither for local.
 
 
-
-
-(defun find-xtce-key (requested-key current-space-system-symbol-table root-table)
-  (unless current-space-system-symbol-table
+(defun find-key-by-path (requested-key current-table root-table)
+  (unless current-table
+	#+ *debug-mode*
 	(print "No Hash Table Found: Are your references broken?")
-	(return-from find-xtce-key nil))
+	(return-from find-key-by-path nil))
   
-  (labels ((format-map (string-list)
+  (labels ((format-path (string-list)
 			 (reduce (lambda (str1 str2)
 					   (concatenate 'string str1 "/" (if (equalp str2 :BACK) "../" str2))) string-list :initial-value ".")))
-	(multiple-value-bind (flag path-list file) (uiop::split-unix-namestring-directory-components requested-key)
+	(multiple-value-bind (flag path-components file) (uiop::split-unix-namestring-directory-components requested-key)
 	  (let* ((target (intern file))
-			 (match-in-current-map? (gethash target current-space-system-symbol-table))
-			 (parent-table (if current-space-system-symbol-table
-							   (gethash (intern "./") current-space-system-symbol-table)))
-			 (next-requested-key (format-map (append (cdr path-list) (list (format-symbol target))))))
+			 (match-in-current-table? (gethash target current-table))
+			 (parent-table (if current-table
+							   (gethash (intern "./") current-table)))
+			 (next-requested-key (format-path (append (cdr path-components) (list (format-symbol target))))))
 
-		#+ DEBUG
+		#+ *debug-mode*
 		(progn
 		  (print (format nil "~%"))
 		  (print (format nil "Flag: ~A" flag))
 		  (print (format nil "Target: ~A" target))
 		  (print (format nil "Requested-Key: ~A" requested-key))
 		  (print (format nil "Next-Key: ~A" next-requested-key))
-		  (print (format nil "Target Components: ~A" path-list))
-		  (print (format nil "Current Table Keys: ~A" (alexandria:hash-table-keys current-space-system-symbol-table))))
+		  (print (format nil "Target Components: ~A" path-components))
+		  (print (format nil "Current Table Keys: ~A" (alexandria:hash-table-keys current-table))))
 	
 		(case flag
 		  (:absolute
-		   #+ DEBUG
+		   #+ *debug-mode*
 		   (print 'ABSOLUTE)
 		   ;Enforce Recursion
-		   (return-from find-xtce-key (find-xtce-key next-requested-key root-table root-table)))
+		   (return-from find-key-by-path (find-key-by-path next-requested-key root-table root-table)))
 
 		  (:relative
-		   (when (member :BACK path-list)
-			 #+ DEBUG
+		   (when (member :BACK path-components)
+			 #+ *debug-mode*
 			 (print 'Go-Back)
-			 (return-from find-xtce-key (find-xtce-key next-requested-key parent-table root-table)))
+			 (return-from find-key-by-path (find-key-by-path next-requested-key parent-table root-table)))
 
-		   (when path-list
-			 #+ DEBUG
+		   (when path-components
+			 #+ *debug-mode*
 			 (print 'Keep-Looking)
-			 (return-from find-xtce-key (find-xtce-key next-requested-key (gethash (intern (car path-list)) current-space-system-symbol-table) root-table)))
+			 (return-from find-key-by-path (find-key-by-path next-requested-key
+															 (gethash (intern (car path-components)) current-table)
+															 root-table)))
 
-		   (when match-in-current-map?
-			 #+ DEBUG
+		   (when match-in-current-table?
+			 #+ *debug-mode*
 			 (print 'GET!)
-			 (return-from find-xtce-key match-in-current-map?))
+			 (return-from find-key-by-path match-in-current-table?))
 
-		   (unless match-in-current-map?
-			 (print 'Path-Exhausted-No-Match))
+		   (unless match-in-current-table?
+			 #+ *debug-mode*
+			 (print 'Path-Exhausted-No-Match)
+			 nil)
 		   ))))))
 
 (defun accept-frame (frame)

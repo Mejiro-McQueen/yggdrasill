@@ -3,7 +3,7 @@
   (:documentation "XTCE")
   (:export :make-space-system
            :make-telemetry-metadata
-		   :find-xtce-key))
+		   :find-key-by-path))
 
 (in-package :xtce)
 

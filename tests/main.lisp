@@ -119,7 +119,7 @@
 	 (setf (gethash '|Gold| SPICA-Tenno-Sho-Spring) '|Ship-Spring-Champion|)
 
 										;SPICA-Autumn-Tenno-Sho
-	 (setf (gethash './ SPICA-Tenno-Sho) SPICA-Tenno-Sho)
+	 (setf (gethash './ SPICA-Tenno-Sho-Autumn) SPICA-Tenno-Sho)
 	 (setf (gethash '|Vodka| SPICA-Tenno-Sho-Autumn) '|Vodka-Autumn-Champion|)
 	 (setf (gethash '|Mejiro| SPICA-Tenno-Sho-Autumn) '|Mejiro-McQueen-Autumn-Champion|)
 	 (setf (gethash '|Gold| SPICA-Tenno-Sho-Autumn) '|Gold-Ship-Autumn-Champion|)
@@ -156,23 +156,33 @@
 (test find-key-in-current-map
   "User wants to find an absolute key in a subpath"
   (with-fixture-hash-table-tree
-	(is (equal (find-xtce-key "/TEST/SPICA/SPICA-1/Special" TEST TEST) 'Week))
-	(is (equal (find-xtce-key "/TEST/SPICA/SPICA-1/Special" SPICA TEST) 'Week))
-	(is (equal (find-xtce-key "/TEST/SPICA/SPICA-1/Special" SYMBOLI TEST) 'Week))
-	(is (equal (find-xtce-key "/TEST/SPICA/SPICA-2/Daiwa" SYMBOLI TEST) 'Scarlet))
-	(is (equal (find-xtce-key "/TEST/SPICA/SPICA-2/Daiwa" Mejiro-3 TEST) 'Scarlet))
-	(is (equal (find-xtce-key "/TEST/Admire" SPICA TEST) 'Vega))
-	(is (equal (find-xtce-key "/TEST/Admire" SYMBOLI TEST) 'Vega))
-	(is (equal (find-xtce-key "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SYMBOLI TEST) '|Mejiro-McQueen-Spring-Champion|))
-	(is (equal (find-xtce-key "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SPICA-1 TEST) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" TEST TEST) 'Week))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" SPICA TEST) 'Week))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" SYMBOLI TEST) 'Week))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-2/Daiwa" SYMBOLI TEST) 'Scarlet))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-2/Daiwa" Mejiro-3 TEST) 'Scarlet))
+	(is (equal (find-key-by-path "/TEST/Admire" SPICA TEST) 'Vega))
+	(is (equal (find-key-by-path "/TEST/Admire" SYMBOLI TEST) 'Vega))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SYMBOLI TEST) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SPICA-1 TEST) '|Mejiro-McQueen-Spring-Champion|))
 	))
 
 (test find-key-in-relative-path
   "User wants to find a relative key"
   (with-fixture-hash-table-tree
-	(is (equal (find-xtce-key "../McQueen" MEJIRO-1 TEST) '|Mejiro-McQueen|))
-	(is (equal (find-xtce-key "McQueen" MEJIRO TEST) '|Mejiro-McQueen|))
-	(is (equal (find-xtce-key "./McQueen" MEJIRO TEST) '|Mejiro-McQueen|))
-	(is (equal (find-xtce-key "../../Mejiro" SPICA-Tenno-Sho-Spring TEST) '|Mejiro-McQueen-Contender|))
-	(is (equal (find-xtce-key "../../SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" MEJIRO-1 TEST) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "../McQueen" MEJIRO-1 TEST) '|Mejiro-McQueen|))
+	(is (equal (find-key-by-path "McQueen" MEJIRO TEST) '|Mejiro-McQueen|))
+	(is (equal (find-key-by-path "./McQueen" MEJIRO TEST) '|Mejiro-McQueen|))
+	(is (equal (find-key-by-path "../../SPICA-1/Mejiro" SPICA-Tenno-Sho-Spring TEST) 'MCQUEEN))
+	(is (equal (find-key-by-path "../../SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" MEJIRO-1 TEST) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "../../SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Narita" MEJIRO-1 TEST) nil))
+	(is (equal (find-key-by-path "../../../SYMBOLI/RUDOLF" SPICA-Tenno-Sho-Autumn TEST) '|Symboli-Rudolf|))
 	))
+
+
+(test find-key-in-disconnected-path
+  "User wants to find a key, but the table path is disconnected"
+  (is (equal (find-key-by-path "../../McQueen" MEJIRO-1 TEST) '|Mejiro-McQueen|))
+  
+
+; Cached results per space system?
