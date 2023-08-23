@@ -45,33 +45,40 @@
   (logcount (logxor integer-1 integer-2)))
 
 (make-space-system
- "SpaceVechicle"
- :telemetry-metadata
+ '|SpaceVechicle|
+ 
+:telemetry-metadata
  (make-telemetry-metadata
+  
   :parameter-type-set
   (make-parameter-type-set
+   
    (make-integer-parameter-type
-    "IDType"
+    '|IDType|
     :data-encoding
     (make-integer-data-encoding)
 	:signed nil)
+   
    (make-integer-parameter-type
-	"SecHType"
+	'|SecHType|
 	:signed nil
 	:data-encoding
 	(make-integer-data-encoding :size-in-bits 1))
+   
    (make-integer-parameter-type
-	"TypeType"
+	'|TypeType|
 	:signed nil
 	:data-encoding
 	(make-integer-data-encoding :size-in-bits 1))
+   
    (make-integer-parameter-type
-	"LengthType"
+	'|LengthType|
 	:signed nil
 	:data-encoding
 	(make-integer-data-encoding :size-in-bits 16))
+
    (make-enumerated-parameter-type
-	"PSWHLTIMFLGType"
+	'|PSWHLTIMFLGType|
 	:data-encoding
 	(make-integer-data-encoding :size-in-bits 16)
 	:enumeration-list
@@ -81,7 +88,7 @@
 	 (make-enumeration 'TIMER_COMPLETED 2)))
    
    (make-float-parameter-type
-	"PBATMTEMPType"
+	'|PBATMTEMPType|
 	:size-in-bits 64
 	:unit-set
 	(make-unit-set
@@ -103,59 +110,60 @@
 			 (make-term :coefficient 5.67189556173e11 :exponent 4)))))
    
    (make-absolute-time-parameter
-	"MissionTimeType"
+	'|MissionTimeType|
 	:reference-time
 	(make-reference-time
-	 (make-offset-from "Seconds")))
+	 (make-offset-from '|Seconds|)))
    
    (make-absolute-time-parameter
-	"SecondsType"
+	'|SecondsType|
 	:encoding
 	(make-encoding
-	 :units "seconds"
+	 :units 'seconds
 	 :data-encoding
 	 (make-integer-data-encoding :size-in-bits 32))
 	:reference-time
 	(make-reference-time
-	 (make-offset-from "Milliseconds")))
+	 (make-offset-from '|Milliseconds|)))
    
    (make-absolute-time-parameter
-	"MillisecondsType"
+	'|MillisecondsType|
 	:encoding
 	(make-encoding
-	 :units "seconds"
+	 :units '|seconds|
 	 :scale 0.001
 	 :data-encoding
 	 (make-integer-data-encoding :size-in-bits 16))
 	:reference-time
 	(make-reference-time
-	 (make-epoch 'TAI)))
-   )
+	 (make-epoch 'TAI))))
+ 
   :parameter-set
   (make-parameter-set
-   (make-parameter "SecH" "SecHType")
-   (make-parameter "Type" "TypeType")
-   (make-parameter "ID" "IDType")
-   (make-parameter "Length" "LengthType")
-   (make-parameter "Seconds" "SecondsType")
-   (make-parameter "Milliseconds" "MillisecondsType")
-   (make-parameter "PBATMTEMP" "PBATMTEMPType")
-   (make-parameter "PSWHLTIMFLG" "PSWHLTIMFLGType")
-   (make-parameter "MissionTime" "MissionTimeType"
+   (make-parameter '|SecH| '|SecHType|)
+   (make-parameter '|Type| '|TypeType|)
+   (make-parameter '|ID| '|IDType|)
+   (make-parameter '|Length| '|LengthType|)
+   (make-parameter '|Seconds| '|SecondsType|)
+   (make-parameter '|Milliseconds| '|MillisecondsType|)
+   (make-parameter '|PBATMTEMP| '|PBATMTEMPType|)
+   (make-parameter '|PSWHLTIMFLG| '|PSWHLTIMFLGType|)
+   (make-parameter '|MissionTime| '|MissionTimeType|
 				   :parameter-properties
 				   (make-parameter-properties :data-source "derived")))
+
   :container-set
   (make-container-set
    (make-sequence-container
-	"Header"
+	'|Header|
 	(make-entry-list
-	 (make-parameter-ref-entry "ID")
-	 (make-parameter-ref-entry "SecH")
-	 (make-parameter-ref-entry "Type")
-	 (make-parameter-ref-entry "Length")
-	 (make-parameter-ref-entry "SecondaryHeader"
+	 (make-parameter-ref-entry '|ID|)
+	 (make-parameter-ref-entry '|SecH|)
+	 (make-parameter-ref-entry '|Type|)
+	 (make-parameter-ref-entry '|Length|)
+	 (make-parameter-ref-entry '|SecondaryHeader|
 							   :include-condition
-							   (make-include-condition (make-comparison "SecH" 1))))))))
+							   (make-include-condition (make-comparison '|SecH| 1))))))))
 
 
 (time (dump-space-system-xml (symbol-value 'SPACEVECHICLE)))
@@ -610,17 +618,6 @@
 			 (print 'Path-Exhausted-No-Match)
 			 nil)
 		   ))))))
-
-(defun register-table (root-table table table-name)
-  "Add and register a table to a root table"
-  (setf (gethash './ table) root-table)
-  (add-unique-element root-table table-name table)
-  )
-
-(defun add-unique-element (table key value)
-  (check-type key symbol)
-  (assert (not (gethash key table)) (table key value) "Key: ~A is not unique in table ~A" key table)
-  (setf (gethash key table) value))
 
 
 (defparameter TEST (make-hash-table))

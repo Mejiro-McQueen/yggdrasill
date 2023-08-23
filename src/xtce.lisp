@@ -7,6 +7,16 @@
 
 (in-package :xtce)
 
+(defun add-unique-element (table key value)
+  (check-type key symbol)
+  (assert (not (gethash key table)) (table key value) "Key: ~A is not unique in table ~A" key table)
+  (setf (gethash key table) value))
+
+(defun register-table (root-table table table-name)
+  "Add and register a table to a root table"
+  (setf (gethash './ table) root-table)
+  (add-unique-element root-table table-name table))
+
 (defmacro check-optional-type (place type &optional type-string)
   `(if ,place
 	   (check-type ,place ,type ,type-string)
@@ -19,7 +29,7 @@
 
 (defclass space-system ()
   ((header :initarg :header)
-   (name :initarg :name)
+   (name :initarg :name :type symbol)
    (operational-status :initarg :operational-status)
    (long-description :initarg :long-description
                      :type long-description)
@@ -36,8 +46,8 @@
 
 (defmethod print-object ((obj space-system) stream)
       (print-unreadable-object (obj stream :type t)
-        (with-slots (name short-description abstract) obj
-          (format stream "name: ~a, description: ~a, abstract:~a " name short-description abstract))))
+        (with-slots (name short-description) obj
+          (format stream "name: ~a, description: ~a " name short-description))))
 
 (defclass space-system-list (xtce-list) ())
 
@@ -58,7 +68,7 @@
                             service-set
                             space-systems-list
 							short-description)
-  (check-type name string)
+  (check-type name symbol)
   (check-optional-type long-description long-description)
   
   (let ((name-as-sym  (intern (string-upcase name)))
@@ -77,19 +87,13 @@
 				 :space-systems-list space-systems-list
 				 :short-description short-description)))
 	(register-system-keys sys)
-	(unless parent-system)
-		(eval `(defparameter ,name-as-sym ,sys "Represents the root space system."))
-		(defparameter *CONTAINER-ROOT* (slot-value sys 'symbol-table) "")
-		sys))
+	(unless parent-system
+	  (eval `(defparameter ,name-as-sym ,sys "Represents the root space system."))
+	  (defparameter *CONTAINER-ROOT* (slot-value sys 'symbol-table) ""))
+	sys))
 
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
-
-(defun register-unique-key (symbol-table symbol value)
-  ;(describe symbol-table)
-  (print symbol)
-  (assert (not (gethash symbol symbol-table)))
-  (setf (gethash symbol symbol-table) value))
 
 (defun register-system-keys (space-system)
   (macrolet ((register-keys-in-sequence (sequence slot-name)
@@ -97,19 +101,24 @@
 					   (slot-name-items (when slot-name-sequence
 										  (slot-value slot-name-sequence 'items))))
 				 (dolist (item slot-name-items)
-				   (register-unique-key symbol-table (slot-value item 'name) item)))))
+				   (add-unique-element symbol-table (slot-value item 'name) item)
+				   ))))
 	
-  (With-slots (symbol-table space-systems-list telemetry-metadata) space-system
+  (With-slots (symbol-table space-systems-list telemetry-metadata name parent-system) space-system
 	(print 'SPACE-SYSTEMS)
 	(when space-systems-list
 		(dolist (subsystem (slot-value space-systems-list 'items))
-		  (register-unique-key symbol-table (slot-value subsystem 'name) subsystem)))
+		  (add-unique-element symbol-table (slot-value subsystem 'name) subsystem)))
 
+	(when parent-system
+	  (register-table (slot-value parent-system 'symbol-table) symbol-table name))
+	
 	(print 'TELEMETRY-METADATA)
-	(register-keys-in-sequence telemetry-metadata 'parameter-type-set)
-	(register-keys-in-sequence telemetry-metadata 'parameter-set)
-	(register-keys-in-sequence telemetry-metadata 'algorithm-set)
-	(register-keys-in-sequence telemetry-metadata 'stream-set))))
+	(when telemetry-metadata
+	  (register-keys-in-sequence telemetry-metadata 'parameter-type-set)
+	  (register-keys-in-sequence telemetry-metadata 'parameter-set)
+	  (register-keys-in-sequence telemetry-metadata 'algorithm-set)
+	  (register-keys-in-sequence telemetry-metadata 'stream-set)))))
 
 (defun make-long-description (s)
   (check-type s string)
@@ -134,7 +143,7 @@
                telemetry-metadata) obj
     (cxml:with-element* ("xtce" "SpaceSystem")
       (cxml:attribute*  "xsi" "schemaLocation" "http://www.omg.org/spec/XTCE/20180204 XTCE12.xsd")
-      (cxml:attribute "name" name)
+      (cxml:attribute "name" (format-symbol name))
       (optional-xml-attribute "header" header)
       (optional-xml-attribute "operational-status" operational-status)
       (optional-xml-attribute "xml:base" xml-base)
@@ -237,7 +246,7 @@
     (cxml:with-element* ("xtce" "unit") 
       (if power (cxml:attribute "power" power))
       (if factor (cxml:attribute "factor" factor))
-      (if description (cxml:attribute "description" description))
+      (if description (cxml:attribute "description" (format-symbol description)))
       (if form (cxml:text form)))))
 
 (defun dump-space-system-xml (space-system)
@@ -345,7 +354,7 @@
 			   binary-encoding
 			   base-container) obj
 	(cxml:with-element* ("xtce" "SequenceContainer")
-	  (cxml:attribute "name" name)
+	  (cxml:attribute "name" (format-symbol name))
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "abstract" (format-bool abstract))
 	  (optional-xml-attribute "idlePattern" idle-pattern)
@@ -407,7 +416,7 @@
 			   binary-encoding
 			   restriction-criteria-set) obj
 	(cxml:with-element* ("xtce" "SequenceContainer")
-	  (cxml:attribute "name" name)
+	  (cxml:attribute "name" (format-symbol name))
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "abstract" (format-bool abstract))
 	  (optional-xml-attribute "idlePattern" idle-pattern)
@@ -479,7 +488,7 @@
 			   time-association
 			   ancillary-data-set) obj
   (cxml:with-element* ("xtce" "ParameterRefEntry")
-	(cxml:attribute "parameterRef" parameter-ref)
+	(cxml:attribute "parameterRef" (format-symbol parameter-ref))
 	(cxml-marshall location-in-container-in-bits)
 	(cxml-marshall repeat-entry)
 	(cxml-marshall include-condition)
@@ -508,7 +517,7 @@
 			   time-association
 			   ancillary-data-set) obj
   (cxml:with-element* ("xtce" "ParameterRefEntry")
-	(cxml:attribute "parameterRef" parameter-ref)
+	(cxml:attribute "parameterRef" (format-symbol parameter-ref))
 	(cxml-marshall location-in-container-in-bits)
 	(cxml-marshall repeat-entry)
 	(cxml-marshall include-condition)
@@ -581,7 +590,7 @@
 			   time-association
 			   ancillary-data-set) obj
 	(cxml:with-element* ("xtce" "ParameterSegmentRefEntry")
-	  (cxml:attribute "parameterRef" parameter-ref)
+	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
 	  (cxml:attribute "sizeInBits" size-in-bits)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute order order)
@@ -680,7 +689,7 @@
 			   time-association
 			   ancillary-data-set) obj
 	(cxml:with-element* ("xtce" "ContainerSegmentRefEntry")
-	  (cxml:attribute "containerRef" container-ref)
+	  (cxml:attribute "containerRef" (format-symbol container-ref))
 	  (cxml:attribute "sizeInBits" size-in-bits)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute order order)
@@ -831,7 +840,7 @@
 			   time-association
 			   ancillary-data-set) obj
 	(cxml:with-element* ("xtce" "ArrayParameterRefEntry")
-	  (cxml:attribute "parameterRef" parameter-ref)
+	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
 	  (cxml-marshall dimension-list)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (cxml-marshall location-in-container-in-bits)
@@ -953,8 +962,7 @@
 (defmethod cxml-marshal ((obj next-container))
   (with-slots (container-ref) obj
 	(cxml:with-element* ("xtce" "NextContainer")
-	  (cxml:attribute "nextContainer" container-ref))))
-
+	  (cxml:attribute "nextContainer" (format-symbol container-ref)))))
 
 (defclass dynamic-value ()
   ((instance-ref :initarg :instance-ref)
@@ -994,7 +1002,7 @@
 (defmethod cxml-marshall ((obj parameter-instance-ref))
   (with-slots (parameter-ref instance use-calibrated-value) obj
 	(cxml:with-element* ("xtce" "ParameterInstanceRef") obj
-	  (cxml:attribute "parameterRef" parameter-ref)
+	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
 	  (optional-xml-attribute "instance" instance)
 	  (optional-xml-attribute "useCalibratedValue" use-calibrated-value))))
 
@@ -1116,7 +1124,7 @@
                                     default-alarm
                                     context-alarm-list
 									unit-set)
-  (check-type name string)
+  (check-type name symbol)
   ;(require-unique-key name)
                                         ;(if encoding (check-type encoding encoding))
   (check-optional-type short-description string)
@@ -1162,7 +1170,7 @@
 			   unit-set
 			   ) obj
 	(cxml:with-element* ("xtce" "FloatPrameterType")
-      (cxml:attribute "name" name)
+      (cxml:attribute "name" (format-symbol name))
       (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "initialValue" initial-value)
 	  (optional-xml-attribute "sizeInBits" size-in-bits)
@@ -1222,7 +1230,7 @@
                context-alarm-list) obj
     (cxml:with-element* ("xtce" "IntegerParameterType")
 	  (optional-xml-attribute "shortDescription" short-description)
-      (optional-xml-attribute "name" name)
+      (optional-xml-attribute "name" (format-symbol name))
       (optional-xml-attribute "baseType" base-type)
       (optional-xml-attribute "initialValue" initial-value)
       (optional-xml-attribute"sizeInBits" size-in-bits)
@@ -1252,7 +1260,7 @@
                                     valid-range
                                     default-alarm
                                     context-alarm-list)
-  (check-type name string)
+  (check-type name symbol)
   (check-optional-type short-description string)
   (if base-type nil)
   (if initial-value nil)
@@ -1345,7 +1353,7 @@
 										 enumeration-list
 										 default-alarm
 										 context-alarm-list)
-  (check-type name string)
+  (check-type name symbol)
   (check-optional-type short-description string)
   ;(check-optional-type base-type T)
   (check-optional-type long-description string)
@@ -1425,7 +1433,7 @@
 			   default-alarm
 			   context-alarm-list) obj
 	(cxml:with-element* ("xtce" "EnumeratedParameterType")
-	  (cxml:attribute "name" name)
+	  (cxml:attribute "name" (format-symbol name))
 	  (cxml-marshall data-encoding)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "baseType" base-type)
@@ -1458,7 +1466,7 @@
 									 ancillary-data-set
 									 encoding
 									 reference-time)
-  (check-type name string)
+  (check-type name symbol)
   (check-optional-type short-description string)
   (check-optional-type base-type string)
   ;(check-optional-type initial-value T)
@@ -1489,7 +1497,7 @@
 			   encoding
 			   reference-time) obj
 	(cxml:with-element* ("xtce" "AbsoluteTimeParameterType")
-	  (cxml:attribute "name" name)
+	  (cxml:attribute "name" (format-symbol name))
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "baseType" base-type)
 	  (optional-xml-attribute "initialValue" initial-value)
@@ -1507,7 +1515,7 @@
 (defmethod cxml-marshall ((obj offset-from))
   (with-slots (parameter-ref) obj
 	(cxml:with-element* ("xtce" "OffsetFrom")
-	  (cxml:attribute "parameterRef" parameter-ref))))
+	  (cxml:attribute "parameterRef" (format-symbol parameter-ref)))))
 
 (defclass epoch ()
   ((epoch-value :initarg :epoch-value
@@ -1547,7 +1555,7 @@
    (reference-time :initarg :reference-time :type reference-time)))
 
 (defun make-encoding (&key units scale offest data-encoding reference-time)
-  (check-optional-type units string)
+  (check-optional-type units symbol)
   (check-optional-type scale number)
   (check-optional-type offest number)
   (check-optional-type data-encoding data-encoding)
@@ -1557,7 +1565,7 @@
 (defmethod cxml-marshall ((obj encoding))
   (with-slots (units scale offset data-encoding reference-time) obj
 	(cxml:with-element* ("xtce" "Encoding") 
-	  (optional-xml-attribute "units" units)
+	  (optional-xml-attribute "units" (format-symbol units))
 	  (optional-xml-attribute "scale" (format-number scale))
 	  (optional-xml-attribute "offset" offset)
 	  (cxml-marshall data-encoding))))
@@ -1589,8 +1597,8 @@
 						 alias-set
 						 ancillary-data-set
 						 parameter-properties)
-  (check-type name string)
-  (check-type parameter-type-ref string)
+  (check-type name symbol)
+  (check-type parameter-type-ref symbol)
   (make-instance
    'parameter
    :name name
@@ -1612,8 +1620,8 @@
 			   parameter-properties)
 	  obj
 	(cxml:with-element* ("xtce" "Parameter") 
-	  (cxml:attribute "name"  name)
-	  (cxml:attribute "parameterTypeRef" parameter-type-ref)
+	  (cxml:attribute "name"  (format-symbol name))
+	  (cxml:attribute "parameterTypeRef" (format-symbol parameter-type-ref))
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "initialValue" initial-value)
 	  (cxml-marshall long-description)
@@ -1648,7 +1656,7 @@
 (defmethod cxml-marshall ((obj parameter-properties))
   (with-slots (data-source read-only persistence system-name validity-condition physical-address-set time-association) obj
 	(cxml:with-element* ("xtce" "ParameterProperties")
-	  (optional-xml-attribute "dataSource" data-source)
+	  (optional-xml-attribute "dataSource" (format-symbol data-source))
 	  (if (not (equal read-only :null))
 		(optional-xml-attribute "readOnly" (format-bool read-only)))
 	  (optional-xml-attribute "persistence" persistence)
@@ -1834,7 +1842,7 @@
 (defmethod cxml-marshall ((obj comparison))
   (with-slots (parameter-ref value instance use-calibrated-value comparison-operator) obj
 	(cxml:with-element* ("xtce" "Comparison")
-	  (cxml:attribute "parameterRef" parameter-ref)
+	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
 	  (cxml:attribute "value" value)
 	  (optional-xml-attribute "instance" instance)
 	  (optional-xml-attribute "useCalibratedValue" (format-bool use-calibrated-value))
