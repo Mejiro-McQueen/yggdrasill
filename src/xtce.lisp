@@ -7,9 +7,14 @@
 
 (in-package :xtce)
 
+(define-condition non-unique-key (error)
+  ((key :initarg :key :reader key)
+   (space-system :initarg :space-system :reader space-system)))
+
 (defun add-unique-element (table key value)
   (check-type key symbol)
-  (assert (not (gethash key table)) (table key value) "Key: ~A is not unique in table ~A" key table)
+  (when (gethash key table)
+	(error 'non-unique-key :key key))
   (setf (gethash key table) value))
 
 (defun register-table (root-table table table-name)
@@ -45,6 +50,16 @@
    (short-description :initarg :short-description)))
 
 (defmethod print-object ((obj space-system) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (name short-description) obj
+          (format stream "name: ~a, description: ~a " name short-description))))
+
+(defmethod print-object ((obj parameter) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (name short-description parameter-type-ref) obj
+          (format stream "name: ~a, description: ~a, type: ~a " name short-description parameter-type-ref))))
+
+(defmethod print-object ((obj parameter-type) stream)
       (print-unreadable-object (obj stream :type t)
         (with-slots (name short-description) obj
           (format stream "name: ~a, description: ~a " name short-description))))
@@ -101,7 +116,18 @@
 					   (slot-name-items (when slot-name-sequence
 										  (slot-value slot-name-sequence 'items))))
 				 (dolist (item slot-name-items)
-				   (add-unique-element symbol-table (slot-value item 'name) item)
+				   (restart-case (add-unique-element symbol-table (slot-value item 'name) item)
+					 (continue-with-overwrite () :report (lambda (stream)
+														 (format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
+																 (slot-value item 'name)
+																 item
+																 space-system)))
+					 (continue-with-current () :report (lambda (stream)
+														 (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
+																 (slot-value item 'name)
+																 (gethash (slot-value item 'name) symbol-table)
+																 space-system))))
+				   
 				   ))))
 	
   (With-slots (symbol-table space-systems-list telemetry-metadata name parent-system) space-system
@@ -2179,4 +2205,3 @@
 ;Figure 3-13: DiscreteLookup describes discretelookuplisttype
 ; PG. 5-14 Typo "revolved"
                                                                                                                                                                                                                                                         
-
