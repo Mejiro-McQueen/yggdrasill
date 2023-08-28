@@ -14,7 +14,7 @@
 
 (defun register-table (root-table table table-name)
   "Add and register a table to a root table"
-  (setf (gethash './ table) root-table)
+  (setf (gethash '/ table) root-table)
   (add-unique-element root-table table-name table))
 
 (defmacro check-optional-type (place type &optional type-string)
@@ -106,6 +106,8 @@
 	
   (With-slots (symbol-table space-systems-list telemetry-metadata name parent-system) space-system
 	(print 'SPACE-SYSTEMS)
+	(add-unique-element symbol-table './ space-system)
+	
 	(when space-systems-list
 		(dolist (subsystem (slot-value space-systems-list 'items))
 		  (add-unique-element symbol-table (slot-value subsystem 'name) subsystem)))
@@ -140,7 +142,9 @@
                xml-base
                long-description
                alias-set
-               telemetry-metadata) obj
+               telemetry-metadata
+			   space-systems-list
+			   ) obj
     (cxml:with-element* ("xtce" "SpaceSystem")
       (cxml:attribute*  "xsi" "schemaLocation" "http://www.omg.org/spec/XTCE/20180204 XTCE12.xsd")
       (cxml:attribute "name" (format-symbol name))
@@ -148,7 +152,9 @@
       (optional-xml-attribute "operational-status" operational-status)
       (optional-xml-attribute "xml:base" xml-base)
       (cxml-marshall long-description)
-      (cxml-marshall telemetry-metadata))))
+      (cxml-marshall telemetry-metadata)
+	  (cxml-marshall space-systems-list)
+	  )))
 
 (defclass telemetry-metadata ()
   ((parameter-type-set :initarg :parameter-type-set
@@ -233,6 +239,8 @@
                    (form :initarg :form)))
 
 (defun make-unit (&key power factor description form)
+  (let ((valid-forms '(calibrated uncalibrated raw)))
+	(assert (member form valid-forms)))
   (make-instance 'unit :power power
                        :factor factor
                        :description description
@@ -250,7 +258,7 @@
       (if form (cxml:text form)))))
 
 (defun dump-space-system-xml (space-system)
-  (cxml:with-xml-output (cxml:make-string-sink :indentation 4 :canonical nil)
+  (cxml:with-xml-output (cxml:make-string-sink :indentation 2 :canonical nil )
     (cxml:comment "Bifrost Integral")
     (cxml:with-namespace ("xtce" "http://www.omg.org/spec/XTCE/20180204")
       (cxml:with-namespace ("xsi" "http://www.w3.org/2001/XMLSchema-instance")
@@ -849,34 +857,6 @@
 	  (cxml-marshall time-association)
 	  (cxml-marshall ancillary-data-set))))
 
-(defclass dimension () ((starting-index :initarg :starting-index :type starting-index)
-						(ending-index :initarg :ending-index :type ending-index)))
-
-(defclass dimension-list (xtce-list) ())
-
-(defun make-dimension-list (&rest items)
-  (make-xtce-list 'dimension "DimensionList" items))
-
-(defclass starting-index () ((value :initarg :value)))
-
-(defun make-starting-index (value)
-  (make-instance 'starting-index :value value))
-
-(defmethod cxml-marshall ((obj starting-index))
-  (with-slots (value) obj
-	(cxml:with-element* ("xtce" "StartingIndex")
-	(cxml-marshall value))))
-
-(defclass ending-index () ((value :initarg :value)))
-
-(defun make-ending-index (value)
-  (make-instance 'ending-index :value value))
-
-(defmethod cxml-marshall ((obj ending-index))
-  (with-slots (value) obj
-	(cxml:with-element* ("xtce" "EndingIndex")
-	(cxml-marshall value))))
-
 (defclass location-in-container-in-bits () ((reference-location :initarg :reference-location)
 											(value :initarg :value :type value)))
 
@@ -1022,7 +1002,7 @@
 (defmethod cxml-marshall ((obj fixed-value))
   (with-slots (value) obj
 	(cxml:with-element* ("xtce" "FixedValue")
-	  (cxml:text value))))
+	  (cxml:text (format nil "~A" value)))))
 
 (defclass linear-adjustment ()
   ((slope :initarg slope :type float)
@@ -1085,7 +1065,83 @@
       (check-type i parameter-type)))
   (make-xtce-set 'parameter-type "ParameterTypeSet" items))
 
-(defclass string-parameter-type (parameter-type) ())
+(defclass size-range-in-characters () ((min-inclusive :initarg :min-inclusive)
+									   (max-inclusive :initarg :max-inclusive)))
+
+(defun make-size-range-in-characters (min-inclusive max-inclusive)
+  (make-instance 'size-range-in-characters :min-inclusive min-inclusive
+										   :max-inclusive max-inclusive))
+
+(defmethod cxml-marshall ((obj size-range-in-characters))
+  (with-slots (min-inclusive max-inclusive) obj
+	(cxml:with-element* ("xtce" "SizeRangeInCharacters") 
+	  (cxml:attribute "minInclusive" min-inclusive)
+	  (cxml:attribute "maxInclusive" max-inclusive))))
+
+(defclass string-parameter-type (parameter-type)
+  ((short-description :initarg :short-description :type string)
+   (name :initarg :name :type symbol)
+   (base-type :initarg :base-type :type string)
+   (inital-value :initarg :initial-value :type string)
+   (restriction-pattern :initarg :restriction-pattern :type string)
+   (character-width :initarg :character-width)
+   (long-description :initarg :long-description :type long-description)
+   (alias-set :initarg :alias-set :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+   (unit-set :initarg :unit-set :type unit-set)
+   (encoding :initarg :encoding :type encoding)
+   (size-range-in-characters :initarg :size-range-in-characters :type size-range-in-characters)
+   (default-alarm :initarg :default-alarm :type default-alarm)
+   (context-alarm-list :initarg :context-alarm-list :type context-alarm-list)))
+
+(defun make-string-parameter-type (name &key
+										  short-description
+										  base-type
+										  initial-value
+										  restriction-pattern
+										  character-width
+										  long-description
+										  alias-set
+										  ancillary-data-set
+										  unit-set
+										  encoding
+										  size-range-in-characters
+										  default-alarm
+										  context-alarm-list)
+  (make-instance 'string-parameter-type
+				 :name name
+				 :short-description short-description
+				 :base-type base-type
+				 :initial-value initial-value
+				 :restriction-pattern restriction-pattern
+				 :character-width character-width
+				 :long-description long-description
+				 :alias-set alias-set
+				 :ancillary-data-set ancillary-data-set
+				 :unit-set unit-set
+				 :encoding encoding
+				 :size-range-in-characters size-range-in-characters
+				 :default-alarm default-alarm
+				 :context-alarm-list context-alarm-list))
+
+(defmethod cxml-marshall ((obj string-parameter-type))
+  (with-slots (short-description name base-type inital-value restriction-pattern
+			   character-width long-description alias-set ancillary-data-set unit-set
+			   encoding size-range-in-characters default-alarm context-alarm-list) obj
+	(cxml:with-element* ("xtce" "StringParameterType")
+	  (cxml:attribute "shortDescription" short-description)
+	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "initalValue" inital-value)
+	  (cxml:attribute "restrictionPattern" restriction-pattern)
+	  (cxml:attribute "characterWidth" character-width)
+	  (cxml-marshall long-description)
+	  (cxml-marshall alias-set)
+	  (cxml-marshall ancillary-data-set)
+	  (cxml-marshall unit-set)
+	  (cxml-marshall encoding)
+	  (cxml-marshall size-range-in-characters)
+	  (cxml-marshall default-alarm)
+	  (cxml-marshall context-alarm-list))))
 
 (defclass float-parameter-type (parameter-type)
   ((name :initarg :name
@@ -1318,6 +1374,77 @@
 (deftype positive-integer ()
   "A type for positive integers."
   `(and integer (satisfies plusp)))
+
+(defclass binary-context-alarm-list () ())
+
+(defclass binary-parameter-type (parameter-type)
+  ((short-description :initarg :short-description :type string)
+   (name :initarg :name :type string)
+   (initial-value :initarg :initial-value)
+   (base-type :initarg :base-type)
+   (data-encoding :initarg :data-encoding
+				  :type data-encoding)
+   (default-alarm :initarg :default-alarm
+				  :type enumeration-alarm-type)
+   (binary-context-alarm-list :initarg :binary-context-alarm-list
+							  :type binary-context-alarm-list)
+
+   (long-description :initarg :long-description
+					 :type long-description)
+   (alias-set :initarg :alias-set :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+   (unit-set :initarg :unit-set :type unit-set)))
+
+(defun make-binary-parameter-type (name
+									   &key
+										 short-description
+										 base-type
+										 initial-value
+										 long-description
+										 alias-set
+										 ancillary-data-set
+										 unit-set
+										 data-encoding
+										 default-alarm
+										 binary-context-alarm-list)
+  (check-type name symbol)
+  (check-optional-type short-description string)
+  ;(check-optional-type base-type T)
+  (check-optional-type long-description string)
+  (check-optional-type alias-set alias-set)
+  (check-optional-type ancillary-data-set ancillary-data-set)
+  (check-optional-type unit-set unit-set)
+  (check-optional-type data-encoding data-encoding)
+  (check-optional-type default-alarm enumeration-alarm)
+  (check-optional-type binary-context-alarm-list binary-context-alarm-list)
+  ;(check-optional-type initial-value T)
+  ; Need to check if inital value is in enumeration list
+  (make-instance 'binary-parameter-type :name name
+											:short-description short-description
+											:base-type base-type
+											:initial-value initial-value
+											:long-description long-description
+											:alias-set alias-set
+											:ancillary-data-set ancillary-data-set
+											:unit-set unit-set
+											:data-encoding data-encoding
+											:default-alarm default-alarm
+											:binary-context-alarm-list binary-context-alarm-list))
+
+(defmethod cxml-marshall ((obj binary-parameter-type))
+  (with-slots (name short-description base-type initial-value long-description alias-set ancillary-data-set unit-set data-encoding default-alarm binary-context-alarm-list) obj
+	(cxml:with-element* ("xtce" "BinaryParameterType")
+	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "shortDescription" short-description)
+	  (cxml:attribute "baseType" base-type)
+	  (cxml:attribute "initialValue" initial-value)
+	  (cxml-marshall long-description)
+	  (cxml-marshall alias-set)
+	  (cxml-marshall ancillary-data-set)
+	  (cxml-marshall unit-set)
+	  (cxml-marshall data-encoding)
+	  (cxml-marshall default-alarm)
+	  (cxml-marshall binary-context-alarm-list))))
 
 (defclass enumerated-parameter-type (parameter-type)
   (
@@ -1951,10 +2078,105 @@
       (if ancillary-data-set (cxml-marshall ancillary-data-set))
       (cxml-marshall term-list))))
 
+
+(defclass index () ((index-type :initarg :index-type))) ; deftype satisfies x or y or z
+
+(defclass starting-index (index) ())
+
+(defun make-starting-index (index-type)
+  (make-instance 'starting-index :index-type index-type))
+
+(defmethod cxml-marshall ((obj starting-index))
+  (with-slots (index-type) obj
+	(cxml:with-element* ("xtce" "StartingIndex")
+	  (cxml-marshall index-type))))
+
+(defclass ending-index (index) ())
+
+(defun make-ending-index (index-type)
+  (make-instance 'ending-index :index-type index-type))
+
+(defmethod cxml-marshall ((obj ending-index))
+  (with-slots (index-type) obj
+	(cxml:with-element* ("xtce" "EndingIndex")
+	  (cxml-marshall index-type))))
+
+
+(defclass dimension () ((starting-index :initarg :starting-index :type starting-index)
+						(ending-index :initarg :ending-index :type ending-index)))
+
+(defun make-dimension (starting-index ending-index)
+  (make-instance 'dimension :starting-index starting-index :ending-index ending-index))
+
+(defmethod cxml-marshall ((obj dimension))
+  (with-slots (starting-index ending-index) obj
+	(cxml:with-element* ("xtce" "Dimension")
+	  (cxml-marshall starting-index)
+	  (cxml-marshall ending-index))))
+
+(defclass dimension-list (xtce-list) ())
+
+(defun make-dimension-list (&rest items)
+  (make-xtce-list 'dimension "DimensionList" items))
+
+(defclass array-parameter-type (parameter-type)
+  ((short-description :initarg :short-description :type string)
+   (name :initarg :name :type symbol)
+   (array-type-ref :initarg :array-type-ref :type symbol)
+   (dimension-list :initarg :dimension-list :type dimension-list)
+   (long-description :initarg :long-description :type long-description)
+   (alias-set :initarg :alias-set :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+   (default-alarm :initarg :default-alarm :type default-alarm)
+   (context-alarm-list :initarg :context-alarm-list :type context-alarm-list)))
+
+(defun make-array-parameter-type (name array-type-ref
+								  &key
+									short-description
+									long-description
+									alias-set
+									ancillary-data-set
+									dimension-list)
+  (make-instance 'array-parameter-type
+				 :name name
+				 :array-type-ref array-type-ref
+				 :short-description short-description
+				 :long-description long-description
+				 :alias-set alias-set
+				 :ancillary-data-set ancillary-data-set
+				 :dimension-list dimension-list))
+
+
+(defmethod cxml-marshall ((obj array-parameter-type))
+  (with-slots (name array-type-ref short-description long-description alias-set ancillary-data-set dimension-list) obj
+	  (cxml:with-element* ("xtce" "ArrayParameterType")
+		(cxml:attribute "name" (format-symbol name))
+		(cxml:attribute "shortDescription" short-description)
+		(cxml:attribute "arrayTypeRef" (format-symbol array-type-ref))
+		(cxml-marshall dimension-list))))
+
+(defmethod cxml-marshall ((obj string-parameter-type))
+  (with-slots (short-description name base-type inital-value restriction-pattern
+			   character-width long-description alias-set ancillary-data-set unit-set
+			   encoding size-range-in-characters default-alarm context-alarm-list) obj
+	(cxml:with-element* ("xtce" "StringParameterType")
+	  (cxml:attribute "shortDescription" short-description)
+	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "initalValue" inital-value)
+	  (cxml:attribute "restrictionPattern" restriction-pattern)
+	  (cxml:attribute "characterWidth" character-width)
+	  (cxml-marshall long-description)
+	  (cxml-marshall alias-set)
+	  (cxml-marshall ancillary-data-set)
+	  (cxml-marshall unit-set)
+	  (cxml-marshall encoding)
+	  (cxml-marshall size-range-in-characters)
+	  (cxml-marshall default-alarm)
+	  (cxml-marshall context-alarm-list))))
+
 ; Note: CCSDS 660.1-G-2 typo Page 4-142, figure caption says ContainrRefEntry
 ; Note 4.3.4.8.7 StreamSegmentRefEntry Figure 4-84 describes stream segment and not stream segment ref
 ;Figure 3-13: DiscreteLookup describes discretelookuplisttype
 ; PG. 5-14 Typo "revolved"
                                                                                                                                                                                                                                                         
-
 
