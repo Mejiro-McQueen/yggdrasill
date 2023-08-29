@@ -96,7 +96,9 @@
   (when (slot-value space-system 'space-systems-list)
 	(with-slots (space-systems-list) space-system
 	  (dolist (child-system (slot-value space-systems-list 'items))
-		(finalize-space-system child-system space-system)))))
+		(finalize-space-system child-system space-system)
+		(type-check-parameter-set child-system)
+		))))
 
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
@@ -127,14 +129,15 @@
 	  (register-keys-in-sequence telemetry-metadata 'stream-set))
 	  )))
 
-(defun type-check-parameter-set (space-system root-system-table)
+(defun type-check-parameter-set (space-system)
+  (print (format nil "~A" space-system))
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
 		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set)))
 		 (parameters (if parameter-set (slot-value parameter-set 'items))))
 	(dolist (parameter parameters)
-	  (with-slots (parameter-type-ref) space-system
-		(assert (find-key-by-path parameter-type-ref symbol-table root-system-table))))))
+	  (with-slots (parameter-type-ref) parameter
+		(assert (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table))))))
 
 (defun make-long-description (s)
   (check-type s string)
