@@ -31,9 +31,11 @@
    (xml-base :initarg :xml-base)
    (service-set :initarg :service-set)
    (space-systems-list :initarg :space-systems-list :type space-system-list)
-   (parent-system :initarg :parent-system)
+   (parent-system :initarg :parent-system :writer :parent-system)
    (symbol-table :initarg :symbol-table :type hash-table)
-   (short-description :initarg :short-description)))
+   (short-description :initarg :short-description)
+   (root :initarg :root :type boole)
+   ))
 
 (defclass space-system-list (xtce-list) ())
 
@@ -42,6 +44,7 @@
 
 (defun make-space-system (name
                           &key
+							root
 							parent-system
 							header
                             operational-status
@@ -72,14 +75,25 @@
 							 :service-set service-set
 							 :space-systems-list space-systems-list
 							 :short-description short-description
-							 :symbol-table (make-filesystem-hash-table parent-system)))
+							 :symbol-table (make-filesystem-hash-table parent-system)
+							 :root root
+							 ))
 		 (new-symbol (eval `(defparameter ,name ,sys ,short-description))))
-	(when space-systems-list
+	(if root
+		(progn
+		  (finalize-space-system sys nil)
+		  new-symbol)
+		sys)))
+
+(defun finalize-space-system (space-system parent-system)
+  (setf (slot-value space-system 'parent-system) parent-system)
+  (when parent-system
+	(register-filesystem-hash-table (slot-value parent-system 'symbol-table) (slot-value space-system 'symbol-table) (slot-value space-system 'name)))
+  (register-system-keys space-system)
+  (when (slot-value space-system 'space-systems-list)
+	(with-slots (space-systems-list) space-system
 	  (dolist (child-system (slot-value space-systems-list 'items))
-		(setf (slot-value (symbol-value child-system) 'parent-system) sys)
-		))
-	(register-system-keys sys)
-	new-symbol))
+		(finalize-space-system child-system space-system)))))
 
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
@@ -102,19 +116,13 @@
 																 (gethash (slot-value item 'name) symbol-table)
 																 space-system))))))))
 	
-  (With-slots (symbol-table space-systems-list telemetry-metadata name parent-system) space-system
+  (With-slots (symbol-table space-systems-list telemetry-metadata name parent-system space-systems-list) space-system
 	(when telemetry-metadata
 	  (register-keys-in-sequence telemetry-metadata 'parameter-type-set)
 	  (register-keys-in-sequence telemetry-metadata 'parameter-set)
 	  (register-keys-in-sequence telemetry-metadata 'algorithm-set)
 	  (register-keys-in-sequence telemetry-metadata 'stream-set))
-
-	(when parent-system
-	  (register-filesystem-hash-table (slot-value parent-system 'symbol-table) symbol-table name)
-	(print space-system)
-	;(print symbol-table)
-	(print (alexandria:hash-table-keys symbol-table)))
-	)))
+	  )))
 
 (defun type-check-parameter-set (space-system root-system-table)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
@@ -2196,4 +2204,3 @@
 ; Note 4.3.4.8.7 StreamSegmentRefEntry Figure 4-84 describes stream segment and not stream segment ref
 ;Figure 3-13: DiscreteLookup describes discretelookuplisttype
 ; PG. 5-14 Typo "revolved"
-                                                                                                                                                                                                                                                        

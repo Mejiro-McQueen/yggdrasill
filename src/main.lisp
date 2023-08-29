@@ -563,6 +563,7 @@
 
 (make-space-system
  '|NASA-cFS|
+ :root t
  :short-description
  "Root system for the NASA-cFS"
 
@@ -1327,5 +1328,6 @@
 
 (describe #'accept-frame)
 
+(describe '|NASA-cFS|)
 
  ;TODO: There is an electronic data sheet that can be used to interpret the AMPCS xml
