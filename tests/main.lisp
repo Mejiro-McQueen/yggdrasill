@@ -58,7 +58,7 @@
 (in-suite find-xtce-key)
 
 (defmacro with-fixture-hash-table-tree (&body body)
-  `(let* ((TEST (make-filesystem-hash-table t))
+  `(let* ((TEST (make-filesystem-hash-table :root t))
 		  (SPICA (make-filesystem-hash-table))
 		  (SPICA-1 (make-filesystem-hash-table))
 		  (SPICA-2 (make-filesystem-hash-table))
@@ -148,41 +148,41 @@
 (test find-key-in-current-map
   "User wants to find an absolute key in a subpath"
   (with-fixture-hash-table-tree
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" TEST TEST) 'Week))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" SPICA TEST) 'Week))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" SYMBOLI TEST) 'Week))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-2/Daiwa" SYMBOLI TEST) 'Scarlet))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-2/Daiwa" Mejiro-3 TEST) 'Scarlet))
-	(is (equal (find-key-by-path "/TEST/Admire" SPICA TEST) 'Vega))
-	(is (equal (find-key-by-path "/TEST/Admire" SYMBOLI TEST) 'Vega))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SYMBOLI TEST) '|Mejiro-McQueen-Spring-Champion|))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SPICA-1 TEST) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" TEST) 'Week))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" SPICA) 'Week))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" SYMBOLI) 'Week))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-2/Daiwa" SYMBOLI) 'Scarlet))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-2/Daiwa" Mejiro-3) 'Scarlet))
+	(is (equal (find-key-by-path "/TEST/Admire" SPICA) 'Vega))
+	(is (equal (find-key-by-path "/TEST/Admire" SYMBOLI) 'Vega))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SYMBOLI) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SPICA-1) '|Mejiro-McQueen-Spring-Champion|))
 	))
 
 (test find-key-in-relative-path
   "User wants to find a relative key"
   (with-fixture-hash-table-tree
-	(is (equal (find-key-by-path "../McQueen" MEJIRO-1 TEST) '|Mejiro-McQueen|))
-	(is (equal (find-key-by-path "McQueen" MEJIRO TEST) '|Mejiro-McQueen|))
-	(is (equal (find-key-by-path "./McQueen" MEJIRO TEST) '|Mejiro-McQueen|))
-	(is (equal (find-key-by-path "../../SPICA-1/Mejiro" SPICA-Tenno-Sho-Spring TEST) 'MCQUEEN))
-	(is (equal (find-key-by-path "../../SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" MEJIRO-1 TEST) '|Mejiro-McQueen-Spring-Champion|))
-	(is (equal (find-key-by-path "../../SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Narita" MEJIRO-1 TEST) nil))
-	(is (equal (find-key-by-path "../../../SYMBOLI/RUDOLF" SPICA-Tenno-Sho-Autumn TEST) '|Symboli-Rudolf|))
+	(is (equal (find-key-by-path "../McQueen" MEJIRO-1) '|Mejiro-McQueen|))
+	(is (equal (find-key-by-path "McQueen" MEJIRO) '|Mejiro-McQueen|))
+	(is (equal (find-key-by-path "./McQueen" MEJIRO) '|Mejiro-McQueen|))
+	(is (equal (find-key-by-path "../../SPICA-1/Mejiro" SPICA-Tenno-Sho-Spring) 'MCQUEEN))
+	(is (equal (find-key-by-path "../../SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" MEJIRO-1) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "../../SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Narita" MEJIRO-1) nil))
+	(is (equal (find-key-by-path "../../../SYMBOLI/RUDOLF" SPICA-Tenno-Sho-Autumn) '|Symboli-Rudolf|))
 	))
 
 
 (test user-back-tracks-beyond-root
   "User wants to find a key, but the table path is disconnected"
   (with-fixture-hash-table-tree
-	(is (equal (find-key-by-path "../../../../../../../../../../McQueen" MEJIRO-1 TEST) nil))
-	(signals warn (find-key-by-path "../../McQueen" MEJIRO-1 TEST) '|Mejiro-McQueen|)
+	(is (equal (find-key-by-path "../../../../../../../../../../McQueen" MEJIRO-1) nil))
+	(signals warn (find-key-by-path "../../McQueen" MEJIRO-1) '|Mejiro-McQueen|)
 	))
   
 
 (test find-key-in-disconnected-path
   "User wants to find a key, but the table path is disconnected"
-  (is (equal (find-key-by-path "../../McQueen" MEJIRO-1 TEST) '|Mejiro-McQueen|))
+  (is (equal (find-key-by-path "../../McQueen" MEJIRO-1) '|Mejiro-McQueen|))
   
 
   )

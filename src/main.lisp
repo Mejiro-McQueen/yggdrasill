@@ -1,8 +1,8 @@
-(ql:quickload "bifrost-yggdrasill")
+(ql:quickload "filesystem-hash-table")
 (ql:quickload "uiop")
 (ql:quickload "alexandria")
 (ql:quickload "cxml")
-(ql:quickload "filesystem-hash-table")
+(ql:quickload "bifrost-yggdrasill")
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar debug-mode t)
@@ -38,7 +38,6 @@
      ldb-msb (16 0 #xABCD) = #xABCD
      ldb-msb (4 2) = #xA
      ldb-msb (4 4) = #xC
-     
 "
   (let* ((msb (hex-length-in-bits integer))
 		 (msb-pos (- msb position size)))
@@ -1314,7 +1313,7 @@
 	  (make-parameter '|TO_STR| '|ASCII-String-Type| :short-description ""))))))
 
 
-(time (dump-space-system-xml (symbol-value 'NASA-cFS)))
+(time (dump-space-system-xml (symbol-value '|NASA-cFS|)))
 
 
 (defparameter *frame* #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)

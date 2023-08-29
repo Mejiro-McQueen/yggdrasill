@@ -12,12 +12,13 @@
 (define-condition non-unique-key (error)
   ((key :initarg :key :reader key)))
 
-(defun make-filesystem-hash-table (&optional root)
+(defun make-filesystem-hash-table (&key root)
   "ARGUMENTS:
      root: If true, signifies that this table is a root filesystem"
   (let ((res (make-hash-table)))
 	(when root
-	  (setf (gethash (intern "/") res) 'ROOT))
+	  (register-filesystem-hash-table res res '/)
+	  (setf (gethash (intern "/") res) res))
 	res))
 
 (defun add-unique-key (key value table)
@@ -30,11 +31,12 @@
 (defun register-filesystem-hash-table (root-table table table-key)
   "Add and register a table to a root table"
   (setf (gethash (intern "../") table) root-table)
+  (setf (gethash (intern "./") table) table)
   (add-unique-key table-key table root-table)
   (let ((root (gethash (intern "/") root-table)))
 	(setf (gethash (intern "/") table) root)))
 
-(defun find-key-by-path (requested-key current-table root-table)
+(defun find-key-by-path (requested-key current-table)
   (unless current-table
 	#+ *debug-mode*
 	(print "No Hash Table Found: Are your references broken?")
@@ -46,8 +48,8 @@
 	(multiple-value-bind (flag path-components file) (uiop::split-unix-namestring-directory-components requested-key)
 	  (let* ((target (intern file))
 			 (match-in-current-table? (gethash target current-table))
-			 (parent-table (if current-table
-							   (gethash (intern "../") current-table)))
+			 (parent-table (gethash (intern "../") current-table))
+			 (root-table (gethash (intern "/") current-table))
 			 (next-requested-key (format-path (append (cdr path-components) (list (format nil "~A" target))))))
 
 		;; #+*DEBUG-MODE*
@@ -65,7 +67,7 @@
 		   #+ *DEBUG-MODE*
 		   (print 'ABSOLUTE)
 		   ;Enforce Recursion
-		   (return-from find-key-by-path (find-key-by-path next-requested-key root-table root-table)))
+		   (return-from find-key-by-path (find-key-by-path next-requested-key root-table)))
 
 		  (:relative
 		   (when (member :BACK path-components)
@@ -73,14 +75,13 @@
 			 (print 'Go-Back)
 			 (when (equal current-table root-table)
 			   (warn "Cycle detected: Attempted to go to parent table but ended up at the same place"))
-			 (return-from find-key-by-path (find-key-by-path next-requested-key parent-table root-table)))
+			 (return-from find-key-by-path (find-key-by-path next-requested-key parent-table)))
 
 		   (when path-components
 			 #+ *DEBUG-MODE*
 			 (print 'Keep-Looking)
 			 (return-from find-key-by-path (find-key-by-path next-requested-key
-															 (gethash (intern (car path-components)) current-table)
-															 root-table)))
+															 (gethash (intern (car path-components)) current-table))))
 
 		   (when match-in-current-table?
 			 #+ *DEBUG-MODE*
@@ -99,7 +100,7 @@
 (print *package*)
 
 (defmacro with-fixture-hash-table-tree (&body body)
-  `(let* ((TEST (make-filesystem-hash-table t))
+  `(let* ((TEST (make-filesystem-hash-table :root t))
 		  (SPICA (make-filesystem-hash-table))
 		  (SPICA-1 (make-filesystem-hash-table))
 		  (SPICA-2 (make-filesystem-hash-table))
@@ -187,7 +188,9 @@
 	 (progn ,@body)))
 
 (with-fixture-hash-table-tree
-  (find-key-by-path "./SPICA-1/Special" SPICA SPICA)
+  (find-key-by-path "./SPICA-1/Special" SPICA)
+  ;(alexandria:hash-table-keys TEST)
+  ;(gethash '/ TEST)
   )
 
 (defparameter *DEBUG-MODE* t)

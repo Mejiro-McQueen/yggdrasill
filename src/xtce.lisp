@@ -75,20 +75,23 @@
 							 :service-set service-set
 							 :space-systems-list space-systems-list
 							 :short-description short-description
-							 :symbol-table (make-filesystem-hash-table parent-system)
+							 :symbol-table (make-filesystem-hash-table)
 							 :root root
 							 ))
 		 (new-symbol (eval `(defparameter ,name ,sys ,short-description))))
+	(when root
+	  (setf (slot-value sys 'symbol-table) (make-filesystem-hash-table :root t))
+	  (finalize-space-system sys nil))
 	(if root
-		(progn
-		  (finalize-space-system sys nil)
-		  new-symbol)
-		sys)))
+	 new-symbol
+	 sys)))
 
 (defun finalize-space-system (space-system parent-system)
   (setf (slot-value space-system 'parent-system) parent-system)
   (when parent-system
-	(register-filesystem-hash-table (slot-value parent-system 'symbol-table) (slot-value space-system 'symbol-table) (slot-value space-system 'name)))
+	(register-filesystem-hash-table (slot-value parent-system 'symbol-table) (slot-value space-system 'symbol-table) (slot-value space-system 'name))
+	(add-unique-key 'back parent-system (slot-value space-system 'symbol-table))
+	)
   (register-system-keys space-system)
   (when (slot-value space-system 'space-systems-list)
 	(with-slots (space-systems-list) space-system
