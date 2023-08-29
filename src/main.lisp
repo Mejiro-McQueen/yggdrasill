@@ -610,6 +610,17 @@
 	:signed nil
 	:size-in-bits 64)
 
+   (make-float-parameter-type
+	'|F64-Type|
+	:short-description
+	"64 bit float."
+	:size-in-bits 64)
+
+   (make-float-parameter-type
+	'|F32-Type|
+	:short-description
+	"32 bit float.")
+
    (make-enumerated-parameter-type
 	'|on-off-enum-type|
 	:short-description "On/Off enumeration."
@@ -638,8 +649,8 @@
 
 	:parameter-set
 	(make-parameter-set
-	 (make-parameter '|HEATERSTATUS| '|on-off-enum-type| :short-description "1 = ON, 0 = OFF")
-	 (make-parameter '|ON_ORBIT_ENUM| '|U8-Type| :short-description "FSW Enumeration") ;TODO: Investigate correct type
+	 (make-parameter '|HEATERSTATUS| '|/on-off-enum-type| :short-description "1 = ON, 0 = OFF")
+	 (make-parameter '|ON_ORBIT_ENUM| '|/U8-Type| :short-description "FSW Enumeration") ;TODO: Investigate correct type
 	 (make-parameter '|BAT_VOLTAGE| '|Battery-Voltage-Type| :short-description "Battery Voltage (Sine Wave)")
 	)))
 
@@ -680,11 +691,11 @@
 	 (make-parameter '|APPDATA| '|APPDATA-Type| :short-description "Array of registered application table data.")
 	 (make-parameter '|APP_BUFFERPOOLHANDLE| '|/U32-Type| :short-description "")
 	 (make-parameter '|APP_CHANNUM| '|/U32-Type| :short-description "")
-	 (make-parameter '|APP_CLASS| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|APP_CLASS| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|APP_CONDCODE| '|/U32-Type| :short-description "")
-	 (make-parameter '|APP_DSTFILE| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|APP_DSTFILE| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|APP_ENGINECYCLECOUNT| '|/U32-Type| :short-description "")
-	 (make-parameter '|APP_LASTFAILEDTRANS| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|APP_LASTFAILEDTRANS| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|APP_LOWMEMORYMARK| '|/U32-Type| :short-description "")
 	 (make-parameter '|APP_MAXMEMNEEDED| '|/U32-Type| :short-description "")
 	 (make-parameter '|APP_MEMALLOCATED| '|/U32-Type| :short-description "")
@@ -697,8 +708,8 @@
 	 (make-parameter '|APP_QNODESALLOCATED| '|/U32-Type| :short-description "")
 	 (make-parameter '|APP_QNODESDEALLOCATED| '|/U32-Type| :short-description "")
 	 (make-parameter '|APP_SOURCE| '|/U32-Type| :short-description "")
-	 (make-parameter '|APP_SRCENTITYID| '|ASCII-String-Type| :short-description "")
-	 (make-parameter '|APP_SRCFILE| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|APP_SRCENTITYID| '|/ASCII-String-Type| :short-description "")
+	 (make-parameter '|APP_SRCFILE| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|APP_STATUS| '|/U32-Type| :short-description "")
 	 (make-parameter '|APP_TOTALABANDONTRANS| '|/U32-Type| :short-description "")
 	 (make-parameter '|APP_TOTALCOMPLETEDTRANS| '|/U32-Type| :short-description "")
@@ -712,7 +723,7 @@
 	 (make-parameter '|BOOTSOURCE| '|/U32-Type| :short-description "Boot source ( as provided from BSP ).")
 	 (make-parameter '|CFECORECHECKSUM| '|/U16-Type|  :short-description "Checksum of cFE Core Code.")
 	 (make-parameter '|CFEMAJORVERSION| '|/U8-Type| :short-description "Major Version Number of cFE.")
-	 (make-parameter '|CFEMINORVERSION| '|U8Type| :short-description "Minor Version Number of cFE.")
+	 (make-parameter '|CFEMINORVERSION| '|/U8-Type| :short-description "Minor Version Number of cFE.")
 	 (make-parameter '|CFEMISSIONREVISION| '|/U8-Type| :short-description "Mission Version Number of cFE.")
 	 (make-parameter '|CFEREVISION| '|/U8-Type| :short-description "Sub-Minor Version Number of cFE.")
 	 (make-parameter '|CLOCKSTATEAPI| '|/U16-Type| :short-description "API State.")
@@ -733,13 +744,13 @@
 	 (make-parameter '|ENG_CHECKSUM| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_CONDCODE| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_DELICODE| '|/U32-Type| :short-description "")
-	 (make-parameter '|ENG_DSTFILE| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|ENG_DSTFILE| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|ENG_FDLENGTH| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_FDOFFSET| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_FILESIZE| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_FINALSTAT| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_FLAGS| '|/U32-Type| :short-description "")
-	 (make-parameter '|ENG_FLIGHTENGINEENTITYID| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|ENG_FLIGHTENGINEENTITYID| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|ENG_MACHINESALLOCATED| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_MACHINESDEALLOCATED| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_NAKS| '|/U8-Type| :short-description "")
@@ -748,10 +759,10 @@
 	 (make-parameter '|ENG_PHASE| '|/U8-Type| :short-description "")
 	 (make-parameter '|ENG_RCVDFILESIZE| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_ROLE| '|/U32-Type| :short-description "")
-	 (make-parameter '|ENG_SRCFILE| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|ENG_SRCFILE| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|ENG_STARTTIME| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_STATE| '|/U32-Type| :short-description "")
-	 (make-parameter '|ENG_TMPFILE| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|ENG_TMPFILE| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|ENG_TRANSLEN| '|/U8-Type| :short-description "")
 	 (make-parameter '|ENG_TRANSNUM| '|/U32-Type| :short-description "")
 	 (make-parameter '|ENG_TRANSVAL| '|/U8-Type| :short-description "")
@@ -763,15 +774,15 @@
 	 (make-parameter '|HEAPBYTESFREE| '|/U32-Type| :short-description "Number of free bytes remaining in the OS heap.")
 	 (make-parameter '|HEAPMAXBLOCKSIZE| '|/U32-Type| :short-description "Number of bytes in the largest free block.")
 	 (make-parameter '|INTERNALERRCNT| '|/U8-Type| :short-description "Count of queue read or write errors.")
-	 (make-parameter '|LASTFILEDUMPED| '|ASCII-String-Type| :short-description "Path and Name of last file dumped to.")
-	 (make-parameter '|LASTFILELOADED| '|ASCII-String-Type| :short-description "Path and Name of last table image file loaded.")
-	 (make-parameter '|LASTTABLELOADED| '|ASCII-String-Type| :short-description "Name of the last table loaded.")
-	 (make-parameter '|LASTUPDATEDTBL| '|ASCII-String-Type| :short-description "Name of the last table updated.")
+	 (make-parameter '|LASTFILEDUMPED| '|/ASCII-String-Type| :short-description "Path and Name of last file dumped to.")
+	 (make-parameter '|LASTFILELOADED| '|/ASCII-String-Type| :short-description "Path and Name of last table image file loaded.")
+	 (make-parameter '|LASTTABLELOADED| '|/ASCII-String-Type| :short-description "Name of the last table loaded.")
+	 (make-parameter '|LASTUPDATEDTBL| '|/ASCII-String-Type| :short-description "Name of the last table updated.")
 	 (make-parameter '|LASTUPDATETIME_SECONDS| '|/U32-Type| :short-description "")
 	 (make-parameter '|LASTUPDATETIME_SUBSECONDS| '|/U32-Type| :short-description "")
-	 (make-parameter '|LASTVALCRC| '|32-Bit-Checksum-Type| :short-description "Data Integrity Value computed for last table validated.")
+	 (make-parameter '|LASTVALCRC| '|/32-Bit-Checksum-Type| :short-description "Data Integrity Value computed for last table validated.")
 	 (make-parameter '|LASTVALSTATUS| '|/U8-Type| :short-description "Returned status from validation function for last table validated.")
-	 (make-parameter '|LASTVALTABLENAME| '|ASCII-String-Type| :short-description "Name of last table validated.")
+	 (make-parameter '|LASTVALTABLENAME| '|/ASCII-String-Type| :short-description "Name of last table validated.")
 	 (make-parameter '|LEAPSECONDS| '|/U16-Type| :short-description "Current Leaps Seconds.")
 	 (make-parameter '|LOGENABLED| '|/U8-Type| :short-description "Current event log enable/disable state.")
 	 (make-parameter '|LOGFULLFLAG| '|/U8-Type| :short-description "Local event log full flag.")
@@ -783,7 +794,7 @@
 	 (make-parameter '|MESSAGEFORMATMODE| '|/U8-Type| :short-description "Event message format mode (short/long).")
 	 (make-parameter '|MESSAGESENDCOUNTER| '|/U8-Type| :short-description "Event message send counter.")
 	 (make-parameter '|MESSAGETRUNCCOUNTER| '|/U8-Type| :short-description "Event message truncation counter.")
-	 (make-parameter '|MESSAGE| '|ASCII-String-Type| :short-description "Event message string.")
+	 (make-parameter '|MESSAGE| '|/ASCII-String-Type| :short-description "Event message string.")
 	 (make-parameter '|MSGLIMERRCNT| '|/U16-Type| :short-description "Count of msg id to pipe errors.")
 	 (make-parameter '|MSGRECEIVEERRCNT| '|/U8-Type| :short-description "Count of message receive errors.")
 	 (make-parameter '|MSGSENDERRCNT| '|/U8-Type| :short-description "Count of message send errors.")
@@ -797,7 +808,7 @@
 	 (make-parameter '|OSALMISSIONREVISION| '|/U8-Type| :short-description "OS Abstraction Layer MissionRevision Number.")
 	 (make-parameter '|OSALREVISION| '|/U8-Type| :short-description "OS Abstraction Layer Revision Number.")
 	 (make-parameter '|OUTPUTPORT| '|/U8-Type| :short-description "Output port mask.")
-	 (make-parameter '|PACKETID_APPNAME| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|PACKETID_APPNAME| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|PACKETID_EVENTID| '|/U16-Type| :short-description "")
 	 (make-parameter '|PACKETID_EVENTTYPE| '|/U16-Type| :short-description "")
 	 (make-parameter '|PACKETID_PROCESSORID| '|/U32-Type| :short-description "")
@@ -835,7 +846,7 @@
 	 (make-parameter '|UNMARKEDMEM| '|/U32-Type| :short-description "cfg param CFE_SB_BUF_MEMORY_BYTES minus Peak Memory in use")
 	 (make-parameter '|UNREGISTEREDAPPCOUNTER| '|/U8-Type| :short-description "Unregistered application message send counter.")
 	 (make-parameter '|UP_FAILEDCOUNTER| '|/U32-Type| :short-description "")
-	 (make-parameter '|UP_LASTFILEUPLINKED| '|ASCII-String-Type| :short-description "")
+	 (make-parameter '|UP_LASTFILEUPLINKED| '|/ASCII-String-Type| :short-description "")
 	 (make-parameter '|UP_METACOUNT| '|/U32-Type| :short-description "")
 	 (make-parameter '|UP_SUCCESSCOUNTER| '|/U32-Type| :short-description "")
 	 (make-parameter '|UP_UPLINKACTIVEQFILECNT| '|/U32-Type| :short-description "")
@@ -949,7 +960,7 @@
 	 (make-parameter '|FILESTATUS| '|/U32-Type| :short-description "Status indicating whether the file is open or closed.")
 	 (make-parameter '|FILESIZE| '|/U32-Type| :short-description "File Size.")
 	 (make-parameter '|LASTMODIFIEDTIME| '|/U32-Type| :short-description "Last Modification Time of File.")
-	 (make-parameter '|FILENAME| '|ASCII-String-Type| :short-description "Name of file.")
+	 (make-parameter '|FILENAME| '|/ASCII-String-Type| :short-description "Name of file.")
 	 (make-parameter '|NUMOPENFILES-8| '|/U8-Type| :short-description "Number of open files in the system.")
 	 (make-parameter '|CHILDCMDCOUNTER| '|/U8-Type| :short-description "Child task command counter.")
 	 (make-parameter '|CHILDCMDERRCOUNTER| '|/U8-Type| :short-description "Child task command error counter.")
@@ -981,7 +992,7 @@
 	 (make-parameter '|CFECORECHECKSUM| '|/U16-Type| :short-description "Checksum of cFE Core Code.") ;TODO: Investigate type
 	 (make-parameter '|TBL_CMDCOUNTER| '|/U8-Type| :short-description "TBL  Count of valid commands received.")
 	 (make-parameter '|TBL_ERRCOUNTER| '|/U8-Type| :short-description "TBL  Count of invalid commands received.")
-	 (make-parameter '|NUMTABLES| '|U6-Type| :short-description "TBL Number of Tables Registered."))))
+	 (make-parameter '|NUMTABLES| '|/U16-Type| :short-description "TBL Number of Tables Registered."))))
    
   (make-space-system
    '|HS|
@@ -1139,7 +1150,7 @@
 	  (make-parameter '|ADDRESS| '|/U32-Type| :short-description "Fully resolved address used for last command.")
 	  (make-parameter '|DATAVALUE| '|/U32-Type| :short-description "Last command data value -- may be fill pattern or peek/poke value.")
 	  (make-parameter '|BYTESPROCESSED| '|/U32-Type| :short-description "Bytes processed for last command.")
-	  (make-parameter '|FILENAME| '|ASCII-String-Type| :short-description "Name of the data file used for last command, where applicable."))))
+	  (make-parameter '|FILENAME| '|/ASCII-String-Type| :short-description "Name of the data file used for last command, where applicable."))))
 
   (make-space-system
    '|SCH|
@@ -1252,7 +1263,7 @@
       ATS execution will continue if this flag is set to TRUE and will stop if this flag is set to FALSE.")
 	 (make-parameter '|CMDERRCTR| '|/U8-Type| :short-description "Counts Request Errors.")
 	 (make-parameter '|CMDCTR| '|/U8-Type| :short-description "Counts Ground Requests.")
-	 (make-parameter '|SWITCHPENDFLAG| '|on-off-enum-type| :short-description "Is an ats switch pending? 0 = NO, 1 = YES This means that the ATS switch
+	 (make-parameter '|SWITCHPENDFLAG| '|/on-off-enum-type| :short-description "Is an ats switch pending? 0 = NO, 1 = YES This means that the ATS switch
       is waiting until a safe time")
 	 (make-parameter '|NUMRTSACTIVE| '|/U16-Type| :short-description "number of RTSs currently active")
 	 (make-parameter '|RTSNUMBER| '|/U16-Type| :short-description "next RTS number")
@@ -1306,11 +1317,11 @@
 	  (make-parameter '|TO_W_2| '|/U16-Type| :short-description "") 
 	  (make-parameter '|TO_DW_1| '|/U16-Type| :short-description "")
 	  (make-parameter '|TO_DW_2| '|/U16-Type| :short-description "")
-	  (make-parameter '|TO_F_1| '|F32-Type| :short-description "") 
-	  (make-parameter '|TO_F_2| '|F32-Type| :short-description "") 
-	  (make-parameter '|TO_DF_1| '|F64-Type| :short-description "")
-	  (make-parameter '|TO_DF_2| '|F64-Type| :short-description "")
-	  (make-parameter '|TO_STR| '|ASCII-String-Type| :short-description ""))))))
+	  (make-parameter '|TO_F_1| '|/F32-Type| :short-description "") 
+	  (make-parameter '|TO_F_2| '|/F32-Type| :short-description "") 
+	  (make-parameter '|TO_DF_1| '|/F64-Type| :short-description "")
+	  (make-parameter '|TO_DF_2| '|/F64-Type| :short-description "")
+	  (make-parameter '|TO_STR| '|/ASCII-String-Type| :short-description ""))))))
 
 
 (time (dump-space-system-xml (symbol-value '|NASA-cFS|)))

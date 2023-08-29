@@ -97,7 +97,9 @@
 	(with-slots (space-systems-list) space-system
 	  (dolist (child-system (slot-value space-systems-list 'items))
 		(finalize-space-system child-system space-system)
-		(type-check-parameter-set child-system)
+		(restart-case (type-check-parameter-set child-system)
+		  (continue-with-overwrite () :report (lambda (stream) (format stream "overwrite parameter-ref value and continue."))))
+
 		))))
 
 (defclass long-description () ((long-description :initarg :long-description
@@ -114,30 +116,42 @@
 														 (format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
 																 (slot-value item 'name)
 																 item
-																 space-system)))
+																 space-system))
+					   (setf (gethash (slot-value item 'name) symbol-table item) item))
+					 (continue-with-new-key (new-key) :report (lambda (stream)
+														 (format stream "provide a new key and assign value: ~A for space system ~A"
+																 item
+																 space-system))
+											   :interactive (lambda () (prompt-new-value "Enter a new unique key-name."))
+					   (add-unique-key new-key item symbol-table))
 					 (continue-with-current () :report (lambda (stream)
 														 (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
 																 (slot-value item 'name)
 																 (gethash (slot-value item 'name) symbol-table)
 																 space-system))))))))
 	
-  (With-slots (symbol-table space-systems-list telemetry-metadata name parent-system space-systems-list) space-system
-	(when telemetry-metadata
-	  (register-keys-in-sequence telemetry-metadata 'parameter-type-set)
-	  (register-keys-in-sequence telemetry-metadata 'parameter-set)
-	  (register-keys-in-sequence telemetry-metadata 'algorithm-set)
-	  (register-keys-in-sequence telemetry-metadata 'stream-set))
-	  )))
+	(With-slots (symbol-table space-systems-list telemetry-metadata name parent-system) space-system
+	    (when telemetry-metadata
+		  (register-keys-in-sequence telemetry-metadata 'parameter-type-set)
+		  (register-keys-in-sequence telemetry-metadata 'parameter-set)
+		  (register-keys-in-sequence telemetry-metadata 'algorithm-set)
+		  (register-keys-in-sequence telemetry-metadata 'stream-set)))))
+
+(define-condition parameter-ref-not-found (error)
+  ((parameter :initarg :parameter :accessor parameter)
+   (parameter-ref :initarg :parameter-ref :accessor paramter-ref))
+  (:report (lambda (condition stream)
+     (format stream "Could not find parameter-ref: ~a, for parameter: ~a.~&"(paramter-ref condition) (parameter condition)))))
 
 (defun type-check-parameter-set (space-system)
-  (print (format nil "~A" space-system))
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
 		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set)))
 		 (parameters (if parameter-set (slot-value parameter-set 'items))))
 	(dolist (parameter parameters)
 	  (with-slots (parameter-type-ref) parameter
-		(assert (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table))))))
+		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
+		  (error `parameter-ref-not-found :parameter parameter :parameter-ref parameter-type-ref))))))
 
 (defun make-long-description (s)
   (check-type s string)
@@ -147,7 +161,6 @@
   (with-slots (long-description) obj
     (cxml:with-element* ("xtce" "LongDescription"))
     (cxml:text long-description)))
-
 
 (defgeneric cxml-marshall (obj))
 
@@ -2210,3 +2223,9 @@
 ; Note 4.3.4.8.7 StreamSegmentRefEntry Figure 4-84 describes stream segment and not stream segment ref
 ;Figure 3-13: DiscreteLookup describes discretelookuplisttype
 ; PG. 5-14 Typo "revolved"
+
+(defun prompt-new-value (prompt)
+  (format *query-io* prompt) 
+  (force-output *query-io*)  
+  (read *query-io*))
+

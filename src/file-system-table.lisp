@@ -10,7 +10,11 @@
 (in-package :filesystem-hash-table)
 
 (define-condition non-unique-key (error)
-  ((key :initarg :key :reader key)))
+  ((key :initarg :key :accessor key)
+   (value :initarg :value :accessor value)
+   (table :initarg :table :accessor table))
+  (:report (lambda (condition stream) (format stream "key: ~a, already exists in table: ~a, with value: ~a"
+										 (key condition) (table condition) (value condition)))))
 
 (defun make-filesystem-hash-table (&key root)
   "ARGUMENTS:
@@ -25,7 +29,7 @@
   (check-type key symbol)
   (check-type table hash-table)
   (when (gethash key table)
-	(error 'non-unique-key :key key))
+	(error 'non-unique-key :key key :value value :table table))
   (setf (gethash key table) value))
 
 (defun register-filesystem-hash-table (root-table table table-key)
