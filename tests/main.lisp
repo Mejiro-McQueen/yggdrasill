@@ -2,7 +2,7 @@
 (in-package :cl-user)
 (defpackage bifrost-yggdrasill-test 
   (:use :cl
-		:xtce
+		:filesystem-hash-table
         :fiveam))
 (in-package :bifrost-yggdrasill-test)
 
@@ -56,102 +56,93 @@
   :description "Test my system")
 
 (in-suite find-xtce-key)
+
 (defmacro with-fixture-hash-table-tree (&body body)
-  `(let* ((TEST (make-hash-table))
-		  (SPICA (make-hash-table))
-		  (SPICA-1 (make-hash-table))
-		  (SPICA-2 (make-hash-table))
-		  (SPICA-Injured (make-hash-table))
-		  (SPICA-Tenno-Sho (make-hash-table))
-		  (SPICA-Tenno-Sho-Spring (make-hash-table))
-		  (SPICA-Tenno-Sho-Autumn (make-hash-table))
-		  (SYMBOLI (make-hash-table))
-		  (MEJIRO (make-hash-table))
-		  (MEJIRO-1 (make-hash-table))
-		  (MEJIRO-2 (make-hash-table))
-		  (MEJIRO-3 (make-hash-table)))
+  `(let* ((TEST (make-filesystem-hash-table t))
+		  (SPICA (make-filesystem-hash-table))
+		  (SPICA-1 (make-filesystem-hash-table))
+		  (SPICA-2 (make-filesystem-hash-table))
+		  (SPICA-Injured (make-filesystem-hash-table))
+		  (SPICA-Tenno-Sho (make-filesystem-hash-table))
+		  (SPICA-Tenno-Sho-Spring (make-filesystem-hash-table))
+		  (SPICA-Tenno-Sho-Autumn (make-filesystem-hash-table))
+		  (SYMBOLI (make-filesystem-hash-table))
+		  (MEJIRO (make-filesystem-hash-table))
+		  (MEJIRO-1 (make-filesystem-hash-table))
+		  (MEJIRO-2 (make-filesystem-hash-table))
+		  (MEJIRO-3 (make-filesystem-hash-table)))
 
 										;TEST
-	 (setf (gethash './ TEST) TEST)
-	 (setf (gethash '|Admire| TEST) 'VEGA)
-	 (setf (gethash '|Machikane| TEST) 'TANEHAUSER)
-	 (setf (gethash '|Manhattan| TEST) 'CAFE)
-	 (setf (gethash 'SPICA TEST) SPICA)
-	 (setf (gethash 'SYMBOLI TEST) SYMBOLI)
-	 (setf (gethash 'MEJIRO TEST) MEJIRO)
+	 (add-unique-key '|Admire| 'VEGA TEST)
+	 (add-unique-key '|Machikane| 'TANEHAUSER TEST)
+	 (add-unique-key '|Manhattan| 'CAFE TEST)
 	   
 										;SPICA
-	 (setf (gethash './ SPICA) TEST)
-	 (setf (gethash 'SPICA-1 SPICA) SPICA-1)
-	 (setf (gethash 'SPICA-2 SPICA) SPICA-2)
-	 (setf (gethash '|SPICA-Tenno-Sho| SPICA) SPICA-Tenno-Sho)
+	 (register-filesystem-hash-table TEST SPICA 'SPICA)
+	 (add-unique-key '|SPICA-Tenno-Sho| SPICA-Tenno-Sho SPICA)
 	
 										; SPICA-1
-	 (setf (gethash './ SPICA-1) SPICA)
-	 (setf (gethash '|Special| SPICA-1) 'WEEK)
-	 (setf (gethash '|Silence| SPICA-1) 'SUZUKA)
-	 (setf (gethash '|Mejiro| SPICA-1) 'MCQUEEN)
+	 (register-filesystem-hash-table SPICA SPICA-1 'SPICA-1)
+	 (add-unique-key '|Special| 'WEEK SPICA-1)
+	 (add-unique-key '|Silence| 'SUZUKA SPICA-1)
+	 (add-unique-key '|Mejiro| 'MCQUEEN SPICA-1)
 
 										; SPICA-2
-	 (setf (gethash './ SPICA-2) SPICA)
-	 (setf (gethash '|Vodka| SPICA-2) 'VODKA)
-	 (setf (gethash '|Gold| SPICA-2) 'SHIP)
-	 (setf (gethash '|Daiwa| SPICA-2) 'SCARLET)
-	 (setf (gethash '|Tokai| SPICA-2) 'TEIO)
+	 (register-filesystem-hash-table SPICA SPICA-2 'SPICA-2)
+	 (add-unique-key '|Vodka| 'VODKA SPICA-2)
+	 (add-unique-key '|Gold|  'SHIP SPICA-2)
+	 (add-unique-key '|Daiwa| 'SCARLET SPICA-2)
+	 (add-unique-key '|Tokai| 'TEIO SPICA-2)
 
 										;SPICA-Injured (Disconnected-Table)
-	 (setf (gethash './ SPICA-Injured) SPICA)
-	 (setf (gethash '|Tokai| SPICA-2) '|Teio-Injured|)
-	 (setf (gethash '|Mejiro| SPICA-2) '|McQueen-Injured|)
+	 (add-unique-key' |Tokai| '|Teio-Injured| SPICA-Injured)
+	 (add-unique-key' |Mejiro| '|McQueen-Injured| SPICA-Injured)
 
 										;SPICA-Tenno-Sho
-	 (setf (gethash './ SPICA-Tenno-Sho) SPICA)
-	 (setf (gethash '|SPICA-Tenno-Sho-Spring| Spica-Tenno-Sho) SPICA-Tenno-Sho-Spring)
-	 (setf (gethash '|SPICA-Tenno-Sho-Autumn| SPICA-Tenno-Sho) SPICA-Tenno-Sho-Autumn)
-	 (setf (gethash '|Vodka| SPICA-Tenno-Sho) '|Vodka-Contender|)
-	 (setf (gethash '|Mejiro| SPICA-Tenno-Sho) '|Mejiro-McQueen-Contender|)
-	 (setf (gethash '|Gold| SPICA-Tenno-Sho) '|Gold-Ship-Contender|)
-	 (setf (gethash '|Daiwa| SPICA-Tenno-Sho) '|Daiwa-Scarlet-Contender|)
+	 (register-filesystem-hash-table SPICA SPICA-Tenno-Sho 'SPICA-Tenno-Sho)
+	 (add-unique-key '|SPICA-Tenno-Sho-Spring| SPICA-Tenno-Sho-Spring Spica-Tenno-Sho)
+	 (add-unique-key '|SPICA-Tenno-Sho-Autumn| SPICA-Tenno-Sho-Autumn Spica-Tenno-Sho)
+	 (add-unique-key '|Vodka| '|Vodka-Contender| Spica-Tenno-Sho)
+	 (add-unique-key '|Mejiro|  '|Mejiro-McQueen-Contender| Spica-Tenno-Sho)
+	 (add-unique-key '|Gold|  '|Gold-Ship-Contender| Spica-Tenno-Sho)
+	 (add-unique-key '|Daiwa| '|Daiwa-Scarlet-Contender| Spica-Tenno-Sho)
 
-										;SPICA-Spring-Tenno-Sho
-	 (setf (gethash './ SPICA-Tenno-Sho-Spring) SPICA-Tenno-Sho)
-	 (setf (gethash '|Tokai| SPICA-Tenno-Sho-Spring) '|Teio-Spring-Champion|)
-	 (setf (gethash '|Mejiro| SPICA-Tenno-Sho-Spring) '|Mejiro-McQueen-Spring-Champion|)
-	 (setf (gethash '|Gold| SPICA-Tenno-Sho-Spring) '|Ship-Spring-Champion|)
+										;SPICA-Tenno-Sho-Spring
+	 (register-filesystem-hash-table SPICA-Tenno-Sho SPICA-Tenno-Sho-Spring 'SPICA-Tenno-Sho-Spring)
+	 (add-unique-key '|Tokai| '|Teio-Spring-Champion| SPICA-Tenno-Sho-Spring)
+	 (add-unique-key '|Mejiro| '|Mejiro-McQueen-Spring-Champion| SPICA-Tenno-Sho-Spring)
+	 (add-unique-key '|Gold| '|Ship-Spring-Champion| SPICA-Tenno-Sho-Spring)
 
-										;SPICA-Autumn-Tenno-Sho
-	 (setf (gethash './ SPICA-Tenno-Sho-Autumn) SPICA-Tenno-Sho)
-	 (setf (gethash '|Vodka| SPICA-Tenno-Sho-Autumn) '|Vodka-Autumn-Champion|)
-	 (setf (gethash '|Mejiro| SPICA-Tenno-Sho-Autumn) '|Mejiro-McQueen-Autumn-Champion|)
-	 (setf (gethash '|Gold| SPICA-Tenno-Sho-Autumn) '|Gold-Ship-Autumn-Champion|)
+										;SPICA-Tenno-Sho-Autumn
+	 (register-filesystem-hash-table SPICA-Tenno-Sho SPICA-Tenno-Sho-Autumn 'SPICA-Tenno-Sho-Autumn)
+	 (add-unique-key '|Vodka| '|Vodka-Autumn-Champion| SPICA-Tenno-Sho-Autumn)
+	 (add-unique-key '|Mejiro| '|Mejiro-McQueen-Autumn-Champion| SPICA-Tenno-Sho-Autumn)
+	 (add-unique-key '|Gold| '|Gold-Ship-Autumn-Champion| SPICA-Tenno-Sho-Autumn)
 	 
 										;SYMBOLI
-	 (setf (gethash './ SYMBOLI) TEST)
-	 (setf (gethash '|KRIS| SYMBOLI) 'KRIS)
-	 (setf (gethash '|RUDOLF| SYMBOLI) '|Symboli-Rudolf|)
-	 (setf (gethash '|SIRIUS| SYMBOLI) 'SIRIUS)
+	 (register-filesystem-hash-table TEST SYMBOLI 'SYMBOLI)
+	 (add-unique-key '|KRIS| 'KRIS SYMBOLI)
+	 (add-unique-key '|RUDOLF| '|Symboli-Rudolf| SYMBOLI)
+	 (add-unique-key '|SIRIUS| 'SIRIUS SYMBOLI)
 	   
 										;MEJIRO
-	 (setf (gethash './ MEJIRO) TEST)
-	 (setf (gethash 'MEJIRO-1 MEJIRO) MEJIRO-1)
-	 (setf (gethash 'MEJIRO-2 MEJIRO) MEJIRO-2)
-	 (setf (gethash 'MEJIRO-3 MEJIRO) MEJIRO-3)
-	 (setf (gethash '|McQueen| MEJIRO) '|Mejiro-McQueen|)
-	 (setf (gethash '|Palmer| MEJIRO) 'PALMER)
-	 (setf (gethash '|Ramonu| MEJIRO) 'RAMONU)
+	 (register-filesystem-hash-table TEST MEJIRO 'MEJIRO)
+	 (add-unique-key '|McQueen| '|Mejiro-McQueen| MEJIRO)
+	 (add-unique-key '|Palmer| 'PALMER MEJIRO)
+	 (add-unique-key '|Ramonu| 'RAMONU MEJIRO)
 	   
 										;MEJIRO-1
-	 (setf (gethash './ MEJIRO-1) MEJIRO)
-	 (setf (gethash '|Ardan| MEJIRO-1) 'ARDAN)
-	 (setf (gethash '|Bright| MEJIRO-1) 'BRIGHT)
+	 (register-filesystem-hash-table MEJIRO MEJIRO-1 'MEJIRO-1)
+	 (add-unique-key '|Ardan| 'ARDAN  MEJIRO-1)
+	 (add-unique-key '|Bright| 'BRIGHT  MEJIRO-1)
 	 
 										;MEJIRO-2
-	 (setf (gethash './ MEJIRO-2) MEJIRO)
-	 (setf (gethash '|Dober| MEJIRO-2) 'DOBER)
+	 (register-filesystem-hash-table MEJIRO MEJIRO-2 'MEJIRO-2)
+	 (add-unique-key'|Dober| 'DOBER MEJIRO-2)
 	   
 										;MEJIRO-3
-	 (setf (gethash './ MEJIRO-3) MEJIRO)
-	 (setf (gethash '|Ryan| MEJIRO-3) 'RYAN)
+	 (register-filesystem-hash-table MEJIRO MEJIRO-3 'MEJIRO-3)
+	 (add-unique-key'|Ryan| 'RYAN MEJIRO-3)
 	 (progn ,@body)))
 
 (test find-key-in-current-map

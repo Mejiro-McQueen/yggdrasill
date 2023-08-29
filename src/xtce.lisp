@@ -1,26 +1,12 @@
 (defpackage :xtce
-  (:use :cl)
+  (:use :cl
+		:cxml
+		:filesystem-hash-table)
   (:documentation "XTCE")
   (:export :make-space-system
-           :make-telemetry-metadata
-		   :find-key-by-path))
+           :make-telemetry-metadata))
 
 (in-package :xtce)
-
-(define-condition non-unique-key (error)
-  ((key :initarg :key :reader key)
-   (space-system :initarg :space-system :reader space-system)))
-
-(defun add-unique-element (table key value)
-  (check-type key symbol)
-  (when (gethash key table)
-	(error 'non-unique-key :key key))
-  (setf (gethash key table) value))
-
-(defun register-table (root-table table table-name)
-  "Add and register a table to a root table"
-  (setf (gethash '/ table) root-table)
-  (add-unique-element root-table table-name table))
 
 (defmacro check-optional-type (place type &optional type-string)
   `(if ,place
@@ -46,23 +32,8 @@
    (service-set :initarg :service-set)
    (space-systems-list :initarg :space-systems-list :type space-system-list)
    (parent-system :initarg :parent-system)
-   (symbol-table :initarg :symbol-table :initform (make-hash-table))
+   (symbol-table :initarg :symbol-table :type hash-table)
    (short-description :initarg :short-description)))
-
-(defmethod print-object ((obj space-system) stream)
-      (print-unreadable-object (obj stream :type t)
-        (with-slots (name short-description) obj
-          (format stream "name: ~a, description: ~a " name short-description))))
-
-(defmethod print-object ((obj parameter) stream)
-      (print-unreadable-object (obj stream :type t)
-        (with-slots (name short-description parameter-type-ref) obj
-          (format stream "name: ~a, description: ~a, type: ~a " name short-description parameter-type-ref))))
-
-(defmethod print-object ((obj parameter-type) stream)
-      (print-unreadable-object (obj stream :type t)
-        (with-slots (name short-description) obj
-          (format stream "name: ~a, description: ~a " name short-description))))
 
 (defclass space-system-list (xtce-list) ())
 
@@ -85,27 +56,30 @@
 							short-description)
   (check-type name symbol)
   (check-optional-type long-description long-description)
-  
-  (let ((name-as-sym  (intern (string-upcase name)))
-		(sys (make-instance 'space-system
-				 :name name
-				 :parent-system parent-system
-				 :header header
-				 :operational-status operational-status
-				 :long-description long-description
-				 :alias-set alias-set
-				 :ancillary-data-set ancillary-data-set
-				 :telemetry-metadata telemetry-metadata
-				 :command-metadata command-metadata
-				 :xml-base xml-base
-				 :service-set service-set
-				 :space-systems-list space-systems-list
-				 :short-description short-description)))
+										;TODO: it should be space-system-list
+										;TODO: Currently stored as symbols
+  (let* ((sys (make-instance 'space-system
+							 :name name
+							 :parent-system parent-system
+							 :header header
+							 :operational-status operational-status
+							 :long-description long-description
+							 :alias-set alias-set
+							 :ancillary-data-set ancillary-data-set
+							 :telemetry-metadata telemetry-metadata
+							 :command-metadata command-metadata
+							 :xml-base xml-base
+							 :service-set service-set
+							 :space-systems-list space-systems-list
+							 :short-description short-description
+							 :symbol-table (make-filesystem-hash-table parent-system)))
+		 (new-symbol (eval `(defparameter ,name ,sys ,short-description))))
+	(when space-systems-list
+	  (dolist (child-system (slot-value space-systems-list 'items))
+		(setf (slot-value (symbol-value child-system) 'parent-system) sys)
+		))
 	(register-system-keys sys)
-	(unless parent-system
-	  (eval `(defparameter ,name-as-sym ,sys "Represents the root space system."))
-	  (defparameter *CONTAINER-ROOT* (slot-value sys 'symbol-table) ""))
-	sys))
+	new-symbol))
 
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
@@ -116,7 +90,7 @@
 					   (slot-name-items (when slot-name-sequence
 										  (slot-value slot-name-sequence 'items))))
 				 (dolist (item slot-name-items)
-				   (restart-case (add-unique-element symbol-table (slot-value item 'name) item)
+				   (restart-case (add-unique-key (slot-value item 'name) item symbol-table)
 					 (continue-with-overwrite () :report (lambda (stream)
 														 (format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
 																 (slot-value item 'name)
@@ -126,27 +100,30 @@
 														 (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
 																 (slot-value item 'name)
 																 (gethash (slot-value item 'name) symbol-table)
-																 space-system))))
-				   
-				   ))))
+																 space-system))))))))
 	
   (With-slots (symbol-table space-systems-list telemetry-metadata name parent-system) space-system
-	(print 'SPACE-SYSTEMS)
-	(add-unique-element symbol-table './ space-system)
-	
-	(when space-systems-list
-		(dolist (subsystem (slot-value space-systems-list 'items))
-		  (add-unique-element symbol-table (slot-value subsystem 'name) subsystem)))
-
-	(when parent-system
-	  (register-table (slot-value parent-system 'symbol-table) symbol-table name))
-	
-	(print 'TELEMETRY-METADATA)
 	(when telemetry-metadata
 	  (register-keys-in-sequence telemetry-metadata 'parameter-type-set)
 	  (register-keys-in-sequence telemetry-metadata 'parameter-set)
 	  (register-keys-in-sequence telemetry-metadata 'algorithm-set)
-	  (register-keys-in-sequence telemetry-metadata 'stream-set)))))
+	  (register-keys-in-sequence telemetry-metadata 'stream-set))
+
+	(when parent-system
+	  (register-filesystem-hash-table (slot-value parent-system 'symbol-table) symbol-table name)
+	(print space-system)
+	;(print symbol-table)
+	(print (alexandria:hash-table-keys symbol-table)))
+	)))
+
+(defun type-check-parameter-set (space-system root-system-table)
+  (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
+		 (symbol-table (slot-value space-system 'symbol-table))
+		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set)))
+		 (parameters (if parameter-set (slot-value parameter-set 'items))))
+	(dolist (parameter parameters)
+	  (with-slots (parameter-type-ref) space-system
+		(assert (find-key-by-path parameter-type-ref symbol-table root-system-table))))))
 
 (defun make-long-description (s)
   (check-type s string)
@@ -2199,6 +2176,21 @@
 	  (cxml-marshall size-range-in-characters)
 	  (cxml-marshall default-alarm)
 	  (cxml-marshall context-alarm-list))))
+
+(defmethod print-object ((obj space-system) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (name short-description) obj
+          (format stream "name: ~a, description: ~a " name short-description))))
+
+(defmethod print-object ((obj parameter) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (name short-description parameter-type-ref) obj
+          (format stream "name: ~a, description: ~a, type: ~a " name short-description parameter-type-ref))))
+
+(defmethod print-object ((obj parameter-type) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (name short-description) obj
+          (format stream "name: ~a, description: ~a " name short-description))))
 
 ; Note: CCSDS 660.1-G-2 typo Page 4-142, figure caption says ContainrRefEntry
 ; Note 4.3.4.8.7 StreamSegmentRefEntry Figure 4-84 describes stream segment and not stream segment ref
