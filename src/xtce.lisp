@@ -40,7 +40,7 @@
 (defclass space-system-list (xtce-list) ())
 
 (defun make-space-systems-list (&rest items)
-  (make-xtce-list 'space-system "SpaceSystem" items))
+  (make-xtce-list 'space-system nil items))
 
 (defun make-space-system (name
                           &key
@@ -217,12 +217,13 @@
 
 (defmethod cxml-marshall ((obj telemetry-metadata))
   (with-slots (parameter-type-set parameter-set container-set message-set stream-set algorithm-set) obj
-    (cxml-marshall parameter-type-set)
-    (cxml-marshall parameter-set)
-    (cxml-marshall container-set)
-    (cxml-marshall message-set)
-    (cxml-marshall stream-set)
-    (cxml-marshall algorithm-set)))
+	(cxml:with-element* ("xtce" "TelemetryMetadata")
+      (cxml-marshall parameter-type-set)
+      (cxml-marshall parameter-set)
+      (cxml-marshall container-set)
+      (cxml-marshall message-set)
+      (cxml-marshall stream-set)
+      (cxml-marshall algorithm-set))))
 
 (defclass xtce-set ()
   ((base-type :initarg :base-type)
@@ -287,12 +288,12 @@
       (if description (cxml:attribute "description" (format-symbol description)))
       (if form (cxml:text form)))))
 
-(defun dump-space-system-xml (space-system)
+(defun dump-xml (element)
   (cxml:with-xml-output (cxml:make-string-sink :indentation 2 :canonical nil )
     (cxml:comment "Bifrost Integral")
     (cxml:with-namespace ("xtce" "http://www.omg.org/spec/XTCE/20180204")
       (cxml:with-namespace ("xsi" "http://www.w3.org/2001/XMLSchema-instance")
-        (cxml-marshall space-system)))))
+        (cxml-marshall element)))))
 
 (defun format-bool (a)
   (if a "True" "False"))
@@ -300,10 +301,6 @@
 (defun format-symbol (a)
   (if a
 	  (format nil "~a" a)))
-
-(defun dump-xml (element)
-  (cxml:with-xml-output (cxml:make-string-sink :indentation 4 :canonical nil)
-	(cxml-marshall element)))
 
 (defmethod cxml-marshall ((obj NULL)))
 
@@ -1083,13 +1080,9 @@
 (defclass parameter-type () ())
 
 (defclass parameter-type-set (xtce-set) ())
-  
-(defmethod cxml-marshall ((obj xtce-set))
-  (with-slots (items) obj
-    (dolist (i items)
-      (cxml-marshall i))))
 
 (defun make-parameter-type-set (&rest items)
+  ;todo move typechecking to macro
   (let ((items (remove nil items))) 
     (dolist (i items) 
       (check-type i parameter-type)))
@@ -1790,7 +1783,7 @@
 (defclass parameter-set (xtce-set) ())
 
 (defun make-parameter-set (&rest items)
-  (make-xtce-set 'parameter nil items))
+  (make-xtce-set 'parameter "ParameterSet" items))
 
 (defclass parameter-properties () ((data-source :initarg :data-source)
 								   (read-only :initarg :read-only)

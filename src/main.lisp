@@ -1123,7 +1123,7 @@
 											(make-ending-index (make-fixed-value 7))))))
 	:parameter-set
 	(make-parameter-set
- 	 (make-parameter '|TABLEID| '|/U8-Type| :short-description "TableId from 1 to MD_NUM_DWELL_TABLES.")
+	 (make-parameter '|TABLEID| '|/U8-Type| :short-description "TableId from 1 to MD_NUM_DWELL_TABLES.")
 	 (make-parameter '|ADDRCOUNT| '|/U8-Type| :short-description "Number of addresses being sent - 1..MD_DWELL_TABLE_SIZE valid.")
 	 (make-parameter '|BYTECOUNT| '|/U16-Type| :short-description "Number of bytes of dwell data contained in packet.")
 	 (make-parameter '|RATE| '|/U32-Type| :short-description "Number of counts between packet sends.")
@@ -1323,8 +1323,7 @@
 	  (make-parameter '|TO_DF_2| '|/F64-Type| :short-description "")
 	  (make-parameter '|TO_STR| '|/ASCII-String-Type| :short-description ""))))))
 
-
-(time (dump-space-system-xml (symbol-value '|NASA-cFS|)))
+(time (dump-xml (symbol-value '|NASA-cFS|)))
 
 
 (defparameter *frame* #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
@@ -1341,7 +1340,3 @@
 
  ;TODO: There is an electronic data sheet that can be used to interpret the AMPCS xml
 
-(defparameter *source* (cxml:make-source "<example>text</example>"))
-(klacks:peek-next *source*)
-
-(dump-xml (make-parameter '|TO_W_2| '|/U16-Type| :short-description "") )
