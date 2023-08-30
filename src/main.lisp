@@ -46,129 +46,129 @@
 (defun hamming-distance (integer-1 integer-2)
   (logcount (logxor integer-1 integer-2)))
 
-(make-space-system
- '|SpaceVechicle|
+;; (make-space-system
+;;  '|SpaceVechicle|
  
-:telemetry-metadata
- (make-telemetry-metadata
+;; :telemetry-metadata
+;;  (make-telemetry-metadata
   
-  :parameter-type-set
-  (make-parameter-type-set
+;;   :parameter-type-set
+;;   (make-parameter-type-set
    
-   (make-integer-parameter-type
-    '|IDType|
-    :data-encoding
-    (make-integer-data-encoding)
-	:signed nil)
+;;    (make-integer-parameter-type
+;;     '|IDType|
+;;     :data-encoding
+;;     (make-integer-data-encoding)
+;; 	:signed nil)
    
-   (make-integer-parameter-type
-	'|SecHType|
-	:signed nil
-	:data-encoding
-	(make-integer-data-encoding :size-in-bits 1))
+;;    (make-integer-parameter-type
+;; 	'|SecHType|
+;; 	:signed nil
+;; 	:data-encoding
+;; 	(make-integer-data-encoding :size-in-bits 1))
    
-   (make-integer-parameter-type
-	'|TypeType|
-	:signed nil
-	:data-encoding
-	(make-integer-data-encoding :size-in-bits 1))
+;;    (make-integer-parameter-type
+;; 	'|TypeType|
+;; 	:signed nil
+;; 	:data-encoding
+;; 	(make-integer-data-encoding :size-in-bits 1))
    
-   (make-integer-parameter-type
-	'|LengthType|
-	:signed nil
-	:data-encoding
-	(make-integer-data-encoding :size-in-bits 16))
+;;    (make-integer-parameter-type
+;; 	'|LengthType|
+;; 	:signed nil
+;; 	:data-encoding
+;; 	(make-integer-data-encoding :size-in-bits 16))
 
-   (make-enumerated-parameter-type
-	'|PSWHLTIMFLGType|
-	:data-encoding
-	(make-integer-data-encoding :size-in-bits 16)
-	:enumeration-list
-	(make-enumeration-list
-	 (make-enumeration 'TIMER_OFF 0)
-	 (make-enumeration 'TIMER_ON 1)
-	 (make-enumeration 'TIMER_COMPLETED 2)))
+;;    (make-enumerated-parameter-type
+;; 	'|PSWHLTIMFLGType|
+;; 	:data-encoding
+;; 	(make-integer-data-encoding :size-in-bits 16)
+;; 	:enumeration-list
+;; 	(make-enumeration-list
+;; 	 (make-enumeration 'TIMER_OFF 0)
+;; 	 (make-enumeration 'TIMER_ON 1)
+;; 	 (make-enumeration 'TIMER_COMPLETED 2)))
    
-   (make-float-parameter-type
-	'|PBATMTEMPType|
-	:size-in-bits 64
-	:unit-set
-	(make-unit-set
-	 (make-unit
-	  :description "Bq"
-	  :form "units:Becquerel"))
-	:data-encoding
-	(make-integer-data-encoding
-	 :size-in-bits 16
-	 :encoding 'twos-complement
-	 :default-calibrator
-	 (make-polynomial-calibrator
-	  :term-list
-	  (make-term-list 
-	   (make-term :coefficient -7459.23273708 :exponent 0)
-			 (make-term :coefficient 8.23643519148 :exponent 1)
-			 (make-term :coefficient -3.02185061876e3 :exponent 2)
-			 (make-term :coefficient 2.33422429056e-7 :exponent 3)
-			 (make-term :coefficient 5.67189556173e11 :exponent 4)))))
+;;    (make-float-parameter-type
+;; 	'|PBATMTEMPType|
+;; 	:size-in-bits 64
+;; 	:unit-set
+;; 	(make-unit-set
+;; 	 (make-unit
+;; 	  :description "Bq"
+;; 	  :form "units:Becquerel"))
+;; 	:data-encoding
+;; 	(make-integer-data-encoding
+;; 	 :size-in-bits 16
+;; 	 :encoding 'twos-complement
+;; 	 :default-calibrator
+;; 	 (make-polynomial-calibrator
+;; 	  :term-list
+;; 	  (make-term-list 
+;; 	   (make-term :coefficient -7459.23273708 :exponent 0)
+;; 			 (make-term :coefficient 8.23643519148 :exponent 1)
+;; 			 (make-term :coefficient -3.02185061876e3 :exponent 2)
+;; 			 (make-term :coefficient 2.33422429056e-7 :exponent 3)
+;; 			 (make-term :coefficient 5.67189556173e11 :exponent 4)))))
    
-   (make-absolute-time-parameter
-	'|MissionTimeType|
-	:reference-time
-	(make-reference-time
-	 (make-offset-from '|Seconds|)))
+;;    (make-absolute-time-parameter
+;; 	'|MissionTimeType|
+;; 	:reference-time
+;; 	(make-reference-time
+;; 	 (make-offset-from '|Seconds|)))
    
-   (make-absolute-time-parameter
-	'|SecondsType|
-	:encoding
-	(make-encoding
-	 :units 'seconds
-	 :data-encoding
-	 (make-integer-data-encoding :size-in-bits 32))
-	:reference-time
-	(make-reference-time
-	 (make-offset-from '|Milliseconds|)))
+;;    (make-absolute-time-parameter
+;; 	'|SecondsType|
+;; 	:encoding
+;; 	(make-encoding
+;; 	 :units 'seconds
+;; 	 :data-encoding
+;; 	 (make-integer-data-encoding :size-in-bits 32))
+;; 	:reference-time
+;; 	(make-reference-time
+;; 	 (make-offset-from '|Milliseconds|)))
    
-   (make-absolute-time-parameter
-	'|MillisecondsType|
-	:encoding
-	(make-encoding
-	 :units '|seconds|
-	 :scale 0.001
-	 :data-encoding
-	 (make-integer-data-encoding :size-in-bits 16))
-	:reference-time
-	(make-reference-time
-	 (make-epoch 'TAI))))
+;;    (make-absolute-time-parameter
+;; 	'|MillisecondsType|
+;; 	:encoding
+;; 	(make-encoding
+;; 	 :units '|seconds|
+;; 	 :scale 0.001
+;; 	 :data-encoding
+;; 	 (make-integer-data-encoding :size-in-bits 16))
+;; 	:reference-time
+;; 	(make-reference-time
+;; 	 (make-epoch 'TAI))))
  
-  :parameter-set
-  (make-parameter-set
-   (make-parameter '|SecH| '|SecHType|)
-   (make-parameter '|Type| '|TypeType|)
-   (make-parameter '|ID| '|IDType|)
-   (make-parameter '|Length| '|LengthType|)
-   (make-parameter '|Seconds| '|SecondsType|)
-   (make-parameter '|Milliseconds| '|MillisecondsType|)
-   (make-parameter '|PBATMTEMP| '|PBATMTEMPType|)
-   (make-parameter '|PSWHLTIMFLG| '|PSWHLTIMFLGType|)
-   (make-parameter '|MissionTime| '|MissionTimeType|
-				   :parameter-properties
-				   (make-parameter-properties :data-source "derived")))
+;;   :parameter-set
+;;   (make-parameter-set
+;;    (make-parameter '|SecH| '|SecHType|)
+;;    (make-parameter '|Type| '|TypeType|)
+;;    (make-parameter '|ID| '|IDType|)
+;;    (make-parameter '|Length| '|LengthType|)
+;;    (make-parameter '|Seconds| '|SecondsType|)
+;;    (make-parameter '|Milliseconds| '|MillisecondsType|)
+;;    (make-parameter '|PBATMTEMP| '|PBATMTEMPType|)
+;;    (make-parameter '|PSWHLTIMFLG| '|PSWHLTIMFLGType|)
+;;    (make-parameter '|MissionTime| '|MissionTimeType|
+;; 				   :parameter-properties
+;; 				   (make-parameter-properties :data-source "derived")))
 
-  :container-set
-  (make-container-set
-   (make-sequence-container
-	'|Header|
-	(make-entry-list
-	 (make-parameter-ref-entry '|ID|)
-	 (make-parameter-ref-entry '|SecH|)
-	 (make-parameter-ref-entry '|Type|)
-	 (make-parameter-ref-entry '|Length|)
-	 (make-parameter-ref-entry '|SecondaryHeader|
-							   :include-condition
-							   (make-include-condition (make-comparison '|SecH| 1))))))))
+;;   :container-set
+;;   (make-container-set
+;;    (make-sequence-container
+;; 	'|Header|
+;; 	(make-entry-list
+;; 	 (make-parameter-ref-entry '|ID|)
+;; 	 (make-parameter-ref-entry '|SecH|)
+;; 	 (make-parameter-ref-entry '|Type|)
+;; 	 (make-parameter-ref-entry '|Length|)
+;; 	 (make-parameter-ref-entry '|SecondaryHeader|
+;; 							   :include-condition
+;; 							   (make-include-condition (make-comparison '|SecH| 1))))))))
 
 
-(time (dump-space-system-xml (symbol-value 'SPACEVECHICLE)))
+;; (time (dump-space-system-xml (symbol-value 'SPACEVECHICLE)))
 
 
 (defparameter *TEST* (make-container-set 
@@ -537,7 +537,7 @@
 		(emit! (list "Aperture greater than zero:" aperture)))
 	  (case state
 		(LOCK
-		 (accept-frame frame)
+		 ;(accept-frame frame)
 		 (emit! state))
 		  
 		(VERIFY
@@ -1336,8 +1336,12 @@
   
   )
 
-(describe #'accept-frame)
 
 (describe '|NASA-cFS|)
 
  ;TODO: There is an electronic data sheet that can be used to interpret the AMPCS xml
+
+(defparameter *source* (cxml:make-source "<example>text</example>"))
+(klacks:peek-next *source*)
+
+(dump-xml (make-parameter '|TO_W_2| '|/U16-Type| :short-description "") )
