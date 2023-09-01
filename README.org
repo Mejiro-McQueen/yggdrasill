@@ -1,6 +1,7 @@
 * Bifrost-Yggdrasill
 
-XTCE authoring and stream processing tools
+XTCE authoring and stream processing tools.\\
+Will eventually be integrated with the [[https://github.com/Mejiro-McQueen/Bifrost][Bifrost lightweight GDS]].
 
 ** Usage
 It's unusuable!
