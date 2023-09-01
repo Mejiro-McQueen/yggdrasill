@@ -5,8 +5,12 @@ XTCE authoring and stream processing tools
 ** Usage
 It's unusuable!
 Currently under development, come back later.
+- You can currently define an XTCE document using the LISP DSL and export it to XML.
 
 ** Installation
+This is a Common Lisp project using SBCL.\\
+Use SBCL and EMACS with SLIME.\\
+Clone this repository in your quicklisp directory.\\
 
 ** Author
 
@@ -19,3 +23,6 @@ Copyright (c) 2023 Adrian Vazquez (adrian.vazquez@jpl.nasa.gov)
 ** License
 
 Licensed under the MIT License.
+
+** Roadmap
+#+html: <p align="center"><img src="https://github.com/Mejiro-McQueen/Bifrost-Yggdrasill/blob/main/docs/images/Diagrams-Road-to-the-Top.drawio.png" /></p>
