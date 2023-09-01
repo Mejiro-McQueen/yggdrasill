@@ -504,9 +504,6 @@
 
 
 
-
-(funcall (third *TEST*) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
 (defun emit! (message)
   (format t "~A" message))
 
@@ -1323,20 +1320,70 @@
 	  (make-parameter '|TO_DF_2| '|/F64-Type| :short-description "")
 	  (make-parameter '|TO_STR| '|/ASCII-String-Type| :short-description ""))))))
 
+ ;TODO: There is an electronic data sheet that can be used to interpret the AMPCS xml
+
 (time (dump-xml (symbol-value '|NASA-cFS|)))
 
 
-(defparameter *frame* #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+(make-integer-parameter-type
+ '|STC:CCSDS:Packet-Version-Number-Type|
+ :short-description "CCSDS Space Packet Header element."
+ :long-description (make-long-description "CCSDS Space Packet Header element. Mandatory. 3 bit field fixed to 000.")
+ :size-in-bits 3)
 
-;; (process-fixed-frame-stream (make-fixed-frame-stream (make-sync-strategy) 1024) )
+(make-enumerated-parameter-type
+ '|STC:CCSDS:Packet-Type|
+ :short-description "CCSDS Space Packet Header element."
+ :long-description (make-long-description "CCSDS Space Packet Header element. The exact definition of ‘telemetry Packets’ and ‘telecommand Packets’ needs to be established by the project that uses this protocol. Element of Packet-Identification subdivision.")
+ :enumeration-list
+ (make-enumeration-list (make-enumeration 'Telemetry 0) (make-enumeration 'Telecommand 1)))
 
 
-(defun monad (data-stream system-tree)
-  
-  )
+(make-enumerated-parameter-type
+ '|STC:CCSDS:Secondary-Header-Flag-Type|
+ :short-description "CCSDS Space Packet Header element."
+ :long-description (make-long-description "CCSDS Space Packet Header element. Indicates the presence or absence of the Packet Seconday Header within this space packet. This flag shall be static with respect to the APID and managed data path throughout a mission phase. Element of Packet-Identification subdivision.")
+ :enumeration-list
+ (make-enumeration-list (make-enumeration 'Absent 0 :short-description "This packet contains a secondary header.")
+						(make-enumeration 'Present 1 :short-description "This packet does not contain a secondary header.")))
+
+(make-binary-parameter-type
+ '|STC:CCSDS:Application-Process-Identifier-Type|
+ :short-description "CCSDS Space Packet Header element.")
+
+(make-enumerated-parameter-type
+ '|STC:CCSDS:Sequence-Flags-Type|
+ :enumeration-list (make-enumeration-list
+					(make-enumeration #b00 'Continuation :short-description "Space Packet contains a continuation segment of User Data.")
+					(make-enumeration #b01 'First-Segment :short-description "Space Packet contains the first segment of User Data.")
+					(make-enumeration #b10 'Last-Segment :short-description "Space Packet contains the last segment of User Data.")
+					(make-enumeration #b11 'Unsegmented :short-description "Space Packet is unsegmented.")))
 
 
-(describe '|NASA-cFS|)
 
- ;TODO: There is an electronic data sheet that can be used to interpret the AMPCS xml
 
+
+(defparameter *TEST* (make-enumerated-parameter-type
+ '|STC:CCSDS:Sequence-Flags-Type|
+ :enumeration-list (make-enumeration-list
+					(make-enumeration #b00 'Continuation :short-description "Space Packet contains a continuation segment of User Data.")
+					(make-enumeration #b01 'First-Segment :short-description "Space Packet contains the first segment of User Data.")
+					(make-enumeration #b10 'Last-Segment :short-description "Space Packet contains the last segment of User Data.")
+					(make-enumeration #b11 'Unsegmented :short-description "Space Packet is unsegmented."))))
+
+(defgeneric instantiate-parameter (parameter-type data)
+  (:documentation "Instantiate a parameter given a byte"))
+
+(defmethod instantiate-parameter ((parameter enumerated-parameter-type) data)
+  (assoc data (slot-value parameter 'alist)))
+
+(make-integer-parameter-type
+ '|STC:CCSDS:Packet-Sequence-Count|
+ :size-in-bits 14
+ :short-description "CCSDS Space Packet Header Element. Part of Packet Sequence Control subdivision."
+ :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet count"))
+
+(make-string-parameter-type
+ '|STC:CCSDS:Packet-Name|
+ :short-description "CCSDS Space Packet Header Element. Part of Packet Sequence Control subdivision."
+ :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet count"))

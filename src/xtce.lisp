@@ -1488,7 +1488,9 @@
 					 :type long-description)
    (alias-set :initarg :alias-set :type alias-set)
    (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
-   (unit-set :initarg :unit-set :type unit-set)))
+   (unit-set :initarg :unit-set :type unit-set)
+   (alist :initarg :alist :type list)
+   ))
 
 (defun make-enumerated-parameter-type (name
 									   &key
@@ -1506,7 +1508,7 @@
   (check-type name symbol)
   (check-optional-type short-description string)
   ;(check-optional-type base-type T)
-  (check-optional-type long-description string)
+  (check-optional-type long-description long-description)
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
   (check-optional-type unit-set unit-set)
@@ -1516,19 +1518,25 @@
   (check-optional-type context-alarm-list context-alarm-list)
   ;(check-optional-type initial-value T)
   ; Need to check if inital value is in enumeration list
-  (make-instance 'enumerated-parameter-type :name name
-											:short-description short-description
-											:base-type base-type
-											:initial-value initial-value
-											:long-description long-description
-											:alias-set alias-set
-											:ancillary-data-set ancillary-data-set
-											:unit-set unit-set
-											:data-encoding data-encoding
-											:enumeration-list enumeration-list
-											:default-alarm default-alarm
-											:context-alarm-list context-alarm-list))
-
+  (let* ((enumerations (slot-value enumeration-list 'items))
+		 (alist (loop for enumeration in enumerations
+					  for label = (slot-value enumeration 'label)
+					  for value = (slot-value enumeration 'value)
+					  for entry = (cons label value)
+					  collect entry)))
+	(make-instance 'enumerated-parameter-type :name name
+											  :short-description short-description
+											  :base-type base-type
+											  :initial-value initial-value
+											  :long-description long-description
+											  :alias-set alias-set
+											  :ancillary-data-set ancillary-data-set
+											  :unit-set unit-set
+											  :data-encoding data-encoding
+											  :enumeration-list enumeration-list
+											  :default-alarm default-alarm
+											  :context-alarm-list context-alarm-list
+											  :alist alist)))
 
 (defclass enumeration-alarm (alarm)
   ((alarm-level :initarg :alarm-level :type string)
@@ -1541,7 +1549,7 @@
   (assert (member alarm-level allowed-alarm-levels) (alarm-level) "Alarm level ~A is not one of ~A" alarm-level allowed-alarm-levels) 
   (make-instance 'enumeration-alarm :alarm-level alarm-level  :enumeration-label enumeration-label)))
 
-(defclass enumeration-list (xtce-list) ())
+(defclass enumeration-list (xtce-list) ((alist :initarg :alist :type list)))
 
 (defun make-enumeration-list (&rest items)
   (make-xtce-list 'enumeration "EnumerationList" items))
@@ -1550,15 +1558,16 @@
   ((value :initarg :value)
   (max-value :initarg :max-value)
   (label :initarg :label
-		 :type symbol)
+		 ;; :type symbol
+		 )
   (short-description :initarg :short-description
 					 :type string)))
 
-(defun make-enumeration (label value  &key max-value short-description)
-  (check-type value number)
-  (check-type label symbol)
-  (if max-value (check-type max-value number))
-  (if short-description (check-type short-description string))
+(defun make-enumeration (label value &key max-value short-description)
+  ;(check-type value symbol)
+  ;(check-type label symbol)
+  (check-optional-type max-value number)
+  (check-optional-type short-description string)
   (make-instance 'enumeration :value value :label label :max-value max-value :short-description short-description))
 
 (defmethod cxml-marshall ((obj enumeration))
