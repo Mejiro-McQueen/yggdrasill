@@ -1,6 +1,6 @@
 * Bifrost-Yggdrasill
 
-XTCE authoring and stream processing tools.\\
+XTCE authoring and stream processing tools. \\
 Will eventually be integrated with the [[https://github.com/Mejiro-McQueen/Bifrost][Bifrost lightweight GDS]].
 
 ** Usage
@@ -9,9 +9,9 @@ Currently under development, come back later.
 - You can currently define an XTCE document using the LISP DSL and export it to XML.
 
 ** Installation
-This is a Common Lisp project using SBCL.\\
-Use SBCL and EMACS with SLIME.\\
-Clone this repository in your quicklisp directory.\\
+This is a Common Lisp project using SBCL. \\
+Use SBCL and EMACS with SLIME. \\
+Clone this repository in your quicklisp directory. \\
 
 ** Author
 
