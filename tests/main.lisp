@@ -58,7 +58,7 @@
 (in-suite find-xtce-key)
 
 (defmacro with-fixture-hash-table-tree (&body body)
-  `(let* ((TEST (make-filesystem-hash-table :root t))
+  `(let* ((Tracen (make-filesystem-hash-table :root t))
 		  (SPICA (make-filesystem-hash-table))
 		  (SPICA-1 (make-filesystem-hash-table))
 		  (SPICA-2 (make-filesystem-hash-table))
@@ -72,13 +72,13 @@
 		  (MEJIRO-2 (make-filesystem-hash-table))
 		  (MEJIRO-3 (make-filesystem-hash-table)))
 
-										;TEST
-	 (add-unique-key '|Admire| 'VEGA TEST)
-	 (add-unique-key '|Machikane| 'TANEHAUSER TEST)
-	 (add-unique-key '|Manhattan| 'CAFE TEST)
+										;Tracen
+	 (add-unique-key '|Admire| 'VEGA Tracen)
+	 (add-unique-key '|Machikane| 'TANEHAUSER Tracen)
+	 (add-unique-key '|Manhattan| 'CAFE Tracen)
 	   
 										;SPICA
-	 (register-filesystem-hash-table TEST SPICA 'SPICA)
+	 (register-filesystem-hash-table Tracen SPICA 'SPICA)
 	 (add-unique-key '|SPICA-Tenno-Sho| SPICA-Tenno-Sho SPICA)
 	
 										; SPICA-1
@@ -120,13 +120,13 @@
 	 (add-unique-key '|Gold| '|Gold-Ship-Autumn-Champion| SPICA-Tenno-Sho-Autumn)
 	 
 										;SYMBOLI
-	 (register-filesystem-hash-table TEST SYMBOLI 'SYMBOLI)
+	 (register-filesystem-hash-table Tracen SYMBOLI 'SYMBOLI)
 	 (add-unique-key '|KRIS| 'KRIS SYMBOLI)
 	 (add-unique-key '|RUDOLF| '|Symboli-Rudolf| SYMBOLI)
 	 (add-unique-key '|SIRIUS| 'SIRIUS SYMBOLI)
 	   
 										;MEJIRO
-	 (register-filesystem-hash-table TEST MEJIRO 'MEJIRO)
+	 (register-filesystem-hash-table Tracen MEJIRO 'MEJIRO)
 	 (add-unique-key '|McQueen| '|Mejiro-McQueen| MEJIRO)
 	 (add-unique-key '|Palmer| 'PALMER MEJIRO)
 	 (add-unique-key '|Ramonu| 'RAMONU MEJIRO)
@@ -148,15 +148,15 @@
 (test find-key-in-current-map
   "User wants to find an absolute key in a subpath"
   (with-fixture-hash-table-tree
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" TEST) 'Week))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" SPICA) 'Week))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-1/Special" SYMBOLI) 'Week))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-2/Daiwa" SYMBOLI) 'Scarlet))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-2/Daiwa" Mejiro-3) 'Scarlet))
-	(is (equal (find-key-by-path "/TEST/Admire" SPICA) 'Vega))
-	(is (equal (find-key-by-path "/TEST/Admire" SYMBOLI) 'Vega))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SYMBOLI) '|Mejiro-McQueen-Spring-Champion|))
-	(is (equal (find-key-by-path "/TEST/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SPICA-1) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "/Tracen/SPICA/SPICA-1/Special" Tracen) 'Week))
+	(is (equal (find-key-by-path "/Tracen/SPICA/SPICA-1/Special" SPICA) 'Week))
+	(is (equal (find-key-by-path "/Tracen/SPICA/SPICA-1/Special" SYMBOLI) 'Week))
+	(is (equal (find-key-by-path "/Tracen/SPICA/SPICA-2/Daiwa" SYMBOLI) 'Scarlet))
+	(is (equal (find-key-by-path "/Tracen/SPICA/SPICA-2/Daiwa" Mejiro-3) 'Scarlet))
+	(is (equal (find-key-by-path "/Tracen/Admire" SPICA) 'Vega))
+	(is (equal (find-key-by-path "/Tracen/Admire" SYMBOLI) 'Vega))
+	(is (equal (find-key-by-path "/Tracen/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SYMBOLI) '|Mejiro-McQueen-Spring-Champion|))
+	(is (equal (find-key-by-path "/Tracen/SPICA/SPICA-Tenno-Sho/SPICA-Tenno-Sho-Spring/Mejiro" SPICA-1) '|Mejiro-McQueen-Spring-Champion|))
 	))
 
 (test find-key-in-relative-path

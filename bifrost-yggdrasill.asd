@@ -2,11 +2,17 @@
   :version "0.1.0"
   :author "Adrian Vazquez"
   :license "MIT"
-  :depends-on ("cxml" "alexandria" "filesystem-hash-table")
-  :components ((:module "src"
-                :components
-                ((:file "xtce")
-				 )))
+  :depends-on (#:cxml #:alexandria #:filesystem-hash-table)
+  :components ((:file "packages")
+			   (:module "src"
+				:components ((:file "utils")))
+			   (:module "src/xtce"
+				:components ((:file "xtce"))
+				:depends-on ("packages" "src"))
+			   (:module "src/xtce-engine"
+				:depends-on ("packages" "src" "src/xtce")
+				:components ((:file "xtce-engine")
+							 (:file "standard-template-constructs"))))
   :description ""
   :in-order-to ((test-op (test-op "bifrost-integral/tests"))))
 
@@ -14,8 +20,7 @@
   :author "Adrian Vazquez"
   :license "MIT"
   :depends-on ("bifrost-yggdrasill"
-               "fiveam"
-			   "filesystem-hash-table")
+               "fiveam")
   :components ((:module "tests"
                 :components
                 ((:file "main"))))
@@ -24,14 +29,4 @@
                     (symbol-call :fiveam :run!
                                  (find-symbol* :bifrost-yggdrasill  :bifrost-yggdrasill/test))))
 
-(defsystem "filesystem-hash-table"
-  :version "0.1.0"
-  :author "Adrian Vazquez"
-  :license "MIT"
-  :depends-on ("alexandria" "uiop")
-  :components ((:module "src"
-                :components
-                ((:file "file-system-table")
-				 )))
-  :description "Hash tables accessible by unix filepaths"
-  :in-order-to ((test-op (test-op "bifrost-integral/tests"))))
+

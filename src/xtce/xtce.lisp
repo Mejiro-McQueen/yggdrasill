@@ -1,15 +1,4 @@
-(defpackage :xtce
-  (:use :cl
-		:cxml
-		:filesystem-hash-table)
-  (:documentation "XTCE")
-  (:export :make-space-system
-           :make-telemetry-metadata))
-
 (in-package :xtce)
-
-(let ((pack (find-package :xtce)))
-  (do-all-symbols (sym pack) (when (eql (symbol-package sym) pack) (export sym))))
 
 (defmacro check-optional-type (place type &optional type-string)
   `(if ,place
@@ -42,7 +31,7 @@
 
 (defclass space-system-list (xtce-list) ())
 
-(defun make-space-systems-list (&rest items)
+(defun make-space-system-list (&rest items)
   (make-xtce-list 'space-system nil items))
 
 (defun make-space-system (name
@@ -253,17 +242,19 @@
 
 (defun make-xtce-list (xtce-type xml-element-name items)
   (let ((items (remove nil items))
-		(xtce-type-list (intern (format nil "~A-LIST" xtce-type))))
-	(dolist (i items) 
-      `(check-type i ,xtce-type))
-	(make-instance xtce-type-list :base-type xtce-type :items items :xml-element-name xml-element-name)))
+		(xtce-type-list (find-symbol (format nil "~A-LIST" xtce-type) "XTCE")))
+	(when xtce-type-list
+	  (dolist (i items) 
+		`(check-type i ,xtce-type))
+	  (make-instance xtce-type-list :base-type xtce-type :items items :xml-element-name xml-element-name))))
 
 (defun make-xtce-set (xtce-type xml-element-name items)
   (let ((items (remove nil items))
-		(xtce-type-set (intern (format nil "~A-SET" xtce-type))))
-	(dolist (i items) 
-      `(check-type i ,xtce-type))
-	(make-instance xtce-type-set :base-type xtce-type :items items :xml-element-name xml-element-name)))
+		(xtce-type-set (if xtce-type (find-symbol (format nil "~A-SET" xtce-type) "XTCE"))))
+	(when xtce-type-set
+	  (dolist (i items)
+		`(check-type i ,xtce-type))
+	  (make-instance xtce-type-set :base-type xtce-type :items items :xml-element-name xml-element-name))))
 
 (defclass unit () ((power :initarg :power
                           :type number)
@@ -273,12 +264,12 @@
                    (form :initarg :form)))
 
 (defun make-unit (&key power factor description form)
-  (let ((valid-forms '(calibrated uncalibrated raw)))
-	(assert (member form valid-forms)))
-  (make-instance 'unit :power power
-                       :factor factor
-                       :description description
-                       :form form))
+  (let ((form-symbol (intern (symbol-name form) :xtce)))
+	(assert (member form-symbol '(calibrated uncalibrated raw)))
+	(make-instance 'unit :power power
+						 :factor factor
+						 :description description
+						 :form form-symbol)))
 
 (defun make-unit-set (&rest items)
   (make-xtce-set 'unit "UnitSet" items))
@@ -288,7 +279,7 @@
     (cxml:with-element* ("xtce" "unit") 
       (if power (cxml:attribute "power" power))
       (if factor (cxml:attribute "factor" factor))
-      (if description (cxml:attribute "description" (format-symbol description)))
+      (if description (cxml:attribute "description" description))
       (if form (cxml:text form)))))
 
 (defun dump-xml (element)
@@ -297,13 +288,6 @@
     (cxml:with-namespace ("xtce" "http://www.omg.org/spec/XTCE/20180204")
       (cxml:with-namespace ("xsi" "http://www.w3.org/2001/XMLSchema-instance")
         (cxml-marshall element)))))
-
-(defun format-bool (a)
-  (if a "True" "False"))
-
-(defun format-symbol (a)
-  (if a
-	  (format nil "~a" a)))
 
 (defmethod cxml-marshall ((obj NULL)))
 
@@ -532,19 +516,6 @@
 	(cxml-marshall include-condition)
 	(cxml-marshall time-association)
 	(cxml-marshall ancillary-data-set))))
-
-;;;
-
-(defclass resolved-parameter-ref-entry () ((parameter-ref :initarg :parameter-ref)
-										   (short-description :initarg :short-description :type string)
-												 (location-in-container-in-bits
-												  :initarg :location-in-container-in-bits
-												  :type location-in-container-in-bits)
-												 (repeat-entry :initarg :repeat-entry :type repeat-entry)
-												 (include-condition :initarg :include-condition :type include-condition)
-												 (time-association :initarg :time-association :type time-association)
-												 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
-
 
 (defmethod cxml-marshall ((obj parameter-ref-entry))
   (with-slots (parameter-ref
@@ -1546,7 +1517,8 @@
    (enumeration-label :initarg :enumeration-label :type symbol)))
 
 (defun make-enumeration-alarm (alarm-level enumeration-label)
-  (let ((allowed-alarm-levels '(normal watch warning distress critical severe)))
+  (let ((alarm-level (intern (symbol-name alarm-level) :xtce))
+		(allowed-alarm-levels '(normal watch warning distress critical sever)))
   (check-type enumeration-label symbol)
   (check-type alarm-level symbol)
   (assert (member alarm-level allowed-alarm-levels) (alarm-level) "Alarm level ~A is not one of ~A" alarm-level allowed-alarm-levels) 
@@ -1685,7 +1657,8 @@
 
 (defun make-epoch (epoch-value)
   ; TODO: figure out xs and dateTime types
-  (let ((allowed-epoch-enumerations '(TAI J2000 UNIX GPS)))
+  (let ((epoch-value (intern (symbol-name epoch-value) :xtce))
+		(allowed-epoch-enumerations '(TAI J2000 UNIX GPS)))
   (check-type epoch-value symbol)
   (assert (member epoch-value allowed-epoch-enumerations) (epoch-value)
 		  "epoch string enumeration value ~A is not in ~A" epoch-value allowed-epoch-enumerations))
@@ -1734,9 +1707,6 @@
 
 
 ;TODO: Encoding parameters may not accept all data encodings 
-
-(defun format-number (n)
-  (format nil "~A" n))
 
 
 (defclass parameter ()
@@ -1840,9 +1810,10 @@
 (defclass data-encoding () ())
 
 (defun valid-integer-encoding-p (enc)
-  (assert (member enc '(unsigned sign-magnitude twos-complement ones-compliment bcd packed-bcd)) (enc)
-          "Int Encoding ~A is not <Unsigned | twos-complement | ones-compliment | bcd | packed-bcd" enc) 
-  t)
+  (let ((enc (intern (symbol-name enc) :xtce)))
+	(assert (member enc '(unsigned sign-magnitude twos-complement ones-compliment bcd packed-bcd)) (enc)
+			"Int Encoding ~A is not <Unsigned | twos-complement | ones-compliment | bcd | packed-bcd" enc) 
+	t))
 
 (defclass integer-data-encoding (data-encoding)
   ((encoding :documentation "Specifies integer numeric value to raw encoding method."
@@ -1897,7 +1868,8 @@
 ;;                                                          (byte-order-list)))
 
 (defun valid-string-encoding-p (enc)
-  (let ((valid-encodings '(US-ASCII WINDOWS-1252 ISO-UTF-8 UTF-16 UTF-16LE UTF-16BE UTF-32 UTF-32LE UTF-32BE) )) 
+  (let ((enc (intern (symbol-name enc) :xtce))
+		(valid-encodings '(US-ASCII WINDOWS-1252 ISO-UTF-8 UTF-16 UTF-16LE UTF-16BE UTF-32 UTF-32LE UTF-32BE) )) 
     (assert (member enc valid-encodings) (enc) "String encoding ~A is not one of: ~A" enc valid-encodings)) t)
 
 (defclass binary-data-encoding ()
@@ -1940,8 +1912,9 @@
    (context-calibrator-list :initarg :context-calibrator-list)))
 
 (defun valid-float-size-bits (size)
-  (if (member size '(32 64 128 'non-32))
-      t))
+  (let ((size (intern (symbol-name size) :xtce)))
+	(if (member size '(32 64 128 'non-32))
+		t)))
 
 (defun make-float-data-encoding (size-in-bits &optional (bit-order 'MSB)
                                                         (byte-order 'BIG)
@@ -1965,12 +1938,12 @@
                  :context-calibrator-list context-calibrator-list))
 
 (defun valid-bit-order-p (bit-order)
-  
-  (assert (member bit-order '(MSB LSB)) (bit-order) "Bit Order ~A is not <LSB | MSB>" bit-order) t)
+  (let ((bit-order (intern (symbol-name bit-order) :xtce)))
+	(assert (member bit-order '(MSB LSB)) (bit-order) "Bit Order ~A is not <LSB | MSB>" bit-order) t))
 
 (defun valid-float-encoding-p (enc)
-  (assert (member enc '(IEE MIL)) (enc) "Encoding ~A is not <IEE | MIL>" enc) t)
-
+  (let ((enc (intern (symbol-name enc) :xtce)))
+	(assert (member enc '(IEE MIL)) (enc) "Encoding ~A is not <IEE | MIL>" enc) t))
 
 (defclass numeric-calibrator ()
   ((name :documentation "Optional name"
@@ -2224,15 +2197,6 @@
         (with-slots (name short-description) obj
           (format stream "name: ~a, description: ~a " name short-description))))
 
-; Note: CCSDS 660.1-G-2 typo Page 4-142, figure caption says ContainrRefEntry
-; Note 4.3.4.8.7 StreamSegmentRefEntry Figure 4-84 describes stream segment and not stream segment ref
-;Figure 3-13: DiscreteLookup describes discretelookuplisttype
-; PG. 5-14 Typo "revolved"
-
-(defun prompt-new-value (prompt)
-  (format *query-io* prompt) 
-  (force-output *query-io*)  
-  (read *query-io*))
 
 (defclass data-stream () ())
 
@@ -2306,3 +2270,10 @@
 				 :bit-location-from-start bit-location-from-start
 				 :mask mask
 				 :mask-length-in-bits mask-length-bits))
+
+
+(defgeneric instantiate-parameter (parameter-type data)
+  (:documentation "Instantiate a parameter given a byte"))
+
+(defmethod instantiate-parameter ((parameter enumerated-parameter-type) data)
+  (assoc data (slot-value parameter 'alist)))
