@@ -10,66 +10,71 @@
  :telemetry-metadata
  (make-telemetry-metadata
   :parameter-type-set
-  (stc:with-ccsds.space-packet.header.types
-	  (list
-	   (make-integer-parameter-type
-		'|U8-Type|
-		:short-description "Unsigned 8bit integer with no encoding or calibration."
-		:signed nil
-		:size-in-bits 8)
+  (stc::with-ccsds.aos.header.types
+	  (stc::with-ccsds.mpdu.header.types
+		  (stc:with-ccsds.space-packet.header.types
+			  (list
+			   (make-integer-parameter-type
+				'|U8-Type|
+				:short-description "Unsigned 8bit integer with no encoding or calibration."
+				:signed nil
+				:size-in-bits 8)
 
-	   (make-binary-parameter-type
-		'|16-Bit-Checksum-Type|
-		:short-description
-		"16 bit checksum")
+			   (make-binary-parameter-type
+				'|16-Bit-Checksum-Type|
+				:short-description
+				"16 bit checksum")
 
-	   (make-binary-parameter-type
-		'|32-Bit-Checksum-Type|
-		:short-description
-		"32 bit checksum")
+			   (make-binary-parameter-type
+				'|32-Bit-Checksum-Type|
+				:short-description
+				"32 bit checksum")
 
-	   (make-integer-parameter-type
-		'|U32-Type|
-		:short-description "Unsigned 32 bit integer"
-		:signed nil
-		:size-in-bits 32)
+			   (make-integer-parameter-type
+				'|U32-Type|
+				:short-description "Unsigned 32 bit integer"
+				:signed nil
+				:size-in-bits 32)
 
-	   (make-string-parameter-type
-		'|ASCII-String-Type|
-		:short-description "ASCII string")
+			   (make-string-parameter-type
+				'|ASCII-String-Type|
+				:short-description "ASCII string")
 
-	   (make-integer-parameter-type
-		'|U16-Type|
-		:short-description "Unsigned 16 bit integer"
-		:signed nil
-		:size-in-bits 16)
+			   (make-integer-parameter-type
+				'|U16-Type|
+				:short-description "Unsigned 16 bit integer"
+				:signed nil
+				:size-in-bits 16)
 
-	   (make-integer-parameter-type
-		'|U64-Type|
-		:short-description
-		"Unsigned 64 bit integer."
-		:signed nil
-		:size-in-bits 64)
+			   (make-integer-parameter-type
+				'|U64-Type|
+				:short-description
+				"Unsigned 64 bit integer."
+				:signed nil
+				:size-in-bits 64)
 
-	   (make-float-parameter-type
-		'|F64-Type|
-		:short-description
-		"64 bit float."
-		:size-in-bits 64)
+			   (make-float-parameter-type
+				'|F64-Type|
+				:short-description
+				"64 bit float."
+				:size-in-bits 64)
 
-	   (make-float-parameter-type
-		'|F32-Type|
-		:short-description
-		"32 bit float.")
+			   (make-float-parameter-type
+				'|F32-Type|
+				:short-description
+				"32 bit float.")
 
-	   (make-enumerated-parameter-type
-		'|on-off-enum-type|
-		:short-description "On/Off enumeration."
-		:enumeration-list (list (make-enumeration 'ON 1) (make-enumeration 'OFF 0)))))
+			   (make-enumerated-parameter-type
+				'|on-off-enum-type|
+				:short-description "On/Off enumeration."
+				:enumeration-list (list (make-enumeration 'ON 1) (make-enumeration 'OFF 0)))))))
 
   :parameter-set
-  (list 
-   (make-parameter '|COMMANDCOUNTER| '|U8-Type| :short-description "EVS Command Counter.")))
+  (stc::with-ccsds.mpdu.header.parameters
+	  (stc::with-ccsds.aos.header.parameters
+		  (stc::with-ccsds.space-packet.header.parameters
+			  (list 
+			   (make-parameter '|COMMANDCOUNTER| '|U8-Type| :short-description "EVS Command Counter."))))))
  
  :space-system-list
  (list

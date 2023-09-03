@@ -92,8 +92,9 @@
   (:nicknames :stc)
   (:export
    #:CCSDS.Space-Packet.Header.Types
-   #:CCSDS.Space-Packet.Header.Packet-Name
-   #:CCSDS.Space-Packet.Header.Packet-Sequence-Count
+   #:CCSDS.Space-Packet.Header.Packet-Name-Type
+   #:CCSDS.Space-Packet.Header.Packet-Type-Type
+   #:CCSDS.Space-Packet.Header.Packet-Sequence-Count-Type
    #:CCSDS.Space-Packet.Header.Packet-Data-Length-Type
    #:CCSDS.Space-Packet.Header.Application-Process-Identifier-Type
    #:CCSDS.Space-Packet.Header.Secondaty-Header-Flag-Type

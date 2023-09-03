@@ -2205,7 +2205,9 @@
   (assoc data (slot-value parameter 'alist)))
 
 (defmethod cxml-marshall ((obj list))
-										;These types used to be classes, but the overhead and other limitations weren't worth it.
+  "Exclusively used for xtce-lists and xtce-sets (a homogenous list of XTCE constructs).
+   These types used to be classes, but its complexity didn't offer any obvious benefits.
+  "
   (let ((lname (typecase obj
 				 (comparison-list
 				  "ComparisonList")
