@@ -109,7 +109,8 @@
    #:CCSDS.Space-Packet.Header.Packet-Data-Length-Type
    #:CCSDS.Space-Packet.Header.Application-Process-Identifier-Type
    #:CCSDS.Space-Packet.Header.Secondaty-Header-Flag-Type
-   #:CCSDS.Space-Packet.Header.Packet-Version-Number-Type))
+   #:CCSDS.Space-Packet.Header.Packet-Version-Number-Type
+   #:with-ccsds.space-packet.header.types))
 
 (defpackage :nasa-cfs
   (:use :cl

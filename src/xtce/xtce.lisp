@@ -22,16 +22,15 @@
    (command-metadata :initarg :command-metadata)
    (xml-base :initarg :xml-base)
    (service-set :initarg :service-set)
-   (space-systems-list :initarg :space-systems-list :type space-system-list)
+   (space-system-list :initarg :space-system-list :type space-system-list)
    (parent-system :initarg :parent-system :writer :parent-system)
    (symbol-table :initarg :symbol-table :type hash-table)
    (short-description :initarg :short-description)
-   (root :initarg :root :type boole)
-   ))
+   (root :initarg :root :type boole)))
 
 (defclass space-system-list (xtce-list) ())
 
-(defun make-space-system-list (&rest items)
+(defun make-space-system-list (items)
   (make-xtce-list 'space-system nil items))
 
 (defun make-space-system (name
@@ -47,12 +46,10 @@
                             command-metadata
                             xml-base
                             service-set
-                            space-systems-list
+                            space-system-list
 							short-description)
   (check-type name symbol)
   (check-optional-type long-description long-description)
-										;TODO: it should be space-system-list
-										;TODO: Currently stored as symbols
   (let* ((sys (make-instance 'space-system
 							 :name name
 							 :parent-system parent-system
@@ -65,7 +62,7 @@
 							 :command-metadata command-metadata
 							 :xml-base xml-base
 							 :service-set service-set
-							 :space-systems-list space-systems-list
+							 :space-system-list space-system-list
 							 :short-description short-description
 							 :symbol-table (make-filesystem-hash-table)
 							 :root root
@@ -85,9 +82,9 @@
 	(add-unique-key 'back parent-system (slot-value space-system 'symbol-table))
 	)
   (register-system-keys space-system)
-  (when (slot-value space-system 'space-systems-list)
-	(with-slots (space-systems-list) space-system
-	  (dolist (child-system (slot-value space-systems-list 'items))
+  (when (slot-value space-system 'space-system-list)
+	(with-slots (space-system-list) space-system
+	  (dolist (child-system (slot-value space-system-list 'items))
 		(finalize-space-system child-system space-system)
 		(restart-case (type-check-parameter-set child-system)
 		  (continue-with-overwrite () :report (lambda (stream) (format stream "overwrite parameter-ref value and continue."))))
@@ -122,7 +119,7 @@
 																 (gethash (slot-value item 'name) symbol-table)
 																 space-system))))))))
 	
-	(With-slots (symbol-table space-systems-list telemetry-metadata name parent-system) space-system
+	(With-slots (symbol-table space-system-list telemetry-metadata name parent-system) space-system
 	    (when telemetry-metadata
 		  (register-keys-in-sequence telemetry-metadata 'parameter-type-set)
 		  (register-keys-in-sequence telemetry-metadata 'parameter-set)
@@ -165,7 +162,7 @@
                long-description
                alias-set
                telemetry-metadata
-			   space-systems-list
+			   space-system-list
 			   ) obj
     (cxml:with-element* ("xtce" "SpaceSystem")
       (cxml:attribute*  "xsi" "schemaLocation" "http://www.omg.org/spec/XTCE/20180204 XTCE12.xsd")
@@ -175,7 +172,7 @@
       (optional-xml-attribute "xml:base" xml-base)
       (cxml-marshall long-description)
       (cxml-marshall telemetry-metadata)
-	  (cxml-marshall space-systems-list)
+	  (cxml-marshall space-system-list)
 	  )))
 
 (defclass telemetry-metadata ()
@@ -217,6 +214,8 @@
       (cxml-marshall stream-set)
       (cxml-marshall algorithm-set))))
 
+
+;I no longer see the usefulness of these. Use typedefs
 (defclass xtce-set ()
   ((base-type :initarg :base-type)
    (items :initarg :items
@@ -1055,11 +1054,8 @@
 
 (defclass parameter-type-set (xtce-set) ())
 
-(defun make-parameter-type-set (&rest items)
+(defun make-parameter-type-set (items)
   ;todo move typechecking to macro
-  (let ((items (remove nil items))) 
-    (dolist (i items) 
-      (check-type i parameter-type)))
   (make-xtce-set 'parameter-type "ParameterTypeSet" items))
 
 (defclass size-range-in-characters () ((min-inclusive :initarg :min-inclusive)
@@ -1764,7 +1760,7 @@
 
 (defclass parameter-set (xtce-set) ())
 
-(defun make-parameter-set (&rest items)
+(defun make-parameter-set (items)
   (make-xtce-set 'parameter "ParameterSet" items))
 
 (defclass parameter-properties () ((data-source :initarg :data-source)
