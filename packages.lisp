@@ -18,22 +18,16 @@
    #:make-binary-data-encoding
    #:make-binary-parameter-type
    #:make-comparison
-   #:make-comparison-list
    #:make-container-ref-entry
    #:make-container-segment-ref-entry
-   #:make-container-set
    #:make-count
-   #:make-data-stream-set
    #:make-default-rate-in-stream
-   #:make-dimension-list
-   #:make-discrete-lookup-list
    #:make-dynamic-value
    #:make-encoding
    #:make-ending-index
    #:make-enumerated-parameter-type
    #:make-enumeration
    #:make-enumeration-alarm
-   #:make-enumeration-list
    #:make-epoch
    #:make-fixed-frame-stream
    #:make-fixed-value
@@ -48,14 +42,12 @@
    #:make-location-in-container-in-bits
    #:make-long-description
    #:make-next-container
-   #:make-off-set-from
+   #:make-offset-from
    #:make-offset
    #:make-parameter
    #:make-parameter-instance-ref
    #:make-parameter-ref-entry
    #:make-parameter-segment-ref-entry
-   #:make-parameter-set
-   #:make-parameter-type-set
    #:make-polynomial-calibrator
    #:make-rate-in-stream
    #:make-reference-time
@@ -64,7 +56,6 @@
    #:make-sequence-container
    #:make-size-in-bits
    #:make-size-range-in-characters
-   #:make-space-system-list
    #:make-spline-point
    #:make-starting-index
    #:make-stream-segment-entry
@@ -73,10 +64,8 @@
    #:make-sync-pattern
    #:make-sync-strategy
    #:make-term
-   #:make-term-list
    #:make-termination-char
    #:make-unit
-   #:make-unit-set
    #:print-bin
    #:print-hex
    #:prompt-new-value
@@ -84,7 +73,6 @@
    #:truncate-from-left-to-size
    #:make-telemetry-metadata
    #:make-space-system
-   #:make-space-system-list
    #:make-dimension
    #:dump-xml
    #:instantiate-parameter

@@ -28,10 +28,13 @@
    (short-description :initarg :short-description)
    (root :initarg :root :type boole)))
 
-(defclass space-system-list (xtce-list) ())
+(deftype space-system-list ()
+  "Not an actual XTCE construct, but very convenient for us."
+  `(satisfies space-system-list-p))
 
-(defun make-space-system-list (items)
-  (make-xtce-list 'space-system nil items))
+(defun space-system-list-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'space-system)) l)))
 
 (defun make-space-system (name
                           &key
@@ -84,22 +87,18 @@
   (register-system-keys space-system)
   (when (slot-value space-system 'space-system-list)
 	(with-slots (space-system-list) space-system
-	  (dolist (child-system (slot-value space-system-list 'items))
+	  (dolist (child-system space-system-list)
 		(finalize-space-system child-system space-system)
 		(restart-case (type-check-parameter-set child-system)
-		  (continue-with-overwrite () :report (lambda (stream) (format stream "overwrite parameter-ref value and continue."))))
-
-		))))
+		  (continue-with-overwrite () :report (lambda (stream) (format stream "overwrite parameter-ref value and continue."))))))))
 
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
 
 (defun register-system-keys (space-system)
   (macrolet ((register-keys-in-sequence (sequence slot-name)
-			   `(let* ((slot-name-sequence (slot-value ,sequence ,slot-name))
-					   (slot-name-items (when slot-name-sequence
-										  (slot-value slot-name-sequence 'items))))
-				 (dolist (item slot-name-items)
+			   `(let* ((slot-name-sequence (slot-value ,sequence ,slot-name)))
+				 (dolist (item slot-name-sequence)
 				   (restart-case (add-unique-key (slot-value item 'name) item symbol-table)
 					 (continue-with-overwrite () :report (lambda (stream)
 														 (format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
@@ -135,9 +134,8 @@
 (defun type-check-parameter-set (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
-		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set)))
-		 (parameters (if parameter-set (slot-value parameter-set 'items))))
-	(dolist (parameter parameters)
+		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set))))
+	(dolist (parameter parameter-set)
 	  (with-slots (parameter-type-ref) parameter
 		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
 		  (error `parameter-ref-not-found :parameter parameter :parameter-ref parameter-type-ref))))))
@@ -214,46 +212,12 @@
       (cxml-marshall stream-set)
       (cxml-marshall algorithm-set))))
 
+(deftype unit-set ()
+  `(satisfies unit-set-p))
 
-;I no longer see the usefulness of these. Use typedefs
-(defclass xtce-set ()
-  ((base-type :initarg :base-type)
-   (items :initarg :items
-          :type list
-		  :accessor items)
-   (xml-element-name :initarg :xml-element-name
-					 :type string)))
-  
-(defclass xtce-list ()
-  ((base-type :initarg :base-type)
-   (items :initarg :items
-          :type list
-		  :accessor items)
-   (xml-element-name :initarg :xml-element-name
-					 :type string)))
-
-(defclass xtce-table ()
-  ((items :initarg :items)
-   (xml-element-name :initarg :xml-element-name
-					 :type string)))
-
-(defclass unit-set (xtce-set) ())
-
-(defun make-xtce-list (xtce-type xml-element-name items)
-  (let ((items (remove nil items))
-		(xtce-type-list (find-symbol (format nil "~A-LIST" xtce-type) "XTCE")))
-	(when xtce-type-list
-	  (dolist (i items) 
-		`(check-type i ,xtce-type))
-	  (make-instance xtce-type-list :base-type xtce-type :items items :xml-element-name xml-element-name))))
-
-(defun make-xtce-set (xtce-type xml-element-name items)
-  (let ((items (remove nil items))
-		(xtce-type-set (if xtce-type (find-symbol (format nil "~A-SET" xtce-type) "XTCE"))))
-	(when xtce-type-set
-	  (dolist (i items)
-		`(check-type i ,xtce-type))
-	  (make-instance xtce-type-set :base-type xtce-type :items items :xml-element-name xml-element-name))))
+(defun unit-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'unit)) l)))
 
 (defclass unit () ((power :initarg :power
                           :type number)
@@ -269,9 +233,6 @@
 						 :factor factor
 						 :description description
 						 :form form-symbol)))
-
-(defun make-unit-set (&rest items)
-  (make-xtce-set 'unit "UnitSet" items))
 
 (defmethod cxml-marshall ((obj unit))
   (with-slots (power factor description form) obj
@@ -290,35 +251,12 @@
 
 (defmethod cxml-marshall ((obj NULL)))
 
-(defmethod cxml-marshall ((obj xtce-list))
-  (with-slots (items xml-element-name) obj
-	(if xml-element-name
-		(cxml:with-element* ("xtce" xml-element-name)
-		  (dolist (i items)
-			(cxml-marshall i)))
-		(dolist (i items)
-		  	(cxml-marshall i)))))
+(deftype container-set ()
+  `(satisfies container-set-p))
 
-(defmethod cxml-marshall ((obj xtce-set))
-  (with-slots (items xml-element-name) obj
-	(if xml-element-name
-		(cxml:with-element* ("xtce" xml-element-name)
-		  (dolist (i items)
-			(cxml-marshall i)))
-		(dolist (i items)
-		  	(cxml-marshall i)))))
-
-(defmethod print-object ((obj xtce-list) stream)
-      (print-unreadable-object (obj stream :type t)
-        (with-slots (items) obj
-          (format stream "items: ~a" items))))
-
-(defclass container-set (xtce-set) () )
-
-(defmethod make-container-set (&rest items)
-  (dolist (i items)
-	(check-type i sequence-container))
-  (make-instance 'xtce-set :xml-element-name "ContainerSet" :items items :base-type 'sequence-container))
+(defun container-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'sequence-container)) l)))
 
 (defclass sequence-container () ((name :initarg :name :type string)
 								 (short-description :initarg :short-description :type string)
@@ -392,36 +330,6 @@
 (defclass resolved-sequence-container (sequence-container)
   ((restriction-criteria-set :initarg :restriction-criteria-set :type restriction-criteria-set)))
 
-;; (defun make-resolved-sequence-container (name
-;; 										 entry-list
-;; 										 &key
-;; 										   abstract
-;; 										   idle-pattern
-;; 										   short-description
-;; 										   long-description
-;; 										   alias-set
-;; 										   ancillary-data-set
-;; 										   rate-in-stream-set
-;; 										   default-rate-in-stream
-;; 										   binary-encoding
-;; 										   restriction-criteria-set
-;; 										   base-container)
-;;   "This is suggested but not defined in XTCE. For use when resolving containers. It's a regular sequence  base-container. The sequence-container's base-container criteria is collected during resolution. Use when dumping a non XTCE"
-
-;;   (make-instance 'resolved-sequence-container :name name
-;; 											  :entry-list entry-list
-;; 											  :short-description short-description
-;; 											  :abstract abstract
-;; 											  :idle-pattern idle-pattern
-;; 											  :long-description long-description
-;; 											  :alias-set alias-set
-;; 											  :ancillary-data-set ancillary-data-set
-;; 											  :rate-in-stream-set rate-in-stream-set
-;; 											  :default-rate-in-stream default-rate-in-stream
-;; 											  :binary-encoding binary-encoding
-;; 											  :base-container base-container
-;; 											  :restriction-criteria restriction-criteria-set))
-
 (defmethod cxml-marshall ((obj resolved-sequence-container))
   (with-slots (name
 			   entry-list
@@ -469,12 +377,16 @@
 	(optional-xml-attribute "maximumValue" maximum-value)
 	(optional-xml-attribute "minimumValue" minimum-value)))
 
-(defclass entry-list (xtce-list) ())
+(defclass entry () ())
 
-(defun make-entry-list (&rest items)
-  (make-xtce-list 'entry "EntryList" items))
+(deftype entry-list ()
+  `(satisfies entry-list-p))
 
-(defclass parameter-ref-entry () ((parameter-ref :initarg :parameter-ref)
+(defun entry-list-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'entry)) l)))
+
+(defclass parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref)
 												 (short-description :initarg :short-description :type string)
 												 (location-in-container-in-bits
 												  :initarg :location-in-container-in-bits
@@ -542,10 +454,12 @@
 (defun make-rate-in-stream (stream-ref &key basis minimum-value maximum-value)
   (make-instance 'rate-in-stream :stream-ref stream-ref :basis basis :minimum-value minimum-value :maximum-value maximum-value))
 
-(defclass rate-in-stream-set (xtce-set) ())
+(deftype rate-in-stream-set ()
+  `(satisfies rate-in-stream-set-p))
 
-(defun make-rate-in-stream-set (&rest items)
-  (make-xtce-set 'rate-in-stream "RateInStreamSet" items))
+(defun rate-in-stream-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'rate-in-stream)) l)))
 
 (defmethod cxml-marshall ((obj rate-in-stream))
   (with-slots (stream-ref basis minimum-value maximum-value) obj
@@ -554,7 +468,7 @@
 	(optional-xml-attribute "minimumValue" minimum-value)
 	(optional-xml-attribute "maximumValue" maximum-value)))
 
-(defclass parameter-segment-ref-entry () ((parameter-ref :initarg :parameter-ref)
+(defclass parameter-segment-ref-entry (entry) ((parameter-ref :initarg :parameter-ref)
 														 (size-in-bits :initarg :size-in-bits)
 														 (short-description :initarg :short-description)
 														 (order :initarg :order)
@@ -654,7 +568,7 @@
 	  (cxml-marshall ancillary-data-set))))
 
 
-(defclass container-segment-ref-entry () ((container-ref :initarg :container-ref)
+(defclass container-segment-ref-entry (entry) ((container-ref :initarg :container-ref)
 														 (size-in-bits :initarg :size-in-bits :type positive-integer)
 														 (short-description :initarg :short-description :type string)
 														 (order :initarg :order)
@@ -707,7 +621,7 @@
 	  (cxml-marshall time-association)
 	  (cxml-marshall ancillary-data-set))))
 
-(defclass stream-segment-entry () ((stream-ref :initarg :stream-ref)
+(defclass stream-segment-entry (entry) ((stream-ref :initarg :stream-ref)
 												  (size-in-bits :initarg :size-in-bits :type positive-integer)
 												  (short-description :initarg :short-description :type string)
 												  (location-in-container-in-bits :initarg :location-in-container-in-bits
@@ -759,7 +673,7 @@
 	  (cxml-marshall time-association)
 	  (cxml-marshall ancillary-data-set))))
 
-(defclass indirect-parameter-ref-entry () ((short-description :initarg :short-description :type string)
+(defclass indirect-parameter-ref-entry (entry) ((short-description :initarg :short-description :type string)
 														  (alias-name-space :initarg :alias-name-space)
 														  (location-in-container-in-bits :initarg :location-in-container-in-bits
 																						 :type location-in-container-in-bits)
@@ -809,7 +723,7 @@
 	  (cxml-marshall time-association)
 	  (cxml-marshall ancillary-data-set))))
 
-(defclass array-parameter-ref-entry () ((parameter-ref :initarg :parameter-ref)
+(defclass array-parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref)
 													   (short-description :initarg :short-description :type string)
 													   (location-in-container-in-bits :initarg :location-in-container-in-bits
 																					  :type location-in-container-in-bits)
@@ -986,12 +900,14 @@
 	  (optional-xml-attribute "instance" instance)
 	  (optional-xml-attribute "useCalibratedValue" use-calibrated-value))))
 
-(defclass discrete-lookup-list (xtce-list) ((comparison :initarg :comparison)))
+(defclass discrete-lookup () ())
 
-(defun make-discrete-lookup-list (comparison &rest items)
-  (let ((lookup-list (make-xtce-list 'discrete-lookup "DiscreteLookupList" items)))
-	(setf (slot-value lookup-list 'comparison) comparison)
-	lookup-list))
+(deftype discrete-lookup-list ()
+  `(satisfies discrete-lookup-list-p))
+
+(defun discrete-lookup-list-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'discrete-lookup)) l)))
 
 (defclass fixed-value ()
   ((value :initarg :value)))
@@ -1051,12 +967,13 @@
 		(cxml:attribute "size-in-bits-of-size-tag" size-in-bits-of-size-tag))))
 
 (defclass parameter-type () ())
+ 
+(deftype parameter-type-set-p ()
+  `(satisfies container-set-p))
 
-(defclass parameter-type-set (xtce-set) ())
-
-(defun make-parameter-type-set (items)
-  ;todo move typechecking to macro
-  (make-xtce-set 'parameter-type "ParameterTypeSet" items))
+(defun parameter-type-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'parameter-type)) l)))
 
 (defclass size-range-in-characters () ((min-inclusive :initarg :min-inclusive)
 									   (max-inclusive :initarg :max-inclusive)))
@@ -1303,7 +1220,7 @@
                                     long-description
                                     alias-set
                                     ancillary-data-set
-                                    (unit-set (make-unit-set))
+                                    unit-set 
                                     data-encoding
                                     to-string
                                     valid-range
@@ -1488,8 +1405,8 @@
   (check-optional-type context-alarm-list context-alarm-list)
   ;(check-optional-type initial-value T)
   ; Need to check if inital value is in enumeration list
-  (let* ((enumerations (slot-value enumeration-list 'items))
-		 (alist (loop for enumeration in enumerations
+  ; TODO: mapcar?
+  (let* ((alist (loop for enumeration in enumeration-list
 					  for label = (slot-value enumeration 'label)
 					  for value = (slot-value enumeration 'value)
 					  for entry = (cons label value)
@@ -1520,10 +1437,12 @@
   (assert (member alarm-level allowed-alarm-levels) (alarm-level) "Alarm level ~A is not one of ~A" alarm-level allowed-alarm-levels) 
   (make-instance 'enumeration-alarm :alarm-level alarm-level  :enumeration-label enumeration-label)))
 
-(defclass enumeration-list (xtce-list) ((alist :initarg :alist :type list)))
+(deftype enumeration-list ()
+  `(satisfies enumeration-list-p))
 
-(defun make-enumeration-list (&rest items)
-  (make-xtce-list 'enumeration "EnumerationList" items))
+(defun enumeration-list-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'enumeration)) l)))
 
 (defclass enumeration ()
   ((value :initarg :value)
@@ -1757,11 +1676,15 @@
 	  (cxml-marshall ancillary-data-set)
 	  (cxml-marshall parameter-properties))))
 
+(deftype parameter-type-set ()
+  `(satisfies parameter-type-set-p))
 
-(defclass parameter-set (xtce-set) ())
+(deftype parameter-set ()
+  `(satisfies parameter-set-p))
 
-(defun make-parameter-set (items)
-  (make-xtce-set 'parameter "ParameterSet" items))
+(defun parameter-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'parameter)) l)))
 
 (defclass parameter-properties () ((data-source :initarg :data-source)
 								   (read-only :initarg :read-only)
@@ -1979,10 +1902,12 @@
 	  (optional-xml-attribute "useCalibratedValue" (format-bool use-calibrated-value))
 	  (optional-xml-attribute "comparisonOperator" (format-symbol comparison-operator)))))
 
-(defclass comparison-list (xtce-list) ())
+(deftype comparison-list ()
+  `(satisfies comparison-list-p))
 
-(defun make-comparison-list (&rest items)
-  (make-instance 'xtce-list :xml-element-name "ComparisonList" :base-type 'comparison :items items))
+(defun comparison-list-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'comparison)) l)))
 
 (defclass boolean-expression (context-match)
   ((expression :initarg :expression
@@ -2054,13 +1979,14 @@
   (make-instance 'term :coefficient coefficient
                        :exponent exponent))
 
-(defclass term-list (xtce-list) ())
-                              
-(defun make-term-list (&rest terms)
-  (assert (>= (length terms) 1) (terms) "Parameter TERMS: ~A must have at least one polynomial term." terms)
-  (dolist (i terms)
-    (check-type i term))
-  (make-instance 'term-list :items terms :xml-element-name "" :base-type 'term))
+(deftype term-list ()
+  `(satisfies term-list-p))
+
+(defun term-list-p (l)
+  (and
+   (not (null l))
+   (listp l)
+   (every #'(lambda (i) (typep i 'term)) l)))
 
 (defclass ancillary-data-set () ())
 
@@ -2118,10 +2044,13 @@
 	  (cxml-marshall starting-index)
 	  (cxml-marshall ending-index))))
 
-(defclass dimension-list (xtce-list) ())
+(deftype dimension-list ()
+  `(satisfies dimension-list-p))
 
-(defun make-dimension-list (&rest items)
-  (make-xtce-list 'dimension "DimensionList" items))
+(defun dimension-list-p (l)
+  (and
+   (listp l)
+   (every #'(lambda (i) (typep i 'dimension)) l)))
 
 (defclass array-parameter-type (parameter-type)
   ((short-description :initarg :short-description :type string)
@@ -2196,11 +2125,12 @@
 
 (defclass data-stream () ())
 
-(defclass stream-set (xtce-set) ())
+(deftype stream-set ()
+  `(satisfies stream-set-p))
 
-
-(defun make-data-stream-set (&rest items)
-  (make-xtce-set 'data-stream "StreamSet" items))
+(defun stream-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'parameter-type)) l)))
 
 (defclass variable-frame-stream (data-stream) ())
 
@@ -2273,3 +2203,42 @@
 
 (defmethod instantiate-parameter ((parameter enumerated-parameter-type) data)
   (assoc data (slot-value parameter 'alist)))
+
+(defmethod cxml-marshall ((obj list))
+										;These types used to be classes, but the overhead and other limitations weren't worth it.
+  (let ((lname (typecase obj
+				 (comparison-list
+				  "ComparisonList")
+				 (container-set
+				  "ContainerSet")
+				 (dimension-list
+				  "DimensionList")
+				 (discrete-lookup-list
+				  "DiscreteLookupList")
+				 (entry-list
+				  "EntryList")
+				 (enumeration-list
+				  "EnumerationList")
+				 (parameter-set
+				  "ParameterSet")
+				 (parameter-type-set
+				  "ParameterTypeSet")
+				 (rate-in-stream-set
+				  "RateInStreamSet")
+				 (space-system-list
+				  nil) ;Not an actual XTCE construct
+				 (spline-point-list
+				  "SplinePointList")
+				 (stream-set
+				  "StreamSet")
+				 (term-list
+				  "TermList")
+				 (unit-set
+				  "UnitSet"))))
+	(if lname
+		(progn
+		  (cxml:with-element* ("xtce" lname)
+			(dolist (i obj)
+			  (cxml-marshall i))))
+		(dolist (i obj)
+		  (cxml-marshall i)))))

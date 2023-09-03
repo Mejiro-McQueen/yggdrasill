@@ -14,7 +14,7 @@
    :short-description "CCSDS Space Packet Header element."
    :long-description (make-long-description "CCSDS Space Packet Header element. The exact definition of ‘telemetry Packets’ and ‘telecommand Packets’ needs to be established by the project that uses this protocol. Element of Packet-Identification subdivision.")
    :enumeration-list
-   (make-enumeration-list (make-enumeration 'Telemetry 0) (make-enumeration 'Telecommand 1))))
+   (list (make-enumeration 'Telemetry 0) (make-enumeration 'Telecommand 1))))
 
 (defun CCSDS.Space-Packet.Header.Secondary-Header-Flag-Type ()
   (make-enumerated-parameter-type
@@ -22,8 +22,8 @@
    :short-description "CCSDS Space Packet Header element."
    :long-description (make-long-description "CCSDS Space Packet Header element. Indicates the presence or absence of the Packet Seconday Header within this space packet. This flag shall be static with respect to the APID and managed data path throughout a mission phase. Element of Packet-Identification subdivision.")
    :enumeration-list
-   (make-enumeration-list (make-enumeration 'Absent 0 :short-description "This packet contains a secondary header.")
-						  (make-enumeration 'Present 1 :short-description "This packet does not contain a secondary header."))))
+   (list (make-enumeration 'Absent 0 :short-description "This packet contains a secondary header.")
+		 (make-enumeration 'Present 1 :short-description "This packet does not contain a secondary header."))))
 
 (defun CCSDS.Space-Packet.Header.Application-Process-Identifier-Type ()
   (make-binary-parameter-type
@@ -33,7 +33,7 @@
 (defun CCSDS.Space-Packet.Header.Sequence-Flags-Type ()
   (make-enumerated-parameter-type
    '|STC:CCSDS.Sequence-Flags-Type|
-   :enumeration-list (make-enumeration-list
+   :enumeration-list (list
 					  (make-enumeration #b00 'Continuation :short-description "Space Packet contains a continuation segment of User Data.")
 					  (make-enumeration #b01 'First-Segment :short-description "Space Packet contains the first segment of User Data.")
 					  (make-enumeration #b10 'Last-Segment :short-description "Space Packet contains the last segment of User Data.")
