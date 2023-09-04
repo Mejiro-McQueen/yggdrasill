@@ -6,7 +6,8 @@
    '|STC.CCSDS.Space-Packet.Header.Packet-Version-Number-Type|
    :short-description "CCSDS Space Packet Header element."
    :long-description (make-long-description "CCSDS Space Packet Header element. Mandatory. 3 bit field fixed to 000.")
-   :size-in-bits 3))
+   :data-encoding (make-integer-data-encoding :size-in-bits 3)
+   ))
 
 (defun CCSDS.Space-Packet.Header.Packet-Type-Type ()
   (make-enumerated-parameter-type
@@ -14,7 +15,8 @@
    :short-description "CCSDS Space Packet Header element."
    :long-description (make-long-description "CCSDS Space Packet Header element. The exact definition of ‘telemetry Packets’ and ‘telecommand Packets’ needs to be established by the project that uses this protocol. Element of Packet-Identification subdivision.")
    :enumeration-list
-   (list (make-enumeration 'Telemetry 0) (make-enumeration 'Telecommand 1))))
+   (list (make-enumeration 'Telemetry 0) (make-enumeration 'Telecommand 1))
+   :data-encoding (make-integer-data-encoding :size-in-bits 1)))
 
 (defun CCSDS.Space-Packet.Header.Secondary-Header-Flag-Type ()
   (make-enumerated-parameter-type
@@ -23,22 +25,27 @@
    :long-description (make-long-description "CCSDS Space Packet Header element. Indicates the presence or absence of the Packet Seconday Header within this space packet. This flag shall be static with respect to the APID and managed data path throughout a mission phase. Element of Packet-Identification subdivision.")
    :enumeration-list
    (list (make-enumeration 'Absent 0 :short-description "This packet contains a secondary header.")
-		 (make-enumeration 'Present 1 :short-description "This packet does not contain a secondary header."))))
+		 (make-enumeration 'Present 1 :short-description "This packet does not contain a secondary header."))
+   :data-encoding (make-integer-data-encoding :size-in-bits 1)))
 
 (defun CCSDS.Space-Packet.Header.Application-Process-Identifier-Type ()
   (make-binary-parameter-type
    '|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier-Type|
-   :short-description "CCSDS Space Packet Header element."))
+   :short-description "CCSDS Space Packet Header element."
+  :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 14)))))
 
 (defun CCSDS.Space-Packet.Header.Packet-Identification-Type ()
   (make-binary-parameter-type
    '|STC.CCSDS.Space-Packet.Header.Packet-Identification-Type|
-   :short-description "CCSDS Space Packet Header element."))
+   :short-description "CCSDS Space Packet Header element."
+   :data-encoding
+   (make-binary-data-encoding (make-size-in-bits (make-fixed-value 16)))))
 
 (defun CCSDS.Space-Packet.Header.Packet-Sequence-Control-Type ()
   (make-binary-parameter-type
    '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Control-Type|
-   :short-description "CCSDS Space Packet Header element."))
+   :short-description "CCSDS Space Packet Header element.")
+  :data-encoding (make-binary-data-encoding (make-size-in-bits (fixed-value 16))))
 
 (defun CCSDS.Space-Packet.Header.Sequence-Flags-Type ()
   (make-enumerated-parameter-type
@@ -47,27 +54,31 @@
 					  (make-enumeration #b00 'Continuation :short-description "Space Packet contains a continuation segment of User Data.")
 					  (make-enumeration #b01 'First-Segment :short-description "Space Packet contains the first segment of User Data.")
 					  (make-enumeration #b10 'Last-Segment :short-description "Space Packet contains the last segment of User Data.")
-					  (make-enumeration #b11 'Unsegmented :short-description "Space Packet is unsegmented."))))
+					  (make-enumeration #b11 'Unsegmented :short-description "Space Packet is unsegmented."))
+   :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 14)))))
 
 (defun CCSDS.Space-Packet.Header.Packet-Data-Length-Type ()
   (make-integer-parameter-type
    '|STC.CCSDS.Space-Packet.Header.Packet-Data-Length-Type|
    :size-in-bits 16
    :short-description "CCSDS Space Packet Header Element."
-   :long-description (make-long-description "Is one fewer than the length in octets of the Packet Data Field. Described by C=(Total Number of Octets in the Packet Data Field) -1")))
+   :long-description (make-long-description "Is one fewer than the length in octets of the Packet Data Field. Described by C=(Total Number of Octets in the Packet Data Field) -1")
+   :data-encoding (make-integer-data-encoding :size-in-bits 16)))
 
 (defun CCSDS.Space-Packet.Header.Packet-Sequence-Count-Type ()
   (make-integer-parameter-type
    '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count-Type|
    :size-in-bits 14
    :short-description "CCSDS Space Packet Header Element. Part of Packet Sequence Control subdivision."
-   :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet count.")))
+   :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet count.")
+  :data-encoding (make-integer-data-encoding :size-in-bits 14)))
 
 (defun CCSDS.Space-Packet.Header.Packet-Name-Type ()
   (make-string-parameter-type
    '|STC.CCSDS.Space-Packet.Header.Packet-Name-Type|
    :short-description "Do not Use: I have no idea how it's supposed to work. CCSDS Space Packet Header Element. Part of Packet Sequence Control subdivision."
-   :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet.")))
+   :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet.")
+   :data-encoding (make-string-data-encoding (make-size-in-bits 14))))
 
 (defun with-ccsds.space-packet.header.types (type-list)
   (append type-list
@@ -165,8 +176,8 @@
   (make-binary-parameter-type '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control-Type|
   :short-description "Optional. Reed-Solomon Protecting Mater Channel Identifier and Virtual Channel Identifier. 16 bits."))
 
-(defun CCSDS.AOS.Header.Insert-Zone-Type ()
-  (make-binary-parameter-type '|STC.CCSDS.AOS.Header.Insert-Zone-Type|
+(defun CCSDS.AOS.Insert-Zone-Type ()
+  (make-binary-parameter-type '|STC.CCSDS.AOS.Insert-Zone-Type|
   :short-description "Optional."))
 
 (defun CCSDS.AOS.Data-Field-Type ()
@@ -183,9 +194,10 @@ static throughout a Mission Phase."))
 (defun with-ccsds.aos.header.types (type-list)
   (append type-list
 		  (list
+		   (CCSDS.AOS.Data-Field-Type)
 		   (CCSDS.AOS.Header.Frame-Count-Cycle-Type)
 		   (CCSDS.AOS.Header.Frame-Header-Error-Control-Type)
-		   (CCSDS.AOS.Header.Insert-Zone-Type)
+		   (CCSDS.AOS.Insert-Zone-Type)
 		   (CCSDS.AOS.Header.Master-Channel-ID-Type)
 		   (CCSDS.AOS.Header.Replay-Flag-Type)
 		   (CCSDS.AOS.Header.Reserved-Spare-Type)
@@ -194,8 +206,7 @@ static throughout a Mission Phase."))
 		   (CCSDS.AOS.Header.Version-Number-Type)
 		   (CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type)
 		   (CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type)
-		   (CCSDS.AOS.Header.Virtual-Channel-ID-Type)
-		   )))
+		   (CCSDS.AOS.Header.Virtual-Channel-ID-Type))))
 
 
 (defun CCSDS.AOS.Header.Master-Channel-ID ()
@@ -226,7 +237,7 @@ static throughout a Mission Phase."))
   (make-parameter '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control| '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control-Type|))
 
 (defun CCSDS.AOS.Header.Insert-Zone ()
-  (make-parameter '|STC.CCSDS.AOS.Header.Insert-Zone| '|STC.CCSDS.AOS.Header.Insert-Zone-Type|))
+  (make-parameter '|STC.CCSDS.AOS.Insert-Zone| '|STC.CCSDS.AOS.Insert-Zone-Type|))
 
 (defun CCSDS.AOS.Header.Data-Field ()
   (make-parameter '|STC.CCSDS.AOS.Header.Data-Field| '|STC.CCSDS.AOS.Header.Data-Field-Type|))
@@ -243,7 +254,7 @@ static throughout a Mission Phase."))
 		   (CCSDS.AOS.Header.Reserved-Spare)
 		   (CCSDS.AOS.Header.Frame-Count-Cycle)
 		   (CCSDS.AOS.Header.Frame-Header-Error-Control)
-		   (CCSDS.AOS.Header.Insert-Zone)
+		   (CCSDS.AOS.Insert-Zone)
 		   (CCSDS.AOS.Header.Data-Field))))
 
 (defun CCSDS.MPDU.Header.Reserved-Spare-Type ()
@@ -257,14 +268,20 @@ static throughout a Mission Phase."))
 (defun CCSDS.MPDU.Packet-Zone-Type ()
   (make-binary-parameter-type '|CCSDS.MPDU.Packet-Zone-Type|
   :short-description "Contains a series of MPDU"))
- 
+
+(defun CCSDS.MPDU.Packet-Type ()
+  (make-binary-parameter-type '|CCSDS.MPDU.Packet-Type|
+  :short-description "Contains a series of MPDU"))
+
 (defun with-ccsds.mpdu.header.types (type-list)
   (append
    type-list
    (list
 	(CCSDS.MPDU.Header.Reserved-Spare-Type)
 	(CCSDS.MPDU.Header.First-Header-Pointer-Type)
-	(CCSDS.MPDU.Packet-Zone-Type))))
+	(CCSDS.MPDU.Packet-Zone-Type)
+	(CCSDS.MPDU.Packet-Type)
+	)))
 
 (defun CCSDS.MPDU.Header.Reserved-Spare ()
   (make-parameter '|STC.CCSDS.MPDU.Header.Reserved-Spare| '|STC.CCSDS.MPDU.Header.Reserved-Spare-Type|))
@@ -272,13 +289,25 @@ static throughout a Mission Phase."))
 (defun CCSDS.MPDU.Header.First-Header-Pointer ()
   (make-parameter '|STC.CCSDS.MPDU.Header.First-Header-Pointer| '|STC.CCSDS.MPDU.Header.First-Header-Pointer-Type|))
   
-(defun CCSDS.MPDU.Header.Packet-Zone ()
-  (make-parameter '|STC.CCSDS.MPDU.Header.Packet-Zone| '|STC.CCSDS.MPDU.Header.Packet-Zone-Type|))
+(defun CCSDS.MPDU.Packet-Zone ()
+  (make-parameter '|STC.CCSDS.MPDU.Packet-Zone| '|STC.CCSDS.MPDU.Packet-Zone-Type|))
+
+(defun CCSDS.MPDU.Packet()
+  (make-parameter '|STC.CCSDS.MPDU.Packet| '|STC.CCSDS.MPDU.Packet-Type|))
 
 (defun with-ccsds.mpdu.header.parameters (parameter-list)
   (append parameter-list
 		  (list
 		   (CCSDS.MPDU.Header.Reserved-Spare)
 		   (CCSDS.MPDU.Header.First-Header-Pointer)
-		   (CCSDS.MPDU.Header.Packet-Zone))))
+		   (CCSDS.MPDU.Packet-Zone)
+		   (CCSDS.MPDU.Packet))))
 
+(defun CCSDS.MPDU.Container ()
+  (make-sequence-container '|STC.CCSDS.MPDU.Container|
+						   (list
+							(make-parameter-ref-entry '|CCSDS.MPDU.Header.Reserved-Spare|)
+							)
+						   )
+  
+  )

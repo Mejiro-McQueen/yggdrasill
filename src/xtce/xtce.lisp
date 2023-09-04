@@ -944,6 +944,7 @@
 	(cxml:with-element* ("xtce" "TerminationChar")
 	  (cxml:text termination-char))))
 
+;TODO: Deftype for size
 (defclass size-in-bits () ((size :initarg :size)))
 
 (defun make-size-in-bits (size)
@@ -999,7 +1000,7 @@
    (alias-set :initarg :alias-set :type alias-set)
    (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
    (unit-set :initarg :unit-set :type unit-set)
-   (encoding :initarg :encoding :type encoding)
+   (data-encoding :initarg :data-encoding :type encoding)
    (size-range-in-characters :initarg :size-range-in-characters :type size-range-in-characters)
    (default-alarm :initarg :default-alarm :type default-alarm)
    (context-alarm-list :initarg :context-alarm-list :type context-alarm-list)))
@@ -1014,7 +1015,7 @@
 										  alias-set
 										  ancillary-data-set
 										  unit-set
-										  encoding
+										  data-encoding
 										  size-range-in-characters
 										  default-alarm
 										  context-alarm-list)
@@ -1029,7 +1030,7 @@
 				 :alias-set alias-set
 				 :ancillary-data-set ancillary-data-set
 				 :unit-set unit-set
-				 :encoding encoding
+				 :data-encoding data-encoding
 				 :size-range-in-characters size-range-in-characters
 				 :default-alarm default-alarm
 				 :context-alarm-list context-alarm-list))
@@ -1324,7 +1325,7 @@
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
   (check-optional-type unit-set unit-set)
-  (check-optional-type data-encoding data-encoding)
+  (check-optional-type data-encoding encoding)
   (check-optional-type default-alarm enumeration-alarm)
   (check-optional-type binary-context-alarm-list binary-context-alarm-list)
   ;(check-optional-type initial-value T)
@@ -1399,7 +1400,7 @@
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
   (check-optional-type unit-set unit-set)
-  (check-optional-type data-encoding data-encoding)
+  (check-optional-type data-encoding encoding)
   (check-optional-type enumeration-list enumeration-list)
   (check-optional-type default-alarm enumeration-alarm)
   (check-optional-type context-alarm-list context-alarm-list)
@@ -1771,33 +1772,76 @@
       (cxml-marshall default-calibrator)
       (cxml-marshall context-calibrator-list))))
 
+(deftype string-size ()
+  `(satisfies string-size-p))
+
+(defun string-size-p (a)
+  (or (typep a 'size-in-bits)
+	  (typep a 'variable-string)))
+
+(defun value-lookup-p (a)
+  (or (typep a 'dynamic-value)
+	  (typep a 'discrete-lookup-list)))
+
+(deftype value-lookup ()
+  `(satisfies value-lookup-p))
+
+(deftype bit-order ()
+  '(member |mostSignificantBitFirst| |leastSignificantBitFirst|))
+
+(deftype byte-order ()
+  `(member |mostSignificantByteFirst| |leastSignificantByteFirst|))
+
+(deftype string-encoding ()
+  `(member US-ASCII WINDOWS-1252 ISO-UTF-8 UTF-16 UTF-16LE UTF-16BE UTF-32 UTF-32LE UTF-32BE))
+
+
+(defclass leading-size () ((size-in-bits-of-size-tag :initarg size-in-bits-of-size-tag :type positive-integer :documentation "Positive integer representing how many bits the string size integer is."))
+  (:documentation "In some string implementations, the size of the string contents (not the memory allocation size) is determined by a leading numeric value. This is sometimes referred to as Pascal strings. If a LeadingSize is specified, then the TerminationChar element does not have a functional meaning."))
+
+(defclass variable-string ()
+  ((max-size-in-bits :initarg :max-size-in-bits :type positive-integer
+					 :documentation "XTCE: The upper bound of the size of this string data type so that the implementation can reserve/allocate enough memory to capture all reported instances of the string. Bifrost: This value is mostly ignored since we don't need to preallocate space, but you must define it since it is required by the XTCE spec, dynamic containers may require this value.")
+   (value-lookup :initarg :value-lookup :type value-lookup :documentation "<DynamicValue | DiscreteLookupList> XTCE: Determine the container size in bits by interrogating an instance of a parameter.")
+   (leading-size :initarg :leading-size :type leading-size
+				 :documentation "Use to describe Pascal Strings (e.g. pull the next n characters from the stream).")
+   (termination-character :initarg :termination-character :type t :documentation "Ignored if leading-size is not nil.")
+)
+  (:documentation "This is referred to as VARIABLE in XTCE. Its purpose is to help define variable/dynamic length strings. In particular, leading-size can be used to define pascal string encoding (i.e. length of the string is stored here). Otherwise, the termination character can be set to null to define C strings and the like. XTCE specifies that LeadingSize takes precedence over TerminationChar and that we should let you define both simultaneously. XTCE: Variable length strings are those where the space occupied in a container can vary. If the string has variable content but occupies the same amount of space when encoded should use the SizeInBits element. Specification of a variable length string needs to consider that the implementation needs to allocate space to store the string. Specify the maximum possible length of the string data type for memory purposes and also specify the bit size of the string to use in containers with the dynamic elements."))
+
+(defun make-variable (max-size-in-bits value-lookup leading-size termination-character)
+  (make-instance 'variable-string
+				 :max-size-in-bits max-size-in-bits
+				 :value-lookup value-lookup
+				 :leading-size leading-size
+				 :termination-character termination-character))
+
 (defclass string-data-encoding (data-encoding)
-  ((size-in-bits :initarg :size-in-bits
-                 :type size-in-bits)
-   (bit-order :initarg :bit-order)
-   (error-detect-correct :initarg :error-detect-correct
-                         :type error-detect-correct)
-   (byte-order-list :initarg :byte-order-list
-                    :type byte-order-list)
-   (encoding :initarg :encoding)))
+  ((string-size-type :initarg :string-size-type :type string-size)
+   (bit-order :initarg :bit-order :type bit-order)
+   (error-detect-correct :initarg :error-detect-correct :type error-detect-correct)
+   (byte-order :initarg :byte-order :type byte-order)
+   (encoding :initarg :encoding :type string-encoding)))
 
-;; (defun make-string-data-encoding (size-in-bits &optional (bit-order)
-;;                                                          (encoding)
-;;                                                          (error-detect-correct)
-;;                                                          (byte-order-list)))
+(defun make-string-data-encoding (string-size-type &optional
+													 (bit-order '|mostSignificantBitFirst|)
+													 (byte-order '|mostSignificantByteFirst|)
+													 (encoding 'UTF-8)
+													 (error-detect-correct))
+  (make-instance 'string-data-encoding
+				 :string-size-type string-size-type
+				 :bit-order bit-order
+				 :error-detect-correct error-detect-correct
+				 :byte-order byte-order
+				 :encoding encoding))
 
-(defun valid-string-encoding-p (enc)
-  (let ((enc (intern (symbol-name enc) :xtce))
-		(valid-encodings '(US-ASCII WINDOWS-1252 ISO-UTF-8 UTF-16 UTF-16LE UTF-16BE UTF-32 UTF-32LE UTF-32BE) )) 
-    (assert (member enc valid-encodings) (enc) "String encoding ~A is not one of: ~A" enc valid-encodings)) t)
-
-(defclass binary-data-encoding ()
+(defclass binary-data-encoding (encoding)
   ((bit-order :initarg :bit-order)
    (byte-order :initarg :byte-order)
    (size-in-bits :initarg :size-in-bits :type size-in-bits)
    (error-detect-correct :initarg :error-detect-correct)
    (from-binary-transform-algorithm :initarg :from-binary-transform-algorithm)
-   (to-binary-transform-algorithm :initarg :from-binary-transform-algorithm)))
+   (to-binary-transform-algorithm :initarg :to-binary-transform-algorithm)))
 
 (defun make-binary-data-encoding (size-in-bits &optional (bit-order)
                                                          (byte-order)
