@@ -522,15 +522,14 @@
 	  (cxml-marshall time-association)
 	  (cxml-marshall ancillary-data-set))))
 
-(defclass container-ref-entry () ((container-ref :initarg :container-ref)
-												 (short-description :initarg short-description :type string)
-												 (location-in-container-in-bits :initarg location-in-container-in-bits
-																				:type location-in-container-in-bits)
-												 (repeat-entry :initarg :repeat-entry :type repeat-entry)
-												 (include-condition :initarg :include-condition :type include-condition)
-												 (time-association :initarg :time-association :type time-association)
-												 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
-
+(defclass container-ref-entry ()
+  ((container-ref :initarg :container-ref)
+   (short-description :initarg :short-description :type string)
+   (location-in-container-in-bits :initarg :location-in-container-in-bits :type location-in-container-in-bits)
+   (repeat-entry :initarg :repeat-entry :type repeat-entry)
+   (include-condition :initarg :include-condition :type include-condition)
+   (time-association :initarg :time-association :type time-association)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
 
 (defun make-container-ref-entry (container-ref
 								 &key
@@ -1321,11 +1320,11 @@
   (check-type name symbol)
   (check-optional-type short-description string)
   ;(check-optional-type base-type T)
-  (check-optional-type long-description string)
+  (check-optional-type long-description long-description)
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
   (check-optional-type unit-set unit-set)
-  (check-optional-type data-encoding encoding)
+  (check-optional-type data-encoding data-encoding)
   (check-optional-type default-alarm enumeration-alarm)
   (check-optional-type binary-context-alarm-list binary-context-alarm-list)
   ;(check-optional-type initial-value T)
@@ -1400,7 +1399,7 @@
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
   (check-optional-type unit-set unit-set)
-  (check-optional-type data-encoding encoding)
+  (check-optional-type data-encoding data-encoding)
   (check-optional-type enumeration-list enumeration-list)
   (check-optional-type default-alarm enumeration-alarm)
   (check-optional-type context-alarm-list context-alarm-list)
@@ -1821,34 +1820,34 @@
    (bit-order :initarg :bit-order :type bit-order)
    (error-detect-correct :initarg :error-detect-correct :type error-detect-correct)
    (byte-order :initarg :byte-order :type byte-order)
-   (encoding :initarg :encoding :type string-encoding)))
+   (string-encoding :initarg :string-encoding :type string-encoding)))
 
 (defun make-string-data-encoding (string-size-type &optional
 													 (bit-order '|mostSignificantBitFirst|)
 													 (byte-order '|mostSignificantByteFirst|)
-													 (encoding 'UTF-8)
+													 (string-encoding 'UTF-8)
 													 (error-detect-correct))
   (make-instance 'string-data-encoding
 				 :string-size-type string-size-type
 				 :bit-order bit-order
 				 :error-detect-correct error-detect-correct
 				 :byte-order byte-order
-				 :encoding encoding))
+				 :string-encoding string-encoding))
 
-(defclass binary-data-encoding (encoding)
-  ((bit-order :initarg :bit-order)
-   (byte-order :initarg :byte-order)
+(defclass binary-data-encoding (data-encoding)
+  ((bit-order :initarg :bit-order :type bit-order)
+   (byte-order :initarg :byte-order :type byte-order)
    (size-in-bits :initarg :size-in-bits :type size-in-bits)
-   (error-detect-correct :initarg :error-detect-correct)
+   (error-detect-correct :initarg :error-detect-correct :type error-detect-correct)
    (from-binary-transform-algorithm :initarg :from-binary-transform-algorithm)
    (to-binary-transform-algorithm :initarg :to-binary-transform-algorithm)))
 
-(defun make-binary-data-encoding (size-in-bits &optional (bit-order)
-                                                         (byte-order)
-                                                         (error-detect-correct)
-                                                         (from-binary-transform-algorithm)
-                                                         (to-binary-transform-algorithm))
-  (check-type size-in-bits size-in-bits)
+(defun make-binary-data-encoding (size-in-bits &key
+												 (bit-order '|mostSignificantBitFirst|)
+												 (byte-order '|mostSignificantByteFirst|)
+												 (error-detect-correct)
+                                                 (from-binary-transform-algorithm)
+                                                 (to-binary-transform-algorithm))
   (make-instance 'binary-data-encoding
                  :size-in-bits size-in-bits
                  :bit-order bit-order
