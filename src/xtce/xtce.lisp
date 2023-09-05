@@ -1,14 +1,12 @@
 (in-package :xtce)
 
 (defmacro check-optional-type (place type &optional type-string)
-  `(if ,place
-	   (check-type ,place ,type ,type-string)
-	   nil))
+  `(when ,place
+	 (check-type ,place ,type ,type-string)))
 
-(defmacro optional-xml-attribute (qname value)
-  `(if , value
-	   (cxml:attribute ,qname ,value) 
-	   nil))
+(defun optional-xml-attribute (qname value)
+  (when (and qname value)
+	(cxml:attribute qname value)))
 
 (defclass space-system ()
   ((header :initarg :header)
@@ -127,18 +125,29 @@
 
 (define-condition parameter-ref-not-found (error)
   ((parameter :initarg :parameter :accessor parameter)
-   (parameter-ref :initarg :parameter-ref :accessor paramter-ref))
+   (parameter-type-ref :initarg :parameter-type-ref :accessor parameter-type-ref))
   (:report (lambda (condition stream)
-     (format stream "Could not find parameter-ref: ~a, for parameter: ~a.~&"(paramter-ref condition) (parameter condition)))))
+     (format stream "Could not find parameter-type-ref: ~a, for parameter: ~a.~&" (parameter-type-ref condition) (parameter condition)))))
+
+(define-condition parameter-not-found (error)
+  ((container :initarg :container :accessor container)
+   (parameter-ref :initarg :parameter-ref :accessor parameter-ref))
+  (:report (lambda (condition stream)
+     (format stream "Could not find parameter-ref: ~a, for container: ~a.~&" (parameter-ref condition) (container condition)))))
 
 (defun type-check-parameter-set (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
-		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set))))
+		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set)))
+		 (container-set (if telemetry-metadata (slot-value telemetry-metadata 'container-set))))
 	(dolist (parameter parameter-set)
 	  (with-slots (parameter-type-ref) parameter
 		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
-		  (error `parameter-ref-not-found :parameter parameter :parameter-ref parameter-type-ref))))))
+		  (error `parameter-ref-not-found :parameter parameter :parameter-type-ref parameter-type-ref))))
+	(dolist (container container-set )
+	  (with-slots (parameter-ref) container
+		(unless (find-key-by-path (format nil "~A" parameter-ref) symbol-table)
+		  (error `parameter-ref-not-found :container container :parameter-ref parameter-ref))))))
 
 (defun make-long-description (s)
   (check-type s string)
@@ -954,7 +963,7 @@
 	(cxml:with-element* ("xtce" "SizeInBits") obj
 	  (cxml-marshall size))))
 
-(defclass leading-size (size)
+(defclass leading-size ()
   ((size-in-bits-of-size-tag :initarg size-in-bits-of-size-tag
 							 :type positive-integer)))
 
@@ -1794,7 +1803,6 @@
 (deftype string-encoding ()
   `(member US-ASCII WINDOWS-1252 ISO-UTF-8 UTF-16 UTF-16LE UTF-16BE UTF-32 UTF-32LE UTF-32BE))
 
-
 (defclass leading-size () ((size-in-bits-of-size-tag :initarg size-in-bits-of-size-tag :type positive-integer :documentation "Positive integer representing how many bits the string size integer is."))
   (:documentation "In some string implementations, the size of the string contents (not the memory allocation size) is determined by a leading numeric value. This is sometimes referred to as Pascal strings. If a LeadingSize is specified, then the TerminationChar element does not have a functional meaning."))
 
@@ -1855,6 +1863,16 @@
                  :error-detect-correct error-detect-correct
                  :from-binary-transform-algorithm from-binary-transform-algorithm
                  :to-binary-transform-algorithm to-binary-transform-algorithm))
+
+(defmethod cxml-marshall ((obj binary-data-encoding))
+  (with-slots (size-in-bits bit-order byte-order error-detect-correct from-binary-transform-algorithm to-binary-transform-algorithm) obj
+	(cxml:with-element* ("xtce" "BinaryDataEncoding")
+	  (optional-xml-attribute "bitOrder" (format-symbol bit-order))
+	  (optional-xml-attribute "byteOrder" (format-symbol byte-order))
+	  (cxml-marshall error-detect-correct)
+	  (cxml-marshall size-in-bits)
+	  (cxml-marshall from-binary-transform-algorithm)
+	  (cxml-marshall to-binary-transform-algorithm))))
 
 (defclass float-data-encoding (data-encoding)
   ((bit-order :documentation "Bit-Order"
@@ -2134,7 +2152,7 @@
 (defmethod cxml-marshall ((obj string-parameter-type))
   (with-slots (short-description name base-type inital-value restriction-pattern
 			   character-width long-description alias-set ancillary-data-set unit-set
-			   encoding size-range-in-characters default-alarm context-alarm-list) obj
+			   data-encoding size-range-in-characters default-alarm context-alarm-list) obj
 	(cxml:with-element* ("xtce" "StringParameterType")
 	  (cxml:attribute "shortDescription" short-description)
 	  (cxml:attribute "name" (format-symbol name))
@@ -2145,7 +2163,7 @@
 	  (cxml-marshall alias-set)
 	  (cxml-marshall ancillary-data-set)
 	  (cxml-marshall unit-set)
-	  (cxml-marshall encoding)
+	  (cxml-marshall data-encoding)
 	  (cxml-marshall size-range-in-characters)
 	  (cxml-marshall default-alarm)
 	  (cxml-marshall context-alarm-list))))

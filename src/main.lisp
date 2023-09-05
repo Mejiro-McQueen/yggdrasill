@@ -6,7 +6,7 @@
 (in-package :xtce-engine)
 (defparameter *TEST* (make-enumerated-parameter-type
  '|STC:CCSDS:Sequence-Flags-Type|
- :enumeration-list (make-enumeration-list
+ :enumeration-list (list
 					(make-enumeration #b00 'Continuation :short-description "Space Packet contains a continuation segment of User Data.")
 					(make-enumeration #b01 'First-Segment :short-description "Space Packet contains the first segment of User Data.")
 					(make-enumeration #b10 'Last-Segment :short-description "Space Packet contains the last segment of User Data.")

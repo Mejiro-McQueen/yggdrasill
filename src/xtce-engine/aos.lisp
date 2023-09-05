@@ -166,4 +166,4 @@ static throughout a Mission Phase.")))
 		   CCSDS.AOS.Header.Frame-Header-Error-Control
 		   CCSDS.AOS.Header.Data-Field)
 		  (if AOS.Insert-Zone-Length
-			  CCSDS.AOS.Header.Insert-Zone)))
+			  (list CCSDS.AOS.Header.Insert-Zone))))
