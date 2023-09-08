@@ -24,10 +24,10 @@
   (append
    type-list
    (list
-	(CCSDS.MPDU.Header.Reserved-Spare-Type)
-	(CCSDS.MPDU.Header.First-Header-Pointer-Type)
-	(CCSDS.MPDU.Packet-Zone-Type)
-	(CCSDS.MPDU.Packet-Type)
+	CCSDS.MPDU.Header.Reserved-Spare-Type
+	CCSDS.MPDU.Header.First-Header-Pointer-Type
+	CCSDS.MPDU.Packet-Zone-Type
+	CCSDS.MPDU.Packet-Type
 	)))
 
 (defvar CCSDS.MPDU.Header.Reserved-Spare
@@ -39,17 +39,17 @@
 (defvar CCSDS.MPDU.Packet-Zone
   (make-parameter '|STC.CCSDS.MPDU.Packet-Zone| '|STC.CCSDS.MPDU.Packet-Zone-Type|))
 
-(defvar CCSDS.MPDU.Packet()
+(defvar CCSDS.MPDU.Packet
   (make-parameter '|STC.CCSDS.MPDU.Packet| '|STC.CCSDS.MPDU.Packet-Type|))
 
 (defun with-ccsds.mpdu.header.parameters (parameter-list)
   (append parameter-list
 		  (list
-		   (CCSDS.MPDU.Header.Reserved-Spare)
-		   (CCSDS.MPDU.Header.First-Header-Pointer)
-		   (CCSDS.MPDU.Packet-Zone))))
+		   CCSDS.MPDU.Header.Reserved-Spare
+		   CCSDS.MPDU.Header.First-Header-Pointer
+		   CCSDS.MPDU.Packet-Zone)))
 
-(defun CCSDS.MPDU
+(defvar CCSDS.MPDU
   (make-sequence-container
    '|STC.CCSDS.MPDU|
    (list
@@ -57,9 +57,10 @@
 	(make-parameter-ref-entry '|STC.CCSDS.MPDU.Header.First-Header-Pointer|)
 	(make-container-ref-entry '|STC.CCSDS.MPDU.Packet-Zone|))))
 
-(defun CCSDS.MPDU-Packet-Zone
+(defvar CCSDS.MPDU-Packet-Zone
   (make-sequence-container
    '|STC.CCSDS.MPDU.Packet-Zone|
    (list
 	(make-container-ref-entry '|CCSDS.Space-Packet| :short-description "Request Auto MPDU Depacketize"))))
 
+;Use binary sequence encoding on container to turn m_pdu packet zone to packets, then reference the packet container

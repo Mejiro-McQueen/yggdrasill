@@ -76,6 +76,21 @@
    #:make-dimension
    #:dump-xml
    #:instantiate-parameter
+   #:mask
+   #:pattern
+   #:pattern-length-in-bits
+   #:bit-location-from-start
+   #:short-description
+   #:long-description
+   #:alias-set
+   #:ancillary-data-set
+   #:bit-rate-in-bips
+   #:pcm-type
+   #:inverted
+   #:sync-aperture-in-bits
+   #:frame-length-in-bits
+   #:next-ref
+   #:sync-strategy
    ))
 
 (defpackage :xtce-engine
@@ -147,6 +162,7 @@
    #:with-ccsds.space-packet.header.types
    #:CCSDS.MPDU.Packet-Type
    #:CCSDS.MPDU.Packet
+   #:with-ccsds.aos.stream
    ))
 
 (defpackage :nasa-cfs

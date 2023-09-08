@@ -9,6 +9,9 @@
 
  :telemetry-metadata
  (make-telemetry-metadata
+  :stream-set
+  (stc:with-ccsds.aos.stream 1024 (list))
+  
   :parameter-type-set
   (stc::with-ccsds.aos.header.types
 	  (stc::with-ccsds.mpdu.header.types

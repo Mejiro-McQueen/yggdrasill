@@ -2198,27 +2198,43 @@
 (defclass custom-stream (data-stream) ())
 
 (defclass fixed-frame-stream (data-stream)
-  ((name :initarg :name :type string)
-   (short-description :initarg :short-description :type short-description)
-   (long-description :initarg :long-description :type string)
-   (alias-set :initarg :alias-set :type alias-set)
-   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
-   (bit-rate-in-bps :initarg :bit-rate-in-bips)
-   (pcm-type :initarg :pcm-type)
-   (inverted :initarg :inverted :type boole)
-   (sync-apeture-in-bits :initarg :sync-apeture-in-bits :type sync-apeture-in-bits)
-   (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer)
-   (reference-type :initarg :reference-type :type reference-type)
-   (stream-ref :initarg :stream-ref :type string)
-   (sync-strategy :initarg :sync-strategy :type sync-strategy)))
+  ((name :initarg :name :type symbol :reader name)
+   (short-description :initarg :short-description :type short-description :reader :short-description)
+   (long-description :initarg :long-description :type string :reader :long-description)
+   (alias-set :initarg :alias-set :type alias-set :reader :alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set :reader :ancillary-data-set)
+   (bit-rate-in-bps :initarg :bit-rate-in-bips :reader :bit-rate-in-bps)
+   (pcm-type :initarg :pcm-type :reader :pcm-type)
+   (inverted :initarg :inverted :type boole :reader :inverted)
+   (sync-aperture-in-bits :initarg :sync-aperture-in-bits :type sync-aperture-in-bits :reader :sync-aperture-in-bits)
+   (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer :reader :frame-length-in-bits)
+   (next-ref :initarg :next-ref :type symbol :reader :next-ref)
+   (sync-strategy :initarg :sync-strategy :type sync-strategy :reader :sync-strategy)))
 
-(defun make-fixed-frame-stream (sync-strategy frame-length-in-bits &key sync-apeture-in-bits)
+(defun make-fixed-frame-stream (name frame-length-in-bits next-ref sync-strategy
+								&key
+								  short-description
+								  bit-rate-in-bps
+								  pcm-type
+								  inverted
+								  sync-aperture-in-bits
+								  long-description
+								  alias-set
+								  ancillary-data-set)
   "For streams that contain a series of frames with a fixed frame length where the frames are found by looking for a marker in the data. This marker is sometimes called the frame sync pattern and sometimes the Asynchronous Sync Marker (ASM). This marker need not be contiguous although it usually is."
   (make-instance 'fixed-frame-stream
-				 :sync-strategy sync-strategy
-				 :sync-apeture-in-bits sync-apeture-in-bits
-				 :frame-length-in-bits frame-length-in-bits))
-
+			:name name
+			:frame-length-in-bits frame-length-in-bits
+			:next-ref next-ref
+			:sync-strategy sync-strategy
+			:short-description short-description
+			:bit-rate-in-bips bit-rate-in-bps
+			:pcm-type pcm-type
+			:inverted inverted
+			:sync-aperture-in-bits sync-aperture-in-bits
+			:long-description long-description
+			:alias-set alias-set
+			:ancillary-data-set ancillary-data-set))
 
 (defclass sync-strategy () ((auto-invert :initarg :auto-invert :type auto-invert)
 							(sync-pattern :initarg :sync-pattern :type sync-pattern)
@@ -2234,19 +2250,29 @@
 				 :max-bit-errors-in-sync-pattern max-bit-errors-in-sync-pattern))
 
 (defclass sync-pattern ()
-  ((pattern :initarg :pattern
-			:documentation "Hexadecimal pattern to match against a potential synchronization marker. e.g. CCSDS ASM for non-turbocoded frames is #x1acffc1d")
-   (pattern-length-in-bits :initarg :pattern-length-in-bits
-						   :type positive-integer
-						   :documentation "Truncate the pattern from the left so that the pattern is exactly this many bits.")
-   (bit-location-from-start :initarg :bit-location-from-start
-							:type positive-integer
-							:documentation "After the synchronization marker is truncated, truncate this amount more so that the left most bit of the frame corresponds to the start of the container.")
-   (mask :initarg :mask
-		 :documentation "Apply this mask (e.g. #x0x29a) to the potential synchronization marker before checking against the pattern.")
-   (mask-length-in-bits :initarg :mask-length-in-bits
-						:type postive-integer
-						:documentation "Truncate the mask from the left so that the pattern is exactly this many bits.")))
+  ((pattern
+	:initarg :pattern
+	:documentation "Hexadecimal pattern to match against a potential synchronization marker. e.g. CCSDS ASM for non-turbocoded frames is #x1acffc1d"
+	:reader :pattern)
+   (pattern-length-in-bits
+	:initarg :pattern-length-in-bits
+	:type positive-integer
+	:documentation "Truncate the pattern from the left so that the pattern is exactly this many bits."
+	:reader :pattern-length-in-bits)
+   (bit-location-from-start
+	:initarg :bit-location-from-start
+	:type positive-integer
+	:documentation "After the synchronization marker is truncated, truncate this amount more so that the left most bit of the frame corresponds to the start of the container."
+	:reader :bit-location-from-start)
+   (mask
+	:initarg :mask
+	:documentation "Apply this mask (e.g. #x0x29a) to the potential synchronization marker before checking against the pattern."
+	:reader :mask)
+   (mask-length-in-bits
+	:initarg :mask-length-in-bits
+	:type postive-integer
+	:documentation "Truncate the mask from the left so that the pattern is exactly this many bits."
+	:reader mask-length-in-bits)))
 
 (defun make-sync-pattern (&key (pattern #x1acffc1d) (pattern-length-bits (hex-length-in-bits pattern)) mask mask-length-bits (bit-location-from-start 0))
   "CCSDS: The pattern of bits used to look for frame synchronization. See SyncPatternType.

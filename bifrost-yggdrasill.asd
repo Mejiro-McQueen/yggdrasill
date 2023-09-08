@@ -12,7 +12,11 @@
 			   (:module "src/xtce-engine"
 				:depends-on ("packages" "src" "src/xtce")
 				:components ((:file "xtce-engine")
-							 (:file "standard-template-constructs"))))
+							 (:file "standard-template-constructs")
+							 (:file "aos")
+							 (:file "space-packet")
+							 (:file "mpdu")
+							 )))
   :description ""
   :in-order-to ((test-op (test-op "bifrost-integral/tests"))))
 

@@ -167,3 +167,12 @@ static throughout a Mission Phase.")))
 		   CCSDS.AOS.Header.Data-Field)
 		  (if AOS.Insert-Zone-Length
 			  (list CCSDS.AOS.Header.Insert-Zone))))
+
+(defun with-ccsds.aos.stream (frame-length-in-bits stream-list)
+  (append stream-list
+		  (list (make-fixed-frame-stream
+				 '|STC.CCSDS.AOS.Stream|
+				 frame-length-in-bits
+				 '|STC.CCSDS.AOS-Frame|
+				 (make-sync-strategy)
+				 :short-description "CCSDS AOS Stream"))))
