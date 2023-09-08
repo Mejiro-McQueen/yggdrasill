@@ -291,10 +291,10 @@
 (defparameter qq #x1acffc1eFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
 
-;; (defun monad (space-system, deframer, depacketizer)
-;;   (let ((deframer-state (process-fixed-frame-stream (make-fixed-frame-stream (make-sync-strategy) 1024) qq)))
+(defun monad (space-system, deframer, depacketizer)
+  (let )
 	
-;;   )
+  )
 
 
 (progn 

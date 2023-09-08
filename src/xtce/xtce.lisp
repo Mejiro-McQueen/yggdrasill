@@ -68,13 +68,12 @@
 							 :symbol-table (make-filesystem-hash-table)
 							 :root root
 							 ))
-		 (new-symbol (eval `(defparameter ,name ,sys ,short-description))))
+		 ;(new-symbol (eval `(defparameter ,name ,sys ,short-description)))
+		 )
 	(when root
 	  (setf (slot-value sys 'symbol-table) (make-filesystem-hash-table :root t))
 	  (finalize-space-system sys nil))
-	(if root
-	 new-symbol
-	 sys)))
+	sys))
 
 (defun finalize-space-system (space-system parent-system)
   (setf (slot-value space-system 'parent-system) parent-system)
