@@ -173,6 +173,6 @@ static throughout a Mission Phase.")))
 		  (list (make-fixed-frame-stream
 				 '|STC.CCSDS.AOS.Stream|
 				 frame-length-in-bits
-				 '|STC.CCSDS.AOS-Frame|
+				 (make-container-ref '|STC.CCSDS.AOS-Frame|)
 				 (make-sync-strategy)
 				 :short-description "CCSDS AOS Stream"))))

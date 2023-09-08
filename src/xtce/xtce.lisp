@@ -158,7 +158,9 @@
     (cxml:with-element* ("xtce" "LongDescription"))
     (cxml:text long-description)))
 
-(defgeneric cxml-marshall (obj))
+(defgeneric cxml-marshall (obj)
+  (:documentation "TIP: I'm pretty sure you need to dump all the attributes first, because the element macro won't unwind"
+  ))
 
 (defmethod cxml-marshall ((obj space-system))
   (with-slots (name
@@ -532,13 +534,28 @@
 	  (cxml-marshall ancillary-data-set))))
 
 (defclass container-ref-entry ()
-  ((container-ref :initarg :container-ref)
+  ((container-ref :initarg :container-ref :type symbol)
    (short-description :initarg :short-description :type string)
    (location-in-container-in-bits :initarg :location-in-container-in-bits :type location-in-container-in-bits)
    (repeat-entry :initarg :repeat-entry :type repeat-entry)
    (include-condition :initarg :include-condition :type include-condition)
    (time-association :initarg :time-association :type time-association)
    (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
+
+(defclass container-ref () ((container-ref :initarg :container-ref :type symbol :reader :container-ref)))
+
+(defun make-container-ref (container-ref)
+  (check-type container-ref symbol)
+  (make-instance 'container-ref :container-ref container-ref))
+
+(defmethod cxml-marshall ((obj container-ref))
+  (with-slots (container-ref) obj
+	(cxml:with-element* ("xtce" "ContainerRef") 
+	  (cxml:attribute "containerRef" (format-symbol container-ref)))))
+
+(defclass service-ref () ())
+
+(defclass stream-ref () ())
 
 (defun make-container-ref-entry (container-ref
 								 &key
@@ -1492,10 +1509,10 @@
 			   context-alarm-list) obj
 	(cxml:with-element* ("xtce" "EnumeratedParameterType")
 	  (cxml:attribute "name" (format-symbol name))
-	  (cxml-marshall data-encoding)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "baseType" base-type)
 	  (optional-xml-attribute "initialValue" initial-value)
+	  (cxml-marshall data-encoding)
 	  (cxml-marshall long-description)
 	  (cxml-marshall alias-set)
 	  (cxml-marshall unit-set)
@@ -2209,18 +2226,20 @@
    (sync-aperture-in-bits :initarg :sync-aperture-in-bits :type sync-aperture-in-bits :reader :sync-aperture-in-bits)
    (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer :reader :frame-length-in-bits)
    (next-ref :initarg :next-ref :type symbol :reader :next-ref)
-   (sync-strategy :initarg :sync-strategy :type sync-strategy :reader :sync-strategy)))
+   (sync-strategy :initarg :sync-strategy :type sync-strategy :reader :sync-strategy)
+   (stream-ref :initarg :stream-ref :type stream-ref :reader :stream-ref)))
 
 (defun make-fixed-frame-stream (name frame-length-in-bits next-ref sync-strategy
 								&key
 								  short-description
 								  bit-rate-in-bps
-								  pcm-type
+								  (pcm-type 'NRZL)
 								  inverted
-								  sync-aperture-in-bits
+								  (sync-aperture-in-bits 0)
 								  long-description
 								  alias-set
-								  ancillary-data-set)
+								  ancillary-data-set
+								  stream-ref)
   "For streams that contain a series of frames with a fixed frame length where the frames are found by looking for a marker in the data. This marker is sometimes called the frame sync pattern and sometimes the Asynchronous Sync Marker (ASM). This marker need not be contiguous although it usually is."
   (make-instance 'fixed-frame-stream
 			:name name
@@ -2234,7 +2253,30 @@
 			:sync-aperture-in-bits sync-aperture-in-bits
 			:long-description long-description
 			:alias-set alias-set
-			:ancillary-data-set ancillary-data-set))
+			:ancillary-data-set ancillary-data-set
+			:stream-ref stream-ref))
+
+(deftype next-ref ()
+  '(satisfies next-ref-p))
+
+(defun next-ref-p (ref)
+  (and (typep ref 'container-ref) (typep ref 'service-ref)))
+
+(defmethod cxml-marshall((obj fixed-frame-stream))
+  (with-slots (name short-description long-description alias-set ancillary-data-set bit-rate-in-bps pcm-type inverted sync-aperture-in-bits frame-length-in-bits next-ref sync-strategy stream-ref) obj
+	(cxml:with-element* ("xtce" "FixedFrameStream")
+	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "frameLengthInBits" (format-number frame-length-in-bits))
+	  (optional-xml-attribute "shortDescription" short-description)
+	  (optional-xml-attribute "bitRateinBPS" bit-rate-in-bps)
+	  (optional-xml-attribute "pcmType" (format-symbol pcm-type))
+	  (optional-xml-attribute "inverted" (format-bool inverted))
+	  (optional-xml-attribute "syncApertureInBits" (format-number sync-aperture-in-bits))
+	  (cxml-marshall long-description)
+	  (cxml-marshall alias-set)
+	  (cxml-marshall next-ref)
+	  (cxml-marshall stream-ref)
+	  (cxml-marshall sync-strategy))))
 
 (defclass sync-strategy () ((auto-invert :initarg :auto-invert :type auto-invert)
 							(sync-pattern :initarg :sync-pattern :type sync-pattern)
@@ -2248,6 +2290,13 @@
 				 :verify-to-lock-good-frames verify-to-lock-good-frames
 				 :check-to-lock-good-frames check-to-lock-good-frames
 				 :max-bit-errors-in-sync-pattern max-bit-errors-in-sync-pattern))
+
+(defmethod cxml-marshall ((obj sync-strategy))
+  (with-slots (auto-invert sync-pattern verify-to-lock-good-frames check-to-lock-good-frames max-bit-errors-in-sync-pattern) obj
+	(cxml:with-element* ("xtce" "SyncStrategy")
+	  (optional-xml-attribute "verifyToLockGoodFrames" verify-to-lock-good-frames)
+	  (optional-xml-attribute "checkTypLockGoodFrames" check-to-lock-good-frames)
+	  (optional-xml-attribute "maxBitErrorsInSyncPatter" max-bit-errors-in-sync-pattern))))
 
 (defclass sync-pattern ()
   ((pattern

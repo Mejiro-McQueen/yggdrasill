@@ -65,6 +65,9 @@
    #:make-sync-strategy
    #:make-term
    #:make-termination-char
+   #:make-container-ref
+   #:make-stream-ref
+   #:make-service-ref
    #:make-unit
    #:print-bin
    #:print-hex
