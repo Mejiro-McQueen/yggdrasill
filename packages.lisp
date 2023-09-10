@@ -118,6 +118,11 @@
    #:fixed-frame-stream
    #:custom-stream
    #:variable-frame-stream
+   #:sync-pattern
+   #:sync-strategy
+   #:verify-to-lock-good-frames
+   #:check-to-lock-good-frames
+   #:max-bit-errors-in-sync-pattern
    ))
 
 (defpackage :xtce-engine

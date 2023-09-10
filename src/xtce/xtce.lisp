@@ -2215,18 +2215,18 @@
 
 (defclass fixed-frame-stream (data-stream)
   ((name :initarg :name :type symbol :reader name)
-   (short-description :initarg :short-description :type short-description :reader :short-description)
-   (long-description :initarg :long-description :type string :reader :long-description)
-   (alias-set :initarg :alias-set :type alias-set :reader :alias-set)
-   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set :reader :ancillary-data-set)
-   (bit-rate-in-bps :initarg :bit-rate-in-bips :reader :bit-rate-in-bps)
-   (pcm-type :initarg :pcm-type :reader :pcm-type)
-   (inverted :initarg :inverted :type boole :reader :inverted)
-   (sync-aperture-in-bits :initarg :sync-aperture-in-bits :type sync-aperture-in-bits :reader :sync-aperture-in-bits)
-   (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer :reader :frame-length-in-bits)
-   (next-ref :initarg :next-ref :type symbol :reader :next-ref)
-   (sync-strategy :initarg :sync-strategy :type sync-strategy :reader :sync-strategy)
-   (stream-ref :initarg :stream-ref :type stream-ref :reader :stream-ref)))
+   (short-description :initarg :short-description :type short-description :reader short-description)
+   (long-description :initarg :long-description :type string :reader long-description)
+   (alias-set :initarg :alias-set :type alias-set :reader alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set :reader ancillary-data-set)
+   (bit-rate-in-bps :initarg :bit-rate-in-bips :reader bit-rate-in-bps)
+   (pcm-type :initarg :pcm-type :reader pcm-type)
+   (inverted :initarg :inverted :type boole :reader inverted)
+   (sync-aperture-in-bits :initarg :sync-aperture-in-bits :type sync-aperture-in-bits :reader sync-aperture-in-bits)
+   (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer :reader frame-length-in-bits)
+   (next-ref :initarg :next-ref :type symbol :reader next-ref)
+   (sync-strategy :initarg :sync-strategy :type sync-strategy :reader sync-strategy)
+   (stream-ref :initarg :stream-ref :type stream-ref :reader stream-ref)))
 
 (defun make-fixed-frame-stream (name frame-length-in-bits next-ref sync-strategy
 								&key
@@ -2278,13 +2278,14 @@
 	  (marshall sync-strategy))))
 
 (defclass sync-strategy () ((auto-invert :initarg :auto-invert :type auto-invert)
-							(sync-pattern :initarg :sync-pattern :type sync-pattern)
-							(verify-to-lock-good-frames :initarg :verify-to-lock-good-frames :type postiive-integer)
-							(check-to-lock-good-frames :initarg :check-to-lock-good-frames :type postiive-integer)
-							(max-bit-errors-in-sync-pattern :initarg :max-bit-errors-in-sync-pattern :type postiive-integer)))
+							(sync-pattern :initarg :sync-pattern :type sync-pattern :reader sync-pattern)
+							(verify-to-lock-good-frames :initarg :verify-to-lock-good-frames :type postiive-integer :reader verify-to-lock-good-frames)
+							(check-to-lock-good-frames :initarg :check-to-lock-good-frames :type postiive-integer :reader check-to-lock-good-frames)
+							(max-bit-errors-in-sync-pattern :initarg :max-bit-errors-in-sync-pattern :type postiive-integer :reader max-bit-errors-in-sync-pattern)))
 
 (defun make-sync-strategy (sync-pattern &key (verify-to-lock-good-frames 4) (check-to-lock-good-frames 1) (max-bit-errors-in-sync-pattern 0) auto-invert)
   "CCSDS: A Sync Strategy specifies the strategy on how to find frames within a stream of PCM data. The sync strategy is based upon a state machine that begins in the 'Search' state until the first sync marker is found. Then it goes into the 'Verify' state until a specified number of successive good sync markers are found. Then, the state machine goes into the 'Lock' state, in the 'Lock' state frames are considered good. Should a sync marker be missed in the 'Lock' state, the state machine will transition into the 'Check' state, if the next sync marker is where it's expected within a specified number of frames, then the state machine will transition back to the 'Lock' state, it not it will transition back to 'Search'"
+  (check-type sync-pattern sync-pattern)
   (make-instance 'sync-strategy
 				 :auto-invert auto-invert
 				 :sync-pattern sync-pattern
