@@ -174,5 +174,5 @@ static throughout a Mission Phase.")))
 				 '|STC.CCSDS.AOS.Stream|
 				 frame-length-in-bits
 				 (make-container-ref '|STC.CCSDS.AOS-Frame|)
-				 (make-sync-strategy)
+				 (make-sync-strategy (make-sync-pattern))
 				 :short-description "CCSDS AOS Stream"))))

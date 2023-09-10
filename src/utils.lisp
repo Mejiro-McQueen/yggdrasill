@@ -40,13 +40,6 @@
 (defun format-bool (a)
   (if a "True" "False"))
 
-(defun format-symbol (a)
-  (if a
-	  (symbol-name a)))
-
-(defun format-number (n)
-  (format nil "~A" n))
-
 (defun prompt-new-value (prompt)
   (format *query-io* prompt) 
   (force-output *query-io*)  

@@ -94,6 +94,30 @@
    #:frame-length-in-bits
    #:next-ref
    #:sync-strategy
+   #:header
+   #:name
+   #:operational-status
+   #:long-description
+   #:alias-set
+   #:ancillary-data-set
+   #:telemetry-metadata
+   #:command-metadata
+   #:xml-base
+   #:service-set
+   #:space-system-list
+   #:parent-system
+   #:symbol-table
+   #:short-description
+   #:root
+   #:parameter-type-set
+   #:container-set
+   #:message-set
+   #:stream-set
+   #:algorithm-set
+   #:make-ancillary-data
+   #:fixed-frame-stream
+   #:custom-stream
+   #:variable-frame-stream
    ))
 
 (defpackage :xtce-engine
@@ -166,11 +190,13 @@
    #:CCSDS.MPDU.Packet-Type
    #:CCSDS.MPDU.Packet
    #:with-ccsds.aos.stream
+   #:make-space-packet-container
    ))
 
 (defpackage :nasa-cfs
   (:use :cl
-		:xtce)
+		:xtce
+		:stc)
   (:nicknames :cfs)
   (:documentation "NASA-cFS")
   (:export))

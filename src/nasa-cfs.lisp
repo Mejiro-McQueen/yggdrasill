@@ -100,7 +100,15 @@
 	  (list
 	   (make-parameter '|HEATERSTATUS| '|/on-off-enum-type| :short-description "1 = ON, 0 = OFF")
 	   (make-parameter '|ON_ORBIT_ENUM| '|/U8-Type| :short-description "FSW Enumeration") ;TODO: Investigate correct type
-	   (make-parameter '|BAT_VOLTAGE| '|Battery-Voltage-Type| :short-description "Battery Voltage (Sine Wave)"))))
+	   (make-parameter '|BAT_VOLTAGE| '|Battery-Voltage-Type| :short-description "Battery Voltage (Sine Wave)"))
+
+	  :container-set
+	  (list (stc:make-space-packet-container
+			 '|MGSS_SIM_HEATER_STATUS_TLM_MID|
+			 #x15 (list (make-parameter-ref-entry
+						 'HEATERSTATUS))
+			 :short-description "MGSS Heater Status Data Packet" )
+			)))
 
 	(make-space-system
 	 '|CFE_ES|

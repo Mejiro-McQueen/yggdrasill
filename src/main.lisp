@@ -247,11 +247,8 @@
 
 (defun process-fixed-frame-stream
   (fixed-frame-stream
-   data-stream
-   &key
-	 (continuation (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture))))
+   data-stream)
   
-  (declare (ignore fixed-frame-stream))
   (labels ((aperture-values (n)
 			 (append '(0)
 					 (alexandria:iota n :start 1)
@@ -264,6 +261,7 @@
 					 return (cons aperture res)
 				   finally (return (cons 0 res)))))
 
+	(with-slots (sync-aperture-in-bits frame-length-in-bits sync-strategy) )
 	(destructuring-bind (aperture state frame next-continuation) (find-marker-with-aperture 5)
 	  ;;(print state)
 	  ;; (print aperture)
@@ -291,22 +289,34 @@
 (defparameter qq #x1acffc1eFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
 
-(defun monad (space-system, deframer, depacketizer)
-  (let )
-	
-  )
+(defun get-frame-processor (stream-type)
+  (typecase stream-type
+	(fixed-frame-stream
+	 'process-fixed-frame-stream)
+	(variable-frame-stream)
+	(custom-stream)))
 
+(defun monad (space-system)
+  (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
+		 (stream-type (when telemetry-metadata (first (slot-value telemetry-metadata 'stream-set))))
+		 (frame-processor (get-frame-processor stream-type)))
+
+	(funcall frame-processor stream-type qq)
+	(describe stream-type)
+	))
+
+
+(monad nasa-cfs::NASA-cFS)
 
 (progn 
   (defparameter *TEST* (process-fixed-frame 0 6 'LOCK (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF :aperture 0))
-  (print *TEST*))
+(print *TEST*))
 
-(process-fixed-frame 0 8 'LOCK (make-sync-strategy) (make-sync-pattern) #x1acffc1eFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+ (process-fixed-frame 0 8 'LOCK (make-sync-strategy) (make-sync-pattern) #x1acffc1eFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-(print-hex (second (process-fixed-frame 0 1 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)))
+;; (print-hex (second (process-fixed-frame 0 1 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)))
 
-(lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture))
-
+;; (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture))
 
 
 ;; (time (process-fixed-frame-stream (make-fixed-frame-stream (make-sync-strategy) 1024) qq))

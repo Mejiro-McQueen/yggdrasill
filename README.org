@@ -30,3 +30,16 @@ Licensed under the MIT License.
 
 ** Roadmap
 #+html: <p align="center"><img src="https://github.com/Mejiro-McQueen/Bifrost-Yggdrasill/blob/main/docs/images/Diagrams-Road-to-the-Top.drawio.png" /></p>
+** References
+
+[[https://public.ccsds.org/Pubs/732x0b4.pdf][CCSDS-Blue-AOS-Space-Data-Link-Protcol-OCT-2021]]
+
+[[https://public.ccsds.org/Pubs/133x0b2e1.pdf][CCSDS-Blue-Space-Packet-Protocol-JUN-2020]]
+
+[[https://public.ccsds.org/Pubs/660x2g2.pdf][CCSDS-Green-XTCE-FEB-2021]]
+
+[[https://public.ccsds.org/Pubs/660x1g2.pdf][CCSDS-Green-XTCE-Element-AUG-2021]]
+
+[[https://www.omg.org/spec/XTCE/1.2/PDF][OMG-XTCE-1.2]]
+
+[[https://www.omg.org/spec/XTCE/20180204/SpaceSystem.xsd][OMG-XTCE-XSD-1.2]]

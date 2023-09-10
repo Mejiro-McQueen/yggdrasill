@@ -9,22 +9,21 @@
 	(cxml:attribute qname value)))
 
 (defclass space-system ()
-  ((header :initarg :header)
-   (name :initarg :name :type symbol)
-   (operational-status :initarg :operational-status)
-   (long-description :initarg :long-description
-                     :type long-description)
-   (alias-set :initarg :alias-set)
-   (ancialliary-data-set :initarg :ancillary-data-set)
-   (telemetry-metadata :initarg :telemetry-metadata)
-   (command-metadata :initarg :command-metadata)
-   (xml-base :initarg :xml-base)
-   (service-set :initarg :service-set)
-   (space-system-list :initarg :space-system-list :type space-system-list)
-   (parent-system :initarg :parent-system :writer :parent-system)
-   (symbol-table :initarg :symbol-table :type hash-table)
-   (short-description :initarg :short-description)
-   (root :initarg :root :type boole)))
+  ((header :initarg :header :reader :header)
+   (name :initarg :name :type symbol :reader :name)
+   (operational-status :initarg :operational-status :reader :operational-status)
+   (long-description :initarg :long-description :type long-description :reader :long-description)
+   (alias-set :initarg :alias-set :type alias-set :reader :alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set :reader :ancillary-data-set)
+   (telemetry-metadata :initarg :telemetry-metadata :type telemetry-metadata :reader :telemetry-metadata)
+   (command-metadata :initarg :command-metadata :type command-metadata :reader :command-metadata)
+   (xml-base :initarg :xml-base :reader xml-base)
+   (service-set :initarg :service-set :type service-set :reader :service-set)
+   (space-system-list :initarg :space-system-list :type space-system-list :reader :space-system-list)
+   (parent-system :initarg :parent-system :accessor :parent-system :type space-system)
+   (symbol-table :initarg :symbol-table :type hash-table :reader :symbol-table)
+   (short-description :initarg :short-description :reader :short-description)
+   (root :initarg :root :type boole :reader :root)))
 
 (deftype space-system-list ()
   "Not an actual XTCE construct, but very convenient for us."
@@ -134,6 +133,12 @@
   (:report (lambda (condition stream)
      (format stream "Could not find parameter-ref: ~a, for container: ~a.~&" (parameter-ref condition) (container condition)))))
 
+(define-condition entry-not-found (error)
+  ((container :initarg :container :accessor container)
+   (entry :initarg :entry :accessor entry))
+  (:report (lambda (condition stream)
+     (format stream "Could not find entry: ~a, for container: ~a.~&" (entry condition) (container condition)))))
+
 (defun type-check-parameter-set (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
@@ -143,10 +148,12 @@
 	  (with-slots (parameter-type-ref) parameter
 		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
 		  (error `parameter-ref-not-found :parameter parameter :parameter-type-ref parameter-type-ref))))
-	(dolist (container container-set )
-	  (with-slots (parameter-ref) container
-		(unless (find-key-by-path (format nil "~A" parameter-ref) symbol-table)
-		  (error `parameter-ref-not-found :container container :parameter-ref parameter-ref))))))
+	(dolist (container container-set)
+	  (with-slots (entry-list) container
+		(dolist (entry-item entry-list)
+		  (let ((entry-name (entry entry-item)))
+			(unless (find-key-by-path (format nil "~A" entry-name) symbol-table)
+			  (error `entry-not-found :container container :entry entry-name))))))))
 
 (defun make-long-description (s)
   (check-type s string)
@@ -174,7 +181,7 @@
 			   ) obj
     (cxml:with-element* ("xtce" "SpaceSystem")
       (cxml:attribute*  "xsi" "schemaLocation" "http://www.omg.org/spec/XTCE/20180204 XTCE12.xsd")
-      (cxml:attribute "name" (format-symbol name))
+      (cxml:attribute "name" name)
       (optional-xml-attribute "header" header)
       (optional-xml-attribute "operational-status" operational-status)
       (optional-xml-attribute "xml:base" xml-base)
@@ -185,17 +192,23 @@
 
 (defclass telemetry-metadata ()
   ((parameter-type-set :initarg :parameter-type-set
-                       :type parameter-type-set)
+                       :type parameter-type-set
+					   :reader :parameter-type-set)
    (parameter-set :initarg :parameter-set
-                  :type parameter-set)
+                  :type :parameter-set
+				  :reader parameter-set)
    (container-set :initarg :container-set
-                  :type container-set)
+                  :type container-set
+				  :reader container-set)
    (message-set :initarg :message-set
-                :type message-set)
+                :type message-set
+				:reader :message-set)
    (stream-set :initarg :stream-set
-               :type stream-set)
+               :type stream-set
+			   :reader :stream-set)
    (algorithm-set :initarg :algorithm-set
-                  :type algorithm-set)))
+                  :type algorithm-set
+				  :reader :algorithm-set)))
 
 (defun make-telemetry-metadata (&key parameter-type-set
                                      parameter-set
@@ -323,9 +336,9 @@
 			   binary-encoding
 			   base-container) obj
 	(cxml:with-element* ("xtce" "SequenceContainer")
-	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "name" name)
 	  (optional-xml-attribute "shortDescription" short-description)
-	  (optional-xml-attribute "abstract" (format-bool abstract))
+	  (optional-xml-attribute "abstract" abstract)
 	  (optional-xml-attribute "idlePattern" idle-pattern)
 	  (marshall long-description)
 	  (marshall alias-set)
@@ -355,9 +368,9 @@
 			   binary-encoding
 			   restriction-criteria-set) obj
 	(cxml:with-element* ("xtce" "SequenceContainer")
-	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "name" name)
 	  (optional-xml-attribute "shortDescription" short-description)
-	  (optional-xml-attribute "abstract" (format-bool abstract))
+	  (optional-xml-attribute "abstract" abstract)
 	  (optional-xml-attribute "idlePattern" idle-pattern)
 	  (marshall long-description)
 	  (marshall alias-set)
@@ -396,15 +409,15 @@
   (and (listp l)
 	   (every #'(lambda (i) (typep i 'entry)) l)))
 
-(defclass parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref)
-												 (short-description :initarg :short-description :type string)
-												 (location-in-container-in-bits
-												  :initarg :location-in-container-in-bits
-												  :type location-in-container-in-bits)
-												 (repeat-entry :initarg :repeat-entry :type repeat-entry)
-												 (include-condition :initarg :include-condition :type include-condition)
-												 (time-association :initarg :time-association :type time-association)
-												 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
+(defclass parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref :type symbol :accessor entry)
+									   (short-description :initarg :short-description :type string)
+									   (location-in-container-in-bits
+										:initarg :location-in-container-in-bits
+										:type location-in-container-in-bits)
+									   (repeat-entry :initarg :repeat-entry :type repeat-entry)
+									   (include-condition :initarg :include-condition :type include-condition)
+									   (time-association :initarg :time-association :type time-association)
+									   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
 
 (defun make-parameter-ref-entry (parameter-ref
 								 &key
@@ -431,29 +444,17 @@
 			   time-association
 			   ancillary-data-set) obj
   (cxml:with-element* ("xtce" "ParameterRefEntry")
-	(cxml:attribute "parameterRef" (format-symbol parameter-ref))
+	(cxml:attribute "parameterRef" parameter-ref)
 	(marshall location-in-container-in-bits)
 	(marshall repeat-entry)
 	(marshall include-condition)
 	(marshall time-association)
 	(marshall ancillary-data-set))))
 
-(defmethod marshall ((obj parameter-ref-entry))
-  (with-slots (parameter-ref
-			   short-description
-			   location-in-container-in-bits
-			   repeat-entry
-			   include-condition
-			   time-association
-			   ancillary-data-set) obj
-  (cxml:with-element* ("xtce" "ParameterRefEntry")
-	(cxml:attribute "parameterRef" (format-symbol parameter-ref))
-	(marshall location-in-container-in-bits)
-	(marshall repeat-entry)
-	(marshall include-condition)
-	(marshall time-association)
-	(marshall ancillary-data-set))))
-
+(defmethod print-object ((obj parameter-ref-entry) stream)
+      (print-unreadable-object (obj stream :type t)
+        (with-slots (parameter-ref) obj
+          (format stream "parameter-ref: ~a" parameter-ref))))
 
 (defclass rate-in-stream () ((stream-ref :initarg :stream-ref
 										 :accessor stream-ref)
@@ -478,17 +479,17 @@
 	(optional-xml-attribute "minimumValue" minimum-value)
 	(optional-xml-attribute "maximumValue" maximum-value)))
 
-(defclass parameter-segment-ref-entry (entry) ((parameter-ref :initarg :parameter-ref)
-														 (size-in-bits :initarg :size-in-bits)
-														 (short-description :initarg :short-description)
-														 (order :initarg :order)
-														 (location-in-container-in-bits
-														  :initarg :location-in-container-in-bits
-														  :type location-in-container-in-bits)
-														 (repeat-entry :initarg :repeat-entry :type repeat-entry)
-														 (include-condition :initarg :include-condition :type include-condition)
-														 (time-association :initarg time-association :type time-association)
-														 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
+(defclass parameter-segment-ref-entry (entry) ((parameter-ref :initarg :parameter-ref :type symbol :reader :entry)
+											   (size-in-bits :initarg :size-in-bits)
+											   (short-description :initarg :short-description)
+											   (order :initarg :order)
+											   (location-in-container-in-bits
+												:initarg :location-in-container-in-bits
+												:type location-in-container-in-bits)
+											   (repeat-entry :initarg :repeat-entry :type repeat-entry)
+											   (include-condition :initarg :include-condition :type include-condition)
+											   (time-association :initarg time-association :type time-association)
+											   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
 
 (defun make-parameter-segment-ref-entry (parameter-ref
 										 size-in-bits
@@ -522,7 +523,7 @@
 			   time-association
 			   ancillary-data-set) obj
 	(cxml:with-element* ("xtce" "ParameterSegmentRefEntry")
-	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
+	  (cxml:attribute "parameterRef" parameter-ref)
 	  (cxml:attribute "sizeInBits" size-in-bits)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute order order)
@@ -533,7 +534,7 @@
 	  (marshall ancillary-data-set))))
 
 (defclass container-ref-entry ()
-  ((container-ref :initarg :container-ref :type symbol)
+  ((container-ref :initarg :container-ref :type symbol :reader :entry)
    (short-description :initarg :short-description :type string)
    (location-in-container-in-bits :initarg :location-in-container-in-bits :type location-in-container-in-bits)
    (repeat-entry :initarg :repeat-entry :type repeat-entry)
@@ -550,7 +551,7 @@
 (defmethod marshall ((obj container-ref))
   (with-slots (container-ref) obj
 	(cxml:with-element* ("xtce" "ContainerRef") 
-	  (cxml:attribute "containerRef" (format-symbol container-ref)))))
+	  (cxml:attribute "containerRef" container-ref))))
 
 (defclass service-ref () ())
 
@@ -592,16 +593,16 @@
 	  (marshall ancillary-data-set))))
 
 
-(defclass container-segment-ref-entry (entry) ((container-ref :initarg :container-ref)
-														 (size-in-bits :initarg :size-in-bits :type positive-integer)
-														 (short-description :initarg :short-description :type string)
-														 (order :initarg :order)
-														 (location-in-container-in-bits :initarg :location-in-container-in-bits
-																						:type location-in-container-in-bits) 
-														 (repeat-entry :initarg :repeat-entry :type repeat-entry)
-														 (include-condition :initarg :include-condition :type include-condition)
-														 (time-association :initarg :time-association :type time-association)
-														 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
+(defclass container-segment-ref-entry (entry) ((container-ref :initarg :container-ref :type symbol :reader :entry)
+											   (size-in-bits :initarg :size-in-bits :type positive-integer)
+											   (short-description :initarg :short-description :type string)
+											   (order :initarg :order)
+											   (location-in-container-in-bits :initarg :location-in-container-in-bits
+																			  :type location-in-container-in-bits) 
+											   (repeat-entry :initarg :repeat-entry :type repeat-entry)
+											   (include-condition :initarg :include-condition :type include-condition)
+											   (time-association :initarg :time-association :type time-association)
+											   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
 
 (defun make-container-segment-ref-entry (container-ref
 										 size-in-bits
@@ -635,7 +636,7 @@
 			   time-association
 			   ancillary-data-set) obj
 	(cxml:with-element* ("xtce" "ContainerSegmentRefEntry")
-	  (cxml:attribute "containerRef" (format-symbol container-ref))
+	  (cxml:attribute "containerRef" container-ref)
 	  (cxml:attribute "sizeInBits" size-in-bits)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute order order)
@@ -645,15 +646,15 @@
 	  (marshall time-association)
 	  (marshall ancillary-data-set))))
 
-(defclass stream-segment-entry (entry) ((stream-ref :initarg :stream-ref)
-												  (size-in-bits :initarg :size-in-bits :type positive-integer)
-												  (short-description :initarg :short-description :type string)
-												  (location-in-container-in-bits :initarg :location-in-container-in-bits
-																				 :type location-in-container-in-bits)
-												  (repeat-entry :initarg :repeat-entry :type repeat-entry)
-												  (include-condition :initarg :include-condition :type include-condition)
-												  (time-association :initarg :time-association :type time-association)
-												  (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
+(defclass stream-segment-entry (entry) ((stream-ref :initarg :stream-ref :type symbol :reader :entry)
+										(size-in-bits :initarg :size-in-bits :type positive-integer)
+										(short-description :initarg :short-description :type string)
+										(location-in-container-in-bits :initarg :location-in-container-in-bits
+																	   :type location-in-container-in-bits)
+										(repeat-entry :initarg :repeat-entry :type repeat-entry)
+										(include-condition :initarg :include-condition :type include-condition)
+										(time-association :initarg :time-association :type time-association)
+										(ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
 
 (defun make-stream-segment-entry (stream-ref
 								  size-in-bits
@@ -698,24 +699,24 @@
 	  (marshall ancillary-data-set))))
 
 (defclass indirect-parameter-ref-entry (entry) ((short-description :initarg :short-description :type string)
-														  (alias-name-space :initarg :alias-name-space)
-														  (location-in-container-in-bits :initarg :location-in-container-in-bits
-																						 :type location-in-container-in-bits)
-														  (repeat-entry :initarg :repeat-entry :type repeat-entry)
-														  (include-condition :initarg :include-condition :type include-condition)
-														  (time-association :initarg :time-association :type time-association)
-														  (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
-														  (parameter-instance :initarg :parameter-ref :type parameter-instance)))
+												(alias-name-space :initarg :alias-name-space)
+												(location-in-container-in-bits :initarg :location-in-container-in-bits
+																			   :type location-in-container-in-bits)
+												(repeat-entry :initarg :repeat-entry :type repeat-entry)
+												(include-condition :initarg :include-condition :type include-condition)
+												(time-association :initarg :time-association :type time-association)
+												(ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+												(parameter-instance :initarg :parameter-ref :type parameter-instance :reader :entry)))
 
 (defun make-indirect-parameter-ref-entry (parameter-instance
 										  &key
-										  alias-name-space
-										  short-description
-										  location-in-container-in-bits
-										  repeat-entry
-										  include-condition
-										  time-association
-										  ancillary-data-set)
+											alias-name-space
+											short-description
+											location-in-container-in-bits
+											repeat-entry
+											include-condition
+											time-association
+											ancillary-data-set)
   (make-instance 'indirect-parameter-ref-entry
 				 :parameter-instance parameter-instance
 				 :alias-name-space alias-name-space
@@ -747,15 +748,15 @@
 	  (marshall time-association)
 	  (marshall ancillary-data-set))))
 
-(defclass array-parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref)
-													   (short-description :initarg :short-description :type string)
-													   (location-in-container-in-bits :initarg :location-in-container-in-bits
-																					  :type location-in-container-in-bits)
-													   (repeat-entry :initarg :repeat-entry :type repeat-entry)
-													   (include-condition :initarg :include-condition :type include-condition)
-													   (time-association :initarg :time-association :type time-association)
-													   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
-													   (dimension-list :initarg :dimension-list :type dimension-list)))
+(defclass array-parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref :type symbol :reader :entry)
+											 (short-description :initarg :short-description :type string)
+											 (location-in-container-in-bits :initarg :location-in-container-in-bits
+																			:type location-in-container-in-bits)
+											 (repeat-entry :initarg :repeat-entry :type repeat-entry)
+											 (include-condition :initarg :include-condition :type include-condition)
+											 (time-association :initarg :time-association :type time-association)
+											 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+											 (dimension-list :initarg :dimension-list :type dimension-list)))
 
 (defun make-array-parameter-ref-entry (parameter-ref
 									   dimension-list
@@ -786,7 +787,7 @@
 			   time-association
 			   ancillary-data-set) obj
 	(cxml:with-element* ("xtce" "ArrayParameterRefEntry")
-	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
+	  (cxml:attribute "parameterRef"  parameter-ref)
 	  (marshall dimension-list)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (marshall location-in-container-in-bits)
@@ -880,7 +881,7 @@
 (defmethod cxml-marshal ((obj next-container))
   (with-slots (container-ref) obj
 	(cxml:with-element* ("xtce" "NextContainer")
-	  (cxml:attribute "nextContainer" (format-symbol container-ref)))))
+	  (cxml:attribute "nextContainer" container-ref))))
 
 (defclass dynamic-value ()
   ((instance-ref :initarg :instance-ref)
@@ -920,7 +921,7 @@
 (defmethod marshall ((obj parameter-instance-ref))
   (with-slots (parameter-ref instance use-calibrated-value) obj
 	(cxml:with-element* ("xtce" "ParameterInstanceRef") obj
-	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
+	  (cxml:attribute "parameterRef"  parameter-ref)
 	  (optional-xml-attribute "instance" instance)
 	  (optional-xml-attribute "useCalibratedValue" use-calibrated-value))))
 
@@ -994,7 +995,7 @@
 (defclass parameter-type () ())
  
 (deftype parameter-type-set-p ()
-  `(satisfies container-set-p))
+  `(satisfies parameter-type-set-p))
 
 (defun parameter-type-set-p (l)
   (and (listp l)
@@ -1065,7 +1066,7 @@
 			   encoding size-range-in-characters default-alarm context-alarm-list) obj
 	(cxml:with-element* ("xtce" "StringParameterType")
 	  (cxml:attribute "shortDescription" short-description)
-	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "name" name)
 	  (cxml:attribute "initalValue" inital-value)
 	  (cxml:attribute "restrictionPattern" restriction-pattern)
 	  (cxml:attribute "characterWidth" character-width)
@@ -1161,7 +1162,7 @@
 			   unit-set
 			   ) obj
 	(cxml:with-element* ("xtce" "FloatPrameterType")
-      (cxml:attribute "name" (format-symbol name))
+      (cxml:attribute "name" name)
       (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "initialValue" initial-value)
 	  (optional-xml-attribute "sizeInBits" size-in-bits)
@@ -1221,11 +1222,11 @@
                context-alarm-list) obj
     (cxml:with-element* ("xtce" "IntegerParameterType")
 	  (optional-xml-attribute "shortDescription" short-description)
-      (optional-xml-attribute "name" (format-symbol name))
+      (optional-xml-attribute "name" name)
       (optional-xml-attribute "baseType" base-type)
       (optional-xml-attribute "initialValue" initial-value)
       (optional-xml-attribute"sizeInBits" size-in-bits)
-      (cxml:attribute "signed" (format-bool signed))
+      (cxml:attribute "signed" signed)
       (marshall long-description)
       (marshall alias-set)
 	  (marshall unit-set)
@@ -1369,7 +1370,7 @@
 (defmethod marshall ((obj binary-parameter-type))
   (with-slots (name short-description base-type initial-value long-description alias-set ancillary-data-set unit-set data-encoding default-alarm binary-context-alarm-list) obj
 	(cxml:with-element* ("xtce" "BinaryParameterType")
-	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "name" name)
 	  (cxml:attribute "shortDescription" short-description)
 	  (cxml:attribute "baseType" base-type)
 	  (cxml:attribute "initialValue" initial-value)
@@ -1507,7 +1508,7 @@
 			   default-alarm
 			   context-alarm-list) obj
 	(cxml:with-element* ("xtce" "EnumeratedParameterType")
-	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "name" name)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "baseType" base-type)
 	  (optional-xml-attribute "initialValue" initial-value)
@@ -1571,7 +1572,7 @@
 			   encoding
 			   reference-time) obj
 	(cxml:with-element* ("xtce" "AbsoluteTimeParameterType")
-	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "name" name)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "baseType" base-type)
 	  (optional-xml-attribute "initialValue" initial-value)
@@ -1589,7 +1590,7 @@
 (defmethod marshall ((obj offset-from))
   (with-slots (parameter-ref) obj
 	(cxml:with-element* ("xtce" "OffsetFrom")
-	  (cxml:attribute "parameterRef" (format-symbol parameter-ref)))))
+	  (cxml:attribute "parameterRef" parameter-ref))))
 
 (defclass epoch ()
   ((epoch-value :initarg :epoch-value
@@ -1607,7 +1608,7 @@
 (defmethod marshall ((obj epoch))
   (with-slots (epoch-value) obj
 	(cxml:with-element* ("xtce" "Epoch")
-	  (cxml:text (format-symbol epoch-value)))))
+	  (cxml:text (format nil "~A" epoch-value)))))
 
 (defclass reference-time () ((reference :initarg :reference )))
 
@@ -1640,8 +1641,8 @@
 (defmethod marshall ((obj encoding))
   (with-slots (units scale offset data-encoding reference-time) obj
 	(cxml:with-element* ("xtce" "Encoding") 
-	  (optional-xml-attribute "units" (format-symbol units))
-	  (optional-xml-attribute "scale" (format-number scale))
+	  (optional-xml-attribute "units" units)
+	  (optional-xml-attribute "scale" scale)
 	  (optional-xml-attribute "offset" offset)
 	  (marshall data-encoding))))
 
@@ -1692,8 +1693,8 @@
 			   parameter-properties)
 	  obj
 	(cxml:with-element* ("xtce" "Parameter") 
-	  (cxml:attribute "name"  (format-symbol name))
-	  (cxml:attribute "parameterTypeRef" (format-symbol parameter-type-ref))
+	  (cxml:attribute "name"  name)
+	  (cxml:attribute "parameterTypeRef" parameter-type-ref)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "initialValue" initial-value)
 	  (marshall long-description)
@@ -1732,9 +1733,9 @@
 (defmethod marshall ((obj parameter-properties))
   (with-slots (data-source read-only persistence system-name validity-condition physical-address-set time-association) obj
 	(cxml:with-element* ("xtce" "ParameterProperties")
-	  (optional-xml-attribute "dataSource" (format-symbol data-source))
+	  (optional-xml-attribute "dataSource" data-source)
 	  (if (not (equal read-only :null))
-		(optional-xml-attribute "readOnly" (format-bool read-only)))
+		(optional-xml-attribute "readOnly" read-only))
 	  (optional-xml-attribute "persistence" persistence)
 	  (marshall system-name)
 	  (marshall validity-condition)
@@ -1790,7 +1791,7 @@
 (defmethod marshall ((obj integer-data-encoding))
   (with-slots (size-in-bits encoding change-threshold default-calibrator context-calibrator-list) obj
     (cxml:with-element* ("xtce" "IntegerDataEncodingType")
-      (optional-xml-attribute "encoding" (format-symbol encoding))
+      (optional-xml-attribute "encoding" encoding)
       (optional-xml-attribute "sizeInBits" size-in-bits)
       (optional-xml-attribute "changeThreshold" change-threshold)
       (marshall default-calibrator)
@@ -1883,8 +1884,8 @@
 (defmethod marshall ((obj binary-data-encoding))
   (with-slots (size-in-bits bit-order byte-order error-detect-correct from-binary-transform-algorithm to-binary-transform-algorithm) obj
 	(cxml:with-element* ("xtce" "BinaryDataEncoding")
-	  (optional-xml-attribute "bitOrder" (format-symbol bit-order))
-	  (optional-xml-attribute "byteOrder" (format-symbol byte-order))
+	  (optional-xml-attribute "bitOrder" bit-order)
+	  (optional-xml-attribute "byteOrder" byte-order)
 	  (marshall error-detect-correct)
 	  (marshall size-in-bits)
 	  (marshall from-binary-transform-algorithm)
@@ -1973,11 +1974,11 @@
 (defmethod marshall ((obj comparison))
   (with-slots (parameter-ref value instance use-calibrated-value comparison-operator) obj
 	(cxml:with-element* ("xtce" "Comparison")
-	  (cxml:attribute "parameterRef" (format-symbol parameter-ref))
+	  (cxml:attribute "parameterRef" parameter-ref)
 	  (cxml:attribute "value" value)
 	  (optional-xml-attribute "instance" instance)
-	  (optional-xml-attribute "useCalibratedValue" (format-bool use-calibrated-value))
-	  (optional-xml-attribute "comparisonOperator" (format-symbol comparison-operator)))))
+	  (optional-xml-attribute "useCalibratedValue" use-calibrated-value)
+	  (optional-xml-attribute "comparisonOperator" comparison-operator))))
 
 (deftype comparison-list ()
   `(satisfies comparison-list-p))
@@ -2064,8 +2065,6 @@
    (not (null l))
    (listp l)
    (every #'(lambda (i) (typep i 'term)) l)))
-
-(defclass ancillary-data-set () ())
 
 (defun make-polynomial-calibrator (&key name short-description ancillary-data-set term-list)
   (check-type term-list term-list)
@@ -2160,9 +2159,9 @@
 (defmethod marshall ((obj array-parameter-type))
   (with-slots (name array-type-ref short-description long-description alias-set ancillary-data-set dimension-list) obj
 	  (cxml:with-element* ("xtce" "ArrayParameterType")
-		(cxml:attribute "name" (format-symbol name))
+		(cxml:attribute "name" name)
 		(cxml:attribute "shortDescription" short-description)
-		(cxml:attribute "arrayTypeRef" (format-symbol array-type-ref))
+		(cxml:attribute "arrayTypeRef" array-type-ref)
 		(marshall dimension-list))))
 
 (defmethod marshall ((obj string-parameter-type))
@@ -2171,7 +2170,7 @@
 			   data-encoding size-range-in-characters default-alarm context-alarm-list) obj
 	(cxml:with-element* ("xtce" "StringParameterType")
 	  (cxml:attribute "shortDescription" short-description)
-	  (cxml:attribute "name" (format-symbol name))
+	  (cxml:attribute "name" name)
 	  (cxml:attribute "initalValue" inital-value)
 	  (cxml:attribute "restrictionPattern" restriction-pattern)
 	  (cxml:attribute "characterWidth" character-width)
@@ -2199,15 +2198,16 @@
         (with-slots (name short-description) obj
           (format stream "name: ~a, description: ~a " name short-description))))
 
-
 (defclass data-stream () ())
 
 (deftype stream-set ()
   `(satisfies stream-set-p))
 
 (defun stream-set-p (l)
-  (and (listp l)
-	   (every #'(lambda (i) (typep i 'parameter-type)) l)))
+  (and
+   (not (null l))
+   (listp l)
+   (every #'(lambda (i) (typep i '(or fixed-frame-stream variable-frame-stream custom-stream))) l )))
 
 (defclass variable-frame-stream (data-stream) ())
 
@@ -2264,13 +2264,13 @@
 (defmethod marshall((obj fixed-frame-stream))
   (with-slots (name short-description long-description alias-set ancillary-data-set bit-rate-in-bps pcm-type inverted sync-aperture-in-bits frame-length-in-bits next-ref sync-strategy stream-ref) obj
 	(cxml:with-element* ("xtce" "FixedFrameStream")
-	  (cxml:attribute "name" (format-symbol name))
-	  (cxml:attribute "frameLengthInBits" (format-number frame-length-in-bits))
+	  (cxml:attribute "name" name)
+	  (cxml:attribute "frameLengthInBits" frame-length-in-bits)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "bitRateinBPS" bit-rate-in-bps)
-	  (optional-xml-attribute "pcmType" (format-symbol pcm-type))
-	  (optional-xml-attribute "inverted" (format-bool inverted))
-	  (optional-xml-attribute "syncApertureInBits" (format-number sync-aperture-in-bits))
+	  (optional-xml-attribute "pcmType" pcm-type)
+	  (optional-xml-attribute "inverted" inverted)
+	  (optional-xml-attribute "syncApertureInBits" sync-aperture-in-bits)
 	  (marshall long-description)
 	  (marshall alias-set)
 	  (marshall next-ref)
@@ -2283,9 +2283,11 @@
 							(check-to-lock-good-frames :initarg :check-to-lock-good-frames :type postiive-integer)
 							(max-bit-errors-in-sync-pattern :initarg :max-bit-errors-in-sync-pattern :type postiive-integer)))
 
-(defun make-sync-strategy (&key (verify-to-lock-good-frames 4) (check-to-lock-good-frames 1) (max-bit-errors-in-sync-pattern 0))
+(defun make-sync-strategy (sync-pattern &key (verify-to-lock-good-frames 4) (check-to-lock-good-frames 1) (max-bit-errors-in-sync-pattern 0) auto-invert)
   "CCSDS: A Sync Strategy specifies the strategy on how to find frames within a stream of PCM data. The sync strategy is based upon a state machine that begins in the 'Search' state until the first sync marker is found. Then it goes into the 'Verify' state until a specified number of successive good sync markers are found. Then, the state machine goes into the 'Lock' state, in the 'Lock' state frames are considered good. Should a sync marker be missed in the 'Lock' state, the state machine will transition into the 'Check' state, if the next sync marker is where it's expected within a specified number of frames, then the state machine will transition back to the 'Lock' state, it not it will transition back to 'Search'"
   (make-instance 'sync-strategy
+				 :auto-invert auto-invert
+				 :sync-pattern sync-pattern
 				 :verify-to-lock-good-frames verify-to-lock-good-frames
 				 :check-to-lock-good-frames check-to-lock-good-frames
 				 :max-bit-errors-in-sync-pattern max-bit-errors-in-sync-pattern))
@@ -2293,9 +2295,11 @@
 (defmethod marshall ((obj sync-strategy))
   (with-slots (auto-invert sync-pattern verify-to-lock-good-frames check-to-lock-good-frames max-bit-errors-in-sync-pattern) obj
 	(cxml:with-element* ("xtce" "SyncStrategy")
+	  (optional-xml-attribute "autoInvert" auto-invert)
 	  (optional-xml-attribute "verifyToLockGoodFrames" verify-to-lock-good-frames)
 	  (optional-xml-attribute "checkTypLockGoodFrames" check-to-lock-good-frames)
-	  (optional-xml-attribute "maxBitErrorsInSyncPatter" max-bit-errors-in-sync-pattern))))
+	  (optional-xml-attribute "maxBitErrorsInSyncPatter" max-bit-errors-in-sync-pattern)
+	  (marshall sync-pattern))))
 
 (defclass sync-pattern ()
   ((pattern
@@ -2322,16 +2326,24 @@
 	:documentation "Truncate the mask from the left so that the pattern is exactly this many bits."
 	:reader mask-length-in-bits)))
 
-(defun make-sync-pattern (&key (pattern #x1acffc1d) (pattern-length-bits (hex-length-in-bits pattern)) mask mask-length-bits (bit-location-from-start 0))
+(defun make-sync-pattern (&key (pattern #x1acffc1d) (pattern-length-in-bits (hex-length-in-bits pattern)) mask mask-length-in-bits (bit-location-from-start 0))
   "CCSDS: The pattern of bits used to look for frame synchronization. See SyncPatternType.
    Bifrost: Define a synchronization pattern and masks. Used as metadata to search the synchronization markers of fixed frames."
   (make-instance 'sync-pattern
 				 :pattern pattern
-				 :pattern-length-in-bits pattern-length-bits
+				 :pattern-length-in-bits pattern-length-in-bits
 				 :bit-location-from-start bit-location-from-start
 				 :mask mask
-				 :mask-length-in-bits mask-length-bits))
+				 :mask-length-in-bits mask-length-in-bits))
 
+(defmethod marshall ((obj sync-pattern))
+  (with-slots (pattern pattern-length-in-bits bit-location-from-start mask mask-length-in-bits) obj
+	  (cxml:with-element* ("xtce" "SyncPattern")
+		(cxml:attribute "pattern" pattern)
+		(cxml:attribute "patternLengthInBits" pattern-length-in-bits)
+		(optional-xml-attribute "mask" mask)
+		(optional-xml-attribute "maskLengthInBits" mask-length-in-bits)
+		(optional-xml-attribute "bitLocationFromStartOfContainer" bit-location-from-start))))
 
 (defgeneric instantiate-parameter (parameter-type data)
   (:documentation "Instantiate a parameter given a byte"))
@@ -2339,11 +2351,36 @@
 (defmethod instantiate-parameter ((parameter enumerated-parameter-type) data)
   (assoc data (slot-value parameter 'alist)))
 
+(deftype ancillary-data-set ()
+  `(satisfies ancillary-data-set-p))
+
+(defun ancillary-data-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'ancillary-data)) l )))
+
+(defclass ancillary-data () ((name :initarg :name :reader :name :type symbol)
+							 (value :initarg :value :reader :value)
+							 (mime-type :initarg :mime-type :reader :mime-type :type string)
+							 (href :initarg :href :reader :href :type string)))
+
+(defun make-ancillary-data (name value &key mime-type href)
+  (make-instance 'ancillary-data :name name :value value :mime-type mime-type :href href))
+
+(defmethod marshall ((obj ancillary-data))
+  (with-slots (name value mime-type href) obj
+	(cxml:with-element* ("xtce" "AncillaryData")
+	  (cxml:attribute "name" name)
+	  (cxml:attribute "value" value)
+	  (optional-xml-attribute "mimeType" mime-type)
+	  (optional-xml-attribute "href" href))))
+
 (defmethod marshall ((obj list))
   "Exclusively used for xtce-lists and xtce-sets (a homogenous list of XTCE constructs).
    These types used to be classes, but its complexity didn't offer any obvious benefits.
   "
   (let ((lname (typecase obj
+				 (ancillary-data-set
+				  "AncillaryDataSet")
 				 (comparison-list
 				  "ComparisonList")
 				 (container-set
@@ -2371,7 +2408,12 @@
 				 (term-list
 				  "TermList")
 				 (unit-set
-				  "UnitSet"))))
+				  "UnitSet")
+				 (t
+				  :nil)
+				 )))
+	(assert (not (equal lname :nil)) () "Fatal Programming Error: Could not find a deftype for the list ~A." obj)
+	;The type needs to be defined and listed in the typecase above.
 	(if lname
 		(progn
 		  (cxml:with-element* ("xtce" lname)
@@ -2379,3 +2421,18 @@
 			  (marshall i))))
 		(dolist (i obj)
 		  (marshall i)))))
+
+(defmethod marshall (obj)
+  (if (typep obj 'boolean)
+	  (when obj "True" "False")
+	  (assert nil () "Programming Error: Could not find specializer for ~A. Every XTCE element needs a marshall specializer. " obj)))
+
+(defmethod marshall ((obj symbol))
+  (when obj
+	  (symbol-name obj)))
+
+(defmethod marshall ((obj number))
+  (format nil "~A" obj))
+
+(defmethod unparse-attribute ((obj symbol))
+  (format nil "~A" obj))
