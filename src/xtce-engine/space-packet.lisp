@@ -92,7 +92,7 @@
    '|STC.CCSDS.Space-Packet.Header.Packet-Name|
    :short-description "Do not Use: I have no idea how it's supposed to work. CCSDS Space Packet Header Element. Part of Packet Sequence Control subdivision."
    :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet.")
-   :data-encoding (make-string-data-encoding (make-size-in-bits 14))))
+   :data-encoding (make-string-data-encoding (make-size-in-bits (make-fixed (make-fixed-value 14))))))
 
 (defvar CCSDS.Space-Packet.User-Data-Field-Type
   (make-string-parameter-type
@@ -239,3 +239,4 @@
 							 :default-rate-in-stream default-rate-in-stream
 							 :binary-encoding binary-encoding
 							 :base-container '|STC.CCSDS.Space-Packet|)))
+

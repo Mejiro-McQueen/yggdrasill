@@ -7,13 +7,13 @@
 
 (defparameter use-AOS.Operational-Control-Field nil)
 
-(defparameter AOS.Insert-Zone-Length 0)
+(defparameter AOS.Insert-Zone-Length nil)
 
 (defparameter use-AOS.Frame-Error-Control-Field nil)
 
 (defparameter use-AOS.Header.Frame-Header-Error-Control-Field nil)
 
-(defparameter AOS.Transfer-Frame-Trailer-Length 0)
+(defparameter AOS.Transfer-Frame-Trailer-Length nil)
 
 (defun set-CCSDS.AOS.Transfer-Frame-Length (n)
   (setf AOS.Transfer-Frame-Length n))
@@ -87,7 +87,7 @@
 
 (defvar CCSDS.AOS.Header.Frame-Count-Cycle-Type
   (make-binary-parameter-type
-   '|STC.CCSDS.AOS.Header.Frame-Count-Cycle-Type|
+   '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle-Type|
    :short-description "Set to all zeros if not used. Otherwise, increments whenever the Frame Count rolls over, effectively extending it to 28 bits."
    :data-encoding (make-integer-data-encoding :size-in-bits 4)))
 
@@ -154,7 +154,7 @@ static throughout a Mission Phase.")))
   (make-parameter '|STC.CCSDS.AOS.Header.Reserved-Spare| '|STC.CCSDS.AOS.Header.Reserved-Spare-Type|))
 
 (defvar CCSDS.AOS.Header.Frame-Count-Cycle
-  (make-parameter '|STC.CCSDS.AOS.Header.Frame-Count-Cycle| '|STC.CCSDS.AOS.Header.Frame-Count-Cycle-Type|))
+  (make-parameter '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle| '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle-Type|))
 
 (defvar CCSDS.AOS.Header.Frame-Header-Error-Control
   (make-parameter '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control| '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control-Type|))
@@ -162,32 +162,103 @@ static throughout a Mission Phase.")))
 (defvar CCSDS.AOS.Insert-Zone
   (make-parameter '|STC.CCSDS.AOS.Insert-Zone| '|STC.CCSDS.AOS.Insert-Zone-Type|))
 
+(defvar CCSDS.AOS.Header.Frame-Version-Number 
+  (make-parameter '|STC.CCSDS.AOS.Header.Frame-Version-Number| '|STC.CCSDS.AOS.Header.Frame-Version-Number-Type|))
+
 (defvar CCSDS.AOS.Transfer-Frame-Data-Field
   (make-parameter '|STC.CCSDS.AOS.Transfer-Frame-Data-Field| '|STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type|))
 
-(defun with-ccsds.aos.header.parameters (parameter-list)
-  (append parameter-list
-		  (list
-		   CCSDS.AOS.Header.Master-Channel-ID
-		   CCSDS.AOS.Header.Signaling-Field
-		   CCSDS.AOS.Header.Virtual-Channel-ID
-		   CCSDS.AOS.Header.Virtual-Channel-Frame-Count
-		   CCSDS.AOS.Header.Replay-Flag
-		   CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag
-		   CCSDS.AOS.Header.Reserved-Spare
-		   CCSDS.AOS.Header.Frame-Count-Cycle
-		   CCSDS.AOS.Header.Frame-Header-Error-Control
-		   CCSDS.AOS.Transfer-Frame-Data-Field)
-		  (if AOS.Insert-Zone-Length
-			  (list CCSDS.AOS.Insert-Zone))))
+(defvar CCSDS.AOS.Header.Spacecraft-Identifier
+  (make-parameter '|STC.CCSDS.AOS.Header.Spacecraft-Identifier| '|STC.CCSDS.AOS.Header.Spacecraft-Identifier-Type|))
 
-()
+(defun with-ccsds.aos.header.parameters (parameter-list)
+  (append
+   parameter-list
+   (list
+	CCSDS.AOS.Header.Master-Channel-ID
+	CCSDS.AOS.Header.Signaling-Field
+	CCSDS.AOS.Header.Virtual-Channel-ID
+	CCSDS.AOS.Header.Virtual-Channel-Frame-Count
+	CCSDS.AOS.Header.Replay-Flag
+	CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag
+	CCSDS.AOS.Header.Reserved-Spare
+	CCSDS.AOS.Header.Frame-Count-Cycle
+	CCSDS.AOS.Header.Frame-Header-Error-Control
+	CCSDS.AOS.Header.Frame-Version-Number
+	CCSDS.AOS.Transfer-Frame-Data-Field
+	CCSDS.AOS.Header.Spacecraft-Identifier)
+   (when AOS.Insert-Zone-Length
+	 (list CCSDS.AOS.Insert-Zone))))
+
+(defvar CCSDS.AOS.Container.Transfer-Frame-Primary-Header
+  (make-sequence-container
+   '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header|
+   (append
+	(list
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Frame-Version-Number|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Spacecraft-Identifier|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-ID|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Replay-Flag|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Reserved-Spare-Type|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle|))
+	(when use-AOS.Header.Frame-Header-Error-Control-Field
+	  (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control-Type|)))))
+
+(defvar CCSDS.AOS.Container.Transfer-Frame-Insert-Zone
+  (make-sequence-container
+   '|STC.CCSDS.AOS.Container.Transfer-Frame.Insert-Zone|
+   (list (make-parameter-ref-entry '|STC.CCSDS.AOS.Transfer-Frame.Insert-Zone|))))
+
+(defvar CCSDS.AOS.Container.Transfer-Frame-Data-Field
+  (make-sequence-container
+   '|STC.CCSDS.AOS.Container.Transfer-Frame-Data-Field|
+   (list (make-parameter-ref-entry '|STC.CCSDS.AOS.Transfer-Frame-Data-Field|))))
+
+(defvar CCSDS.AOS.Container.Transfer-Frame-Trailer
+  (make-sequence-container
+   '|STC.CCSDS.AOS.Container.Transfer-Frame-Trailer|
+   (append
+	'()
+	(when use-AOS.Operational-Control-Field
+	  (list (make-parameter-ref-entry '|STC.CCSDS.AOS.Operational-Control-Field|)))
+	(when use-AOS.Frame-Error-Control-Field
+	  (list (make-parameter-ref-entry '|STC.CCSDS.AOS.Frame-Error-Control-Field|))))))
+
+
+(defvar CCSDS.AOS.Container.Frame
+  (make-sequence-container
+   '|STC.CCSDS.AOS.Container.Frame|
+
+   (append 
+	(list
+	 (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header|)
+	 (make-container-ref-entry  '|STC.CCSDS.AOS.Container.Transfer-Frame-Data-Field|))
+	
+	(when AOS.Insert-Zone-Length
+	  (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Insert-Zone|))
+	
+	(when (or use-AOS.Frame-Error-Control-Field use-AOS.Operational-Control-Field) 
+	  (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Trailer|)))))
+
+(defun with-ccsds-aos-containers (container-list)
+  (append
+   container-list
+   (list
+	CCSDS.AOS.Container.Frame
+	CCSDS.AOS.Container.Transfer-Frame-Primary-Header
+	CCSDS.AOS.Container.Transfer-Frame-Data-Field)
+	(when (or use-AOS.Frame-Error-Control-Field use-AOS.Operational-Control-Field) 
+	  (list CCSDS.AOS.Container.Transfer-Frame-Trailer))))
 
 (defun with-ccsds.aos.stream (frame-length-in-bits stream-list)
-  (append stream-list
-		  (list (make-fixed-frame-stream
-				 '|STC.CCSDS.AOS.Stream|
-				 frame-length-in-bits
-				 (make-container-ref '|STC.CCSDS.AOS-Frame|)
-				 (make-sync-strategy (make-sync-pattern))
-				 :short-description "CCSDS AOS Stream"))))
+  (append
+   stream-list
+   (list
+	(make-fixed-frame-stream
+	 '|STC.CCSDS.AOS.Stream|
+	 frame-length-in-bits
+	 (make-container-ref '|STC.CCSDS.AOS.Container.Frame|)
+	 (make-sync-strategy (make-sync-pattern))
+	 :short-description "CCSDS AOS Stream"))))

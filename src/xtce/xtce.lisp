@@ -127,6 +127,7 @@
 		(register-keys-in-sequence telemetry-metadata 'parameter-type-set)
 		(register-keys-in-sequence telemetry-metadata 'parameter-set)
 		(register-keys-in-sequence telemetry-metadata 'algorithm-set)
+		(register-keys-in-sequence telemetry-metadata 'container-set)
 		(register-keys-in-sequence telemetry-metadata 'stream-set)))))
 
 (define-condition parameter-ref-not-found (error)
@@ -145,12 +146,13 @@
   ((container :initarg :container :accessor container)
    (entry :initarg :entry :accessor entry))
   (:report (lambda (condition stream)
-     (format stream "Could not find entry: ~a, for container: ~a.~&" (entry condition) (container condition)))))
+     (format stream "Could not find container-ref entry: ~a, for container: ~a.~&" (entry condition) (container condition)))))
 
-(defun type-check-parameter-set (space-system)
-  (check-parameter-refs space-system)
-  (check-container-set-refs space-system)
-  (check-stream-set-refs space-system))
+(define-condition stream-next-ref-not-found (error)
+  ((stream :initarg :_stream :accessor _stream)
+   (next-ref :initarg :next-ref :accessor next-ref))
+  (:report (lambda (condition stream)
+     (format stream "Could not find next-ref entry: ~a, for stream: ~a.~&" (next-ref condition) (_stream condition)))))
 
 (defun check-stream-set-refs (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
@@ -158,8 +160,11 @@
 		 (stream-set (if telemetry-metadata (slot-value telemetry-metadata 'stream-set))))
 	(dolist (stream stream-set)
 	  (with-slots (next-ref) stream
-		  (unless (find-key-by-path (format nil "~A" next-ref) symbol-table)
-			(error `entry-not-found :container stream :entry next-ref))))))
+		(typecase next-ref
+		  (stream-ref)
+		  (container-ref 
+		   (unless (find-key-by-path (format nil "~A" (slot-value next-ref 'container-ref)) symbol-table)
+			 (error `stream-next-ref-not-found :_stream stream :next-ref next-ref))))))))
 
 (defun check-container-set-refs (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
@@ -172,11 +177,10 @@
 			(unless (find-key-by-path (format nil "~A" entry-name) symbol-table)
 			  (error `entry-not-found :container container :entry entry-name))))))))
 
-(defun check-parameter-type-refs (space-system)
+(defun check-parameter-refs (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
 		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set))))
-	(print (alexandria:hash-table-keys symbol-table))
 	(dolist (parameter parameter-set)
 	  (with-slots (parameter-type-ref) parameter
 		;; (print (format nil "~%~%~%"))
@@ -186,6 +190,11 @@
 		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
 		  (error `parameter-ref-not-found :parameter parameter :parameter-type-ref parameter-type-ref))
 		))))
+
+(defun type-check-parameter-set (space-system)
+  (check-parameter-refs space-system)
+  (check-container-set-refs space-system)
+  (check-stream-set-refs space-system))
 
 (defun make-long-description (s)
   (check-type s string)
@@ -340,6 +349,7 @@
 								  binary-encoding
 								  base-container)
 
+  (check-type entry-list entry-list)
   (make-instance 'sequence-container :name name
 									 :entry-list entry-list
 									 :short-description short-description
@@ -412,17 +422,6 @@
 	  (marshall binary-encoding)
 	  (marshall entry-list)
 	  (marshall restriction-criteria-set))))
-
-
-(defmethod print-object ((obj fixed-frame-stream) stream)
-  (print-unreadable-object (obj stream :type t)
-    (with-slots (name short-description) obj
-      (format stream "name: ~a, description: ~a" name short-description))))
-
-(defmethod print-object ((obj container-ref) stream)
-  (print-unreadable-object (obj stream :type t)
-    (with-slots (container-ref) obj
-      (format stream "ref: ~a" container-ref))))
 
 (defmethod print-object ((obj sequence-container) stream)
   (print-unreadable-object (obj stream :type t)
@@ -576,7 +575,7 @@
 	  (marshall time-association)
 	  (marshall ancillary-data-set))))
 
-(defclass container-ref-entry ()
+(defclass container-ref-entry (entry)
   ((container-ref :initarg :container-ref :type symbol :reader entry)
    (short-description :initarg :short-description :type string)
    (location-in-container-in-bits :initarg :location-in-container-in-bits :type location-in-container-in-bits)
@@ -962,9 +961,9 @@
   (make-instance 'parameter-instance-ref :parameter-ref parameter-ref :instance instance :use-calibrated-value use-calibrated-value))
 
 (defmethod marshall ((obj parameter-instance-ref))
-  (with-slots (parameter-ref instance use-calibrated-value) obj
+  (with-slots (parameter-reference instance use-calibrated-value) obj
 	(cxml:with-element* ("xtce" "ParameterInstanceRef") obj
-	  (cxml:attribute "parameterRef"  parameter-ref)
+	  (cxml:attribute "parameterRef" parameter-reference)
 	  (optional-xml-attribute "instance" instance)
 	  (optional-xml-attribute "useCalibratedValue" use-calibrated-value))))
 
@@ -1012,11 +1011,19 @@
 	(cxml:with-element* ("xtce" "TerminationChar")
 	  (cxml:text termination-char))))
 
+;Fixed type for string sizes. This is extra wonky, it just holds a fixed-value type
+(defclass fixed () ((fixed-value :initarg :fixed-value :type fixed-value)))
+
+(defun make-fixed (fixed-value)
+  (check-type fixed-value fixed-value)
+  (make-instance 'fixed :fixed-value fixed-value))
+
 ;TODO: Deftype for size
 (defclass size-in-bits () ((size :initarg :size)))
 
 (defun make-size-in-bits (size)
-  (check-type size (or fixed-value dynamic-value discrete-lookup-list))
+  ;termination-char, fixed, and leading-size are used for string encodings, yes it's weird blame the spec.
+  (check-type size (or fixed-value dynamic-value discrete-lookup-list termination-char leading-size fixed))
   (make-instance 'size-in-bits :size size))
 
 (defmethod marshall ((obj size-in-bits))
@@ -1845,7 +1852,8 @@
   `(satisfies string-size-p))
 
 (defun string-size-p (a)
-  (or (typep a 'size-in-bits)
+  (or (and (typep a 'size-in-bits)
+		   (typep (slot-value a 'size) '(or fixed termination-char leading-size)))
 	  (typep a 'variable-string)))
 
 (defun value-lookup-p (a)
@@ -1874,7 +1882,7 @@
    (leading-size :initarg :leading-size :type leading-size
 				 :documentation "Use to describe Pascal Strings (e.g. pull the next n characters from the stream).")
    (termination-character :initarg :termination-character :type t :documentation "Ignored if leading-size is not nil.")
-)
+   )
   (:documentation "This is referred to as VARIABLE in XTCE. Its purpose is to help define variable/dynamic length strings. In particular, leading-size can be used to define pascal string encoding (i.e. length of the string is stored here). Otherwise, the termination character can be set to null to define C strings and the like. XTCE specifies that LeadingSize takes precedence over TerminationChar and that we should let you define both simultaneously. XTCE: Variable length strings are those where the space occupied in a container can vary. If the string has variable content but occupies the same amount of space when encoded should use the SizeInBits element. Specification of a variable length string needs to consider that the implementation needs to allocate space to store the string. Specify the maximum possible length of the string data type for memory purposes and also specify the bit size of the string to use in containers with the dynamic elements."))
 
 (defun make-variable (max-size-in-bits value-lookup leading-size termination-character)
@@ -1891,13 +1899,14 @@
    (byte-order :initarg :byte-order :type byte-order)
    (string-encoding :initarg :string-encoding :type string-encoding)))
 
-(defun make-string-data-encoding (string-size-type &optional
-													 (bit-order '|mostSignificantBitFirst|)
-													 (byte-order '|mostSignificantByteFirst|)
-													 (string-encoding 'UTF-8)
-													 (error-detect-correct))
+(defun make-string-data-encoding (size-type &optional
+											  (bit-order '|mostSignificantBitFirst|)
+											  (byte-order '|mostSignificantByteFirst|)
+											  (string-encoding 'UTF-8)
+											  (error-detect-correct))
+  (check-type size-type string-size)
   (make-instance 'string-data-encoding
-				 :string-size-type string-size-type
+				 :string-size-type size-type
 				 :bit-order bit-order
 				 :error-detect-correct error-detect-correct
 				 :byte-order byte-order
@@ -2284,6 +2293,7 @@
 								  ancillary-data-set
 								  stream-ref)
   "For streams that contain a series of frames with a fixed frame length where the frames are found by looking for a marker in the data. This marker is sometimes called the frame sync pattern and sometimes the Asynchronous Sync Marker (ASM). This marker need not be contiguous although it usually is."
+  (check-type next-ref (or container-ref service-ref))
   (make-instance 'fixed-frame-stream
 			:name name
 			:frame-length-in-bits frame-length-in-bits
@@ -2298,6 +2308,16 @@
 			:alias-set alias-set
 			:ancillary-data-set ancillary-data-set
 			:stream-ref stream-ref))
+
+(defmethod print-object ((obj fixed-frame-stream) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-slots (name short-description) obj
+      (format stream "name: ~a, description: ~a" name short-description))))
+
+(defmethod print-object ((obj container-ref) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-slots (container-ref) obj
+      (format stream "ref: ~a" container-ref))))
 
 (deftype next-ref ()
   '(satisfies next-ref-p))

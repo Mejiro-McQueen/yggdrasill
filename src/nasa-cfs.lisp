@@ -12,6 +12,9 @@
    (make-telemetry-metadata
 	:stream-set
 	(stc:with-ccsds.aos.stream 1024 (list))
+
+	:container-set
+	(stc::with-ccsds-aos-containers (list))
 	
 	:parameter-type-set
 	(stc::with-ccsds.aos.header.types
