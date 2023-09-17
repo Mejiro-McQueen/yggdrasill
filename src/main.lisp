@@ -1,5 +1,6 @@
 (ql:quickload "bifrost-yggdrasill")
 (ql:quickload "lparallel")
+(ql:quickload "filesystem-hash-table")
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar debug-mode t)
@@ -161,21 +162,7 @@
 		;; (print aperture)
 		;; (print (print-hex frame))
 		(unless aperture
-		  (emit! (list "Aperture greater than zero:" aperture)))
-		(case state
-		  (LOCK
-										;(accept-frame frame)
-		   (emit! state))
-		  
-		  (VERIFY
-		   (emit! state)
-		   )
-		  
-		  (SEARCH
-		   (emit! (list "Could not find synchronization marker!")))
-		  
-		  (CHECK))
-		
+		  (emit! (list "Aperture greater than zero:" aperture)))		
 		(return-from process-fixed-frame-stream (values frame state (lambda (frame) (process-fixed-frame-stream fixed-frame-stream-type next-continuation frame))))))))
 
 (defun get-frame-processor (stream-type)
@@ -189,12 +176,24 @@
 
 (setf qq #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-(defun monad (space-system frame-queue)
-  (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
-		 (stream-type (when telemetry-metadata (first (slot-value telemetry-metadata 'stream-set))))
-		 (frame-stream-processor-continuation (get-fixed-frame-stream-initial-state stream-type))
-		 (frame-counter 0))
+(defun process-frame-result (frame state next-ref symbol-table)
+  (case state
+	(LOCK
+										;(accept-frame frame)
+	 (emit! state))
+	
+	(VERIFY
+	 (emit! state)
+	 )
+	
+	(SEARCH
+	 (emit! (list "Could not find synchronization marker!")))
+	
+	(CHECK))
+  )
 
+(defun monad (space-system frame-queue)
+  (with-state
 	(loop
 	  for frame = (lparallel.queue:pop-queue frame-queue)
 	  when (null frame)
@@ -206,8 +205,45 @@
 		   (setf frame-stream-processor-continuation next-continuation)
 		   (print frame-counter)
 		   (print frame)
-		   (print state))
+		   (print state)
+		   (print (slot-value stream-type 'next-ref))
+		   )
 	)))
+
+
+(defun a (space-system frame )
+  (with-state space-system
+	(multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
+	  (incf frame-counter)
+	  (setf frame-stream-processor-continuation next-continuation)
+	  (print frame-counter)
+	  (print frame)
+	  (print state)
+	  (print next-ref)
+	  (print (dereference-named-object next-ref symbol-table))
+	  )
+	))
+
+(defparameter qqqq (a nasa-cfs::NASA-cFS qq))
+
+(print qqqq)
+
+;TODO Typecheck container references
+
+(defmacro with-state (space-system &body body)
+  `(let* ((telemetry-metadata (slot-value ,space-system 'telemetry-metadata))
+		  (stream-type (when telemetry-metadata (first (slot-value telemetry-metadata 'stream-set))))
+		  (frame-stream-processor-continuation (get-fixed-frame-stream-initial-state stream-type))
+		  (symbol-table (slot-value space-system 'symbol-table))
+		  (next-ref (slot-value stream-type 'next-ref))
+		  (frame-counter 0))
+	 ,@body
+	 ))
+
+(defun dereference-named-object (obj current-table)
+  (let ((ref (format nil "~A" (slot-value obj (intern "CONTAINER-REF" :xtce)))))
+	(print ref)
+	(filesystem-hash-table:find-key-by-path ref current-table)))
 
 
 (defparameter frame-queue (lparallel.queue:make-queue))
@@ -215,6 +251,7 @@
 
 (lparallel.queue:push-queue qq frame-queue)
 (lparallel.queue:push-queue nil frame-queue)
+
 
 
 ;; (print-hex (second (process-fixed-frame 0 1 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)))

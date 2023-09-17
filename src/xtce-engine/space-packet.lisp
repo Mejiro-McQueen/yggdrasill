@@ -1,19 +1,19 @@
 (in-package :standard-template-constructs)
 (use-package :xtce)
 
-(defparameter Space-Packet.Sequence-or-Name 'sequence)
+(defparameter Space-Packet.Header.Sequence-or-Name 'sequence)
 
 (defparameter Space-Packet.Secondary-Header nil)
 
 (defparameter Space-Packet.Secondary-Header-Type nil)
 
-(defvar Space-Packet.Packet-Name '|STC.CCSDS.Space-Packet.Header.Packet-Name|)
+(defvar Space-Packet.Header.Packet-Name '|STC.CCSDS.Space-Packet.Header.Packet-Name|)
 
-(defvar Space-Packet.Packet-Name-Type '|STC.CCSDS.Space-Packet.Header.Packet-Name-Type|)
+(defvar Space-Packet.Header.Packet-Name-Type '|STC.CCSDS.Space-Packet.Header.Packet-Name-Type|)
 
-(defvar Space-Packet.Packet-Count '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count|)
+(defvar Space-Packet.Header.Packet-Count '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count|)
 
-(defvar Space-Packet.Packet-Name  '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count-Type|)
+(defvar Space-Packet.Header.Packet-Name  '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count-Type|)
 
 (defvar CCSDS.Space-Packet.Header.Packet-Version-Number-Type
   (make-integer-parameter-type
@@ -63,7 +63,7 @@
 
 (defvar CCSDS.Space-Packet.Header.Sequence-Flags-Type
   (make-enumerated-parameter-type
-   '|STC:CCSDS.Space-Packet.Header.Sequence-Flags-Type|
+   '|STC.CCSDS.Space-Packet.Header.Sequence-Flags-Type|
    :enumeration-list (list
 					  (make-enumeration #b00 'Continuation :short-description "Space Packet contains a continuation segment of User Data.")
 					  (make-enumeration #b01 'First-Segment :short-description "Space Packet contains the first segment of User Data.")
@@ -89,10 +89,16 @@
 
 (defvar CCSDS.Space-Packet.Header.Packet-Name-Type
   (make-string-parameter-type
-   Space-Packet.Packet-Name
+   '|STC.CCSDS.Space-Packet.Header.Packet-Name|
    :short-description "Do not Use: I have no idea how it's supposed to work. CCSDS Space Packet Header Element. Part of Packet Sequence Control subdivision."
    :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet.")
    :data-encoding (make-string-data-encoding (make-size-in-bits 14))))
+
+(defvar CCSDS.Space-Packet.User-Data-Field-Type
+  (make-string-parameter-type
+   '|STC.CCSDS.Space-Packet.User-Data-Field-Type|
+   :short-description "Bytes containing the packet payload"
+   :data-encoding (make-binary-data-encoding (make-size-in-bits (make-dynamic-value (make-parameter-instance-ref '|STC.CCSDS.Space-Packet.Header.Packet-Data-Length|))))))
 
 (defun with-ccsds.space-packet.header.types (type-list)
   (append type-list
@@ -105,7 +111,8 @@
 		   CCSDS.Space-Packet.Header.Application-Process-Identifier-Type
 		   CCSDS.Space-Packet.Header.Sequence-Flags-Type
 		   CCSDS.Space-Packet.Header.Packet-Data-Length-Type
-		   (get-CCSDS.Space-Packet.Sequence-or-Name-Type))))
+		   CCSDS.Space-Packet.User-Data-Field-Type
+		   (get-CCSDS.Space-Packet.Header.Sequence-or-Name-Type))))
 
 (defvar CCSDS.Space-Packet.Header.Packet-Transfer-Frame-Version-Number
   (make-parameter '|STC.CCSDS.Space-Packet.Header.Packet-Transfer-Frame-Version-Number| '|STC.CCSDS.Space-Packet.Header.Packet-Version-Number-Type|))
@@ -122,8 +129,8 @@
 (defvar CCSDS.Space-Packet.Header.Packet-Identification
   (make-parameter '|STC.CCSDS.Space-Packet.Header.Packet-Identification| '|STC.CCSDS.Space-Packet.Header.Packet-Identification-Type|))
 
-(defvar CCSDS.Space-Packet.Header.Sequence-Control
-  (make-parameter '|STC.CCSDS.Space-Packet.Header.Sequence-Control| '|STC.CCSDS.Space-Packet.Header.Sequence-Control-Type|))
+(defvar CCSDS.Space-Packet.Header.Packet-Sequence-Control
+  (make-parameter '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Control| '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Control-Type|))
 
 (defvar CCSDS.Space-Packet.Header.Sequence-Flags
   (make-parameter '|STC.CCSDS.Space-Packet.Header.Sequence-Flags| '|STC.CCSDS.Space-Packet.Header.Sequence-Flags-Type|))
@@ -131,34 +138,32 @@
 (defvar CCSDS.Space-Packet.Header.Packet-Data-Length
 	(make-parameter '|STC.CCSDS.Space-Packet.Header.Packet-Data-Length| '|STC.CCSDS.Space-Packet.Header.Packet-Data-Length-Type|))
 
-
-(defvar CCSDS.Space-Packet.Header.Packet-Data-Field
-	(make-parameter '|STC.CCSDS.Space-Packet.Header.User-Data-Field| '|STC.CCSDS.Space-Packet.Header.User-Data-Field-Type|))
-
+(defvar CCSDS.Space-Packet.User-Data-Field
+	(make-parameter '|STC.CCSDS.Space-Packet.User-Data-Field| '|STC.CCSDS.Space-Packet.User-Data-Field-Type|))
 
 (defvar CCSDS.Space-Packet.Header.Packet-Sequence-Count
   (make-parameter '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count| '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count-Type|))
 
 (defvar CCSDS.Space-Packet.Header.Packet-Name
-  (make-parameter Space-Packet.Packet-Name Space-Packet.Packet-Name-Type))
+  (make-parameter Space-Packet.Header.Packet-Name Space-Packet.Header.Packet-Name-Type))
 
-(defun set-CCSDS.Space-Packet.Sequence-or-Name (a)
-  (assert (member (intern (format-symbol a) :stc) '(sequence name)) (a) "Option ~a must be one of <'sequence|'name>" a
-  (setf Space-Packet.Sequence-or-Name a)))
+(defun set-CCSDS.Space-Packet.Header.Sequence-or-Name (a)
+  (assert (member (intern (format nil "~A" a) :stc) '(sequence name)) (a) "Option ~a must be one of <'sequence|'name>" a
+  (setf Space-Packet.Header.Sequence-or-Name a)))
 
-(defun get-CCSDS.Space-Packet.Sequence-or-Name-Type ()
-  (case Space-Packet.Sequence-or-Name
+(defun get-CCSDS.Space-Packet.Header.Sequence-or-Name-Type ()
+  (case Space-Packet.Header.Sequence-or-Name
 	(sequence
 	 CCSDS.Space-Packet.Header.Packet-Sequence-Count-Type)
 	(name
 	 CCSDS.Space-Packet.Header.Packet-Name-Type)))
 
-(defun get-CCSDS.Space-Packet.Sequence-or-Name-Ref ()
-  (case Space-Packet.Sequence-or-Name
+(defun get-CCSDS.Space-Packet.Header.Sequence-or-Name-Ref ()
+  (case Space-Packet.Header.Sequence-or-Name
 	(sequence
-	 Space-Packet.Packet-Count)
+	 Space-Packet.Header.Packet-Count)
 	(name
-	 Space-Packet.Packet-name)))
+	 Space-Packet.Header.Packet-name)))
 
 (defun set-CCSDS.Space-Packet.Secondary-Header (parameter)
   (setf Space-Packet.Secondary-Header parameter))
@@ -166,8 +171,8 @@
 (defun set-CCSDS.Space-Packet.Secondary-Header-Type (parameter-type)
   (setf Space-Packet.Secondary-Header-Type parameter-type))
 
-(defun get-CCSDS.Space-Packet.Sequence-or-Name ()
-  (case Space-Packet.Sequence-or-Name
+(defun get-CCSDS.Space-Packet.Header.Sequence-or-Name ()
+  (case Space-Packet.Header.Sequence-or-Name
 	(sequence
 	 CCSDS.Space-Packet.Header.Packet-Sequence-Count)
 	(name
@@ -182,10 +187,10 @@
 	CCSDS.Space-Packet.Header.Secondary-Header-Flag
 	CCSDS.Space-Packet.Header.Application-Process-Identifier
 	CCSDS.Space-Packet.Header.Packet-Identification
-	CCSDS.Space-Packet.Header.Sequence-Control
+	CCSDS.Space-Packet.Header.Packet-Sequence-Control
 	CCSDS.Space-Packet.Header.Sequence-Flags
 	CCSDS.Space-Packet.Header.Packet-Data-Length
-	(get-CCSDS.Space-Packet.Sequence-or-Name))))
+	(get-CCSDS.Space-Packet.Header.Sequence-or-Name))))
 
 (defun CCSDS.Space-Packet ()
   (make-sequence-container
@@ -196,11 +201,11 @@
 		 (make-parameter-ref-entry '|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier|)
 		 (make-parameter-ref-entry '|STC.CCSDS.Space-Packet.Header.Sequence-Flags-Type|)
 		 (make-parameter-ref-entry '|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count-Type|) 
-		 (make-parameter-ref-entry (get-CCSDS.Space-Packet.Sequence-or-Name-Ref))
+		 (make-parameter-ref-entry (get-CCSDS.Space-Packet.Header.Sequence-or-Name-Ref))
 		 (make-parameter-ref-entry '|STC.CCSDS.Space-Packet.Header.Packet-Data-Length|)
-		 (make-container-ref-entry '|STC.CCSDS.Space-Packet.User-Data-Field|))
+		 (make-container-ref-entry '|STC.CCSDS.Space-Packet.User-Data-Field|)
    (when Space-Packet.Secondary-Header
-	 (slot-value Space-Packet.Secondary-Header 'name))))
+	 (slot-value Space-Packet.Secondary-Header 'name)))))
 
 ; Concrete Deframing: Stream + Frame Container -> Frames + Packet Container Ref
 ; -> Publish on AOS Service -> AOS Service Publishes by VCID

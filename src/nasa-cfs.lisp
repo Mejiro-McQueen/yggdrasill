@@ -769,6 +769,6 @@
 	   (make-parameter '|TO_DF_2| '|/F64-Type| :short-description "")
 	   (make-parameter '|TO_STR| '|/ASCII-String-Type| :short-description "")))))))
 
-(time (dump-xml (symbol-value 'NASA-cFS)))
+(time (dump-xml NASA-cFS))
 
 										;TODO: There is an electronic data sheet that can be used to interpret the AMPCS xml

@@ -1,6 +1,10 @@
 (in-package :standard-template-constructs)
 (use-package :xtce)
 
+;TODO: Pull these out as ancillary data
+
+(defparameter AOS.Transfer-Frame-Length 1024)
+
 (defparameter use-AOS.Operational-Control-Field nil)
 
 (defparameter AOS.Insert-Zone-Length 0)
@@ -8,6 +12,15 @@
 (defparameter use-AOS.Frame-Error-Control-Field nil)
 
 (defparameter use-AOS.Header.Frame-Header-Error-Control-Field nil)
+
+(defparameter AOS.Transfer-Frame-Trailer-Length 0)
+
+(defun set-CCSDS.AOS.Transfer-Frame-Length (n)
+  (setf AOS.Transfer-Frame-Length n))
+
+(defun get-transfer-frame-data-field-length ()
+  (- AOS.Transfer-Frame-Length
+	 (+ AOS.Insert-Zone-Length AOS.Transfer-Frame-Trailer-Length)))
 
 (defun set-CCSDS.AOS.Set-Insert-Zone-Length (n)
   (setf AOS.Insert-Zone-Length n))
@@ -85,14 +98,13 @@
    :short-description "Optional. Reed-Solomon Protecting Mater Channel Identifier and Virtual Channel Identifier. 16 bits."
    :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 16)))))
 
-;TODO: Maybe specify an auxillary value we can use to specify this.
 (defvar CCSDS.AOS.Insert-Zone-Type
   (make-binary-parameter-type '|STC.CCSDS.AOS.Insert-Zone-Type|
   :short-description "Optional."
   :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value AOS.Insert-Zone-Length)))))
 
-(defvar CCSDS.AOS.Data-Field-Type
-  (make-binary-parameter-type '|STC.CCSDS.AOS.Data-Field-Type|
+(defvar CCSDS.AOS.Transfer-Frame-Data-Field-Type
+  (make-binary-parameter-type '|STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type|
   :short-description "M_PDU or B_PDU or VCA_SDU or Idle Data"
   :long-description (make-long-description "4.1.4.1.3 The Transfer Frame Data Field shall contain one Multiplexing Protocol Data Unit
 (M_PDU), one Bitstream Protocol Data Unit (B_PDU), one Virtual Channel Access Service
@@ -105,7 +117,7 @@ static throughout a Mission Phase.")))
 (defun with-ccsds.aos.header.types (type-list)
   (append type-list
 		  (list
-		   CCSDS.AOS.Data-Field-Type
+		   CCSDS.AOS.Transfer-Frame-Data-Field-Type
 		   CCSDS.AOS.Header.Frame-Count-Cycle-Type
 		   CCSDS.AOS.Header.Frame-Header-Error-Control-Type
 		   CCSDS.AOS.Insert-Zone-Type
@@ -117,7 +129,8 @@ static throughout a Mission Phase.")))
 		   CCSDS.AOS.Header.Version-Number-Type
 		   CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type
 		   CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type
-		   CCSDS.AOS.Header.Virtual-Channel-ID-Type)))
+		   CCSDS.AOS.Header.Virtual-Channel-ID-Type
+		   )))
 
 (defvar CCSDS.AOS.Header.Master-Channel-ID
   (make-parameter '|STC.CCSDS.AOS.Header.Master-Channel-ID| '|STC.CCSDS.AOS.Header.Master-Channel-ID-Type|))
@@ -146,11 +159,11 @@ static throughout a Mission Phase.")))
 (defvar CCSDS.AOS.Header.Frame-Header-Error-Control
   (make-parameter '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control| '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control-Type|))
 
-(defvar CCSDS.AOS.Header.Insert-Zone
+(defvar CCSDS.AOS.Insert-Zone
   (make-parameter '|STC.CCSDS.AOS.Insert-Zone| '|STC.CCSDS.AOS.Insert-Zone-Type|))
 
-(defvar CCSDS.AOS.Header.Data-Field
-  (make-parameter '|STC.CCSDS.AOS.Header.Data-Field| '|STC.CCSDS.AOS.Header.Data-Field-Type|))
+(defvar CCSDS.AOS.Transfer-Frame-Data-Field
+  (make-parameter '|STC.CCSDS.AOS.Transfer-Frame-Data-Field| '|STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type|))
 
 (defun with-ccsds.aos.header.parameters (parameter-list)
   (append parameter-list
@@ -164,9 +177,11 @@ static throughout a Mission Phase.")))
 		   CCSDS.AOS.Header.Reserved-Spare
 		   CCSDS.AOS.Header.Frame-Count-Cycle
 		   CCSDS.AOS.Header.Frame-Header-Error-Control
-		   CCSDS.AOS.Header.Data-Field)
+		   CCSDS.AOS.Transfer-Frame-Data-Field)
 		  (if AOS.Insert-Zone-Length
-			  (list CCSDS.AOS.Header.Insert-Zone))))
+			  (list CCSDS.AOS.Insert-Zone))))
+
+()
 
 (defun with-ccsds.aos.stream (frame-length-in-bits stream-list)
   (append stream-list

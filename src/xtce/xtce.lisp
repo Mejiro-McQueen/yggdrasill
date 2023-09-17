@@ -33,6 +33,12 @@
   (and (listp l)
 	   (every #'(lambda (i) (typep i 'space-system)) l)))
 
+;;Notes regarding symbol table
+;; The symbol table is used to lookup named/keyed xtce objects.
+;; They name or reference of the object is interned as a symbol. 
+;; When we lookup or place a keyed object into the table, we must intern the symbol
+;; This results in the symbols not having a package attached if they originated from a foreign package (i.e. xtce-engine or stc)
+
 (defun make-space-system (name
                           &key
 							root
@@ -76,17 +82,18 @@
 
 (defun finalize-space-system (space-system parent-system)
   (setf (slot-value space-system 'parent-system) parent-system)
+  (register-system-keys space-system)
   (when parent-system
 	(register-filesystem-hash-table (slot-value parent-system 'symbol-table) (slot-value space-system 'symbol-table) (slot-value space-system 'name))
-	(add-unique-key 'back parent-system (slot-value space-system 'symbol-table))
-	)
-  (register-system-keys space-system)
+	(add-unique-key 'back parent-system (slot-value space-system 'symbol-table)))
+  (restart-case (type-check-parameter-set space-system)
+	  (continue-with-overwrite () :report (lambda (stream) (format stream "overwrite parameter-ref value and continue."))))
   (when (slot-value space-system 'space-system-list)
 	(with-slots (space-system-list) space-system
 	  (dolist (child-system space-system-list)
 		(finalize-space-system child-system space-system)
-		(restart-case (type-check-parameter-set child-system)
-		  (continue-with-overwrite () :report (lambda (stream) (format stream "overwrite parameter-ref value and continue."))))))))
+		))))
+
 
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
@@ -94,32 +101,33 @@
 (defun register-system-keys (space-system)
   (macrolet ((register-keys-in-sequence (sequence slot-name)
 			   `(let* ((slot-name-sequence (slot-value ,sequence ,slot-name)))
-				 (dolist (item slot-name-sequence)
-				   (restart-case (add-unique-key (slot-value item 'name) item symbol-table)
-					 (continue-with-overwrite () :report (lambda (stream)
-														 (format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
-																 (slot-value item 'name)
-																 item
-																 space-system))
-					   (setf (gethash (slot-value item 'name) symbol-table item) item))
-					 (continue-with-new-key (new-key) :report (lambda (stream)
-														 (format stream "provide a new key and assign value: ~A for space system ~A"
-																 item
-																 space-system))
-											   :interactive (lambda () (prompt-new-value "Enter a new unique key-name."))
-					   (add-unique-key new-key item symbol-table))
-					 (continue-with-current () :report (lambda (stream)
-														 (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
-																 (slot-value item 'name)
-																 (gethash (slot-value item 'name) symbol-table)
-																 space-system))))))))
+				  (dolist (item slot-name-sequence)
+					;We intern the symbol here to avoid having the package prefix, as seen when using STC
+					(restart-case (add-unique-key (intern (symbol-name (slot-value item 'name))) item symbol-table)
+					  (continue-with-overwrite () :report (lambda (stream)
+															(format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
+																	(slot-value item 'name)
+																	item
+																	space-system))
+						(setf (gethash (slot-value item 'name) symbol-table item) item))
+					  (continue-with-new-key (new-key) :report (lambda (stream)
+																 (format stream "provide a new key and assign value: ~A for space system ~A"
+																		 item
+																		 space-system))
+													   :interactive (lambda () (prompt-new-value "Enter a new unique key-name."))
+						(add-unique-key new-key item symbol-table))
+					  (continue-with-current () :report (lambda (stream)
+														  (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
+																  (slot-value item 'name)
+																  (gethash (slot-value item 'name) symbol-table)
+																  space-system))))))))
 	
 	(With-slots (symbol-table space-system-list telemetry-metadata name parent-system) space-system
-	    (when telemetry-metadata
-		  (register-keys-in-sequence telemetry-metadata 'parameter-type-set)
-		  (register-keys-in-sequence telemetry-metadata 'parameter-set)
-		  (register-keys-in-sequence telemetry-metadata 'algorithm-set)
-		  (register-keys-in-sequence telemetry-metadata 'stream-set)))))
+	  (when telemetry-metadata
+		(register-keys-in-sequence telemetry-metadata 'parameter-type-set)
+		(register-keys-in-sequence telemetry-metadata 'parameter-set)
+		(register-keys-in-sequence telemetry-metadata 'algorithm-set)
+		(register-keys-in-sequence telemetry-metadata 'stream-set)))))
 
 (define-condition parameter-ref-not-found (error)
   ((parameter :initarg :parameter :accessor parameter)
@@ -140,20 +148,44 @@
      (format stream "Could not find entry: ~a, for container: ~a.~&" (entry condition) (container condition)))))
 
 (defun type-check-parameter-set (space-system)
+  (check-parameter-refs space-system)
+  (check-container-set-refs space-system)
+  (check-stream-set-refs space-system))
+
+(defun check-stream-set-refs (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
-		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set)))
+		 (stream-set (if telemetry-metadata (slot-value telemetry-metadata 'stream-set))))
+	(dolist (stream stream-set)
+	  (with-slots (next-ref) stream
+		  (unless (find-key-by-path (format nil "~A" next-ref) symbol-table)
+			(error `entry-not-found :container stream :entry next-ref))))))
+
+(defun check-container-set-refs (space-system)
+  (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
+		 (symbol-table (slot-value space-system 'symbol-table))
 		 (container-set (if telemetry-metadata (slot-value telemetry-metadata 'container-set))))
-	(dolist (parameter parameter-set)
-	  (with-slots (parameter-type-ref) parameter
-		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
-		  (error `parameter-ref-not-found :parameter parameter :parameter-type-ref parameter-type-ref))))
 	(dolist (container container-set)
 	  (with-slots (entry-list) container
 		(dolist (entry-item entry-list)
 		  (let ((entry-name (entry entry-item)))
 			(unless (find-key-by-path (format nil "~A" entry-name) symbol-table)
 			  (error `entry-not-found :container container :entry entry-name))))))))
+
+(defun check-parameter-type-refs (space-system)
+  (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
+		 (symbol-table (slot-value space-system 'symbol-table))
+		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set))))
+	(print (alexandria:hash-table-keys symbol-table))
+	(dolist (parameter parameter-set)
+	  (with-slots (parameter-type-ref) parameter
+		;; (print (format nil "~%~%~%"))
+		;; (print parameter-type-ref)
+		;; (print (symbol-name parameter-type-ref))
+		;; (print (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table))
+		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
+		  (error `parameter-ref-not-found :parameter parameter :parameter-type-ref parameter-type-ref))
+		))))
 
 (defun make-long-description (s)
   (check-type s string)
@@ -381,10 +413,21 @@
 	  (marshall entry-list)
 	  (marshall restriction-criteria-set))))
 
+
+(defmethod print-object ((obj fixed-frame-stream) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-slots (name short-description) obj
+      (format stream "name: ~a, description: ~a" name short-description))))
+
+(defmethod print-object ((obj container-ref) stream)
+  (print-unreadable-object (obj stream :type t)
+    (with-slots (container-ref) obj
+      (format stream "ref: ~a" container-ref))))
+
 (defmethod print-object ((obj sequence-container) stream)
-      (print-unreadable-object (obj stream :type t)
-        (with-slots (name short-description abstract base-container) obj
-          (format stream "name: ~a, description: ~a, abstract:~a, base-container?:~a" name short-description abstract base-container))))
+  (print-unreadable-object (obj stream :type t)
+    (with-slots (name short-description abstract base-container) obj
+      (format stream "name: ~a, description: ~a, abstract:~a, base-container?:~a" name short-description abstract base-container))))
 
 (defclass default-rate-in-stream () ((basis :initarg :basis)
 									 (minimum-value :initarg :minimum-value)
@@ -534,7 +577,7 @@
 	  (marshall ancillary-data-set))))
 
 (defclass container-ref-entry ()
-  ((container-ref :initarg :container-ref :type symbol :reader :entry)
+  ((container-ref :initarg :container-ref :type symbol :reader entry)
    (short-description :initarg :short-description :type string)
    (location-in-container-in-bits :initarg :location-in-container-in-bits :type location-in-container-in-bits)
    (repeat-entry :initarg :repeat-entry :type repeat-entry)
@@ -542,7 +585,7 @@
    (time-association :initarg :time-association :type time-association)
    (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
 
-(defclass container-ref () ((container-ref :initarg :container-ref :type symbol :reader :container-ref)))
+(defclass container-ref () ((container-ref :initarg :container-ref :type symbol :reader container-ref)))
 
 (defun make-container-ref (container-ref)
   (check-type container-ref symbol)
@@ -973,6 +1016,7 @@
 (defclass size-in-bits () ((size :initarg :size)))
 
 (defun make-size-in-bits (size)
+  (check-type size (or fixed-value dynamic-value discrete-lookup-list))
   (make-instance 'size-in-bits :size size))
 
 (defmethod marshall ((obj size-in-bits))
