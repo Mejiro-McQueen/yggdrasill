@@ -94,7 +94,6 @@
 		(finalize-space-system child-system space-system)
 		))))
 
-
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
 
@@ -102,8 +101,7 @@
   (macrolet ((register-keys-in-sequence (sequence slot-name)
 			   `(let* ((slot-name-sequence (slot-value ,sequence ,slot-name)))
 				  (dolist (item slot-name-sequence)
-					;We intern the symbol here to avoid having the package prefix, as seen when using STC
-					(restart-case (add-unique-key (intern (symbol-name (slot-value item 'name))) item symbol-table)
+					(restart-case (add-unique-key (slot-value item 'name) item symbol-table)
 					  (continue-with-overwrite () :report (lambda (stream)
 															(format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
 																	(slot-value item 'name)
@@ -181,12 +179,14 @@
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
 		 (parameter-set (if telemetry-metadata (slot-value telemetry-metadata 'parameter-set))))
+	;(print (alexandria:hash-table-keys symbol-table))
 	(dolist (parameter parameter-set)
 	  (with-slots (parameter-type-ref) parameter
 		;; (print (format nil "~%~%~%"))
 		;; (print parameter-type-ref)
 		;; (print (symbol-name parameter-type-ref))
-		;; (print (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table))
+		;; (print (find-key-by-path (symbol-name parameter-type-ref) symbol-table))
+		
 		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
 		  (error `parameter-ref-not-found :parameter parameter :parameter-type-ref parameter-type-ref))
 		))))
@@ -194,7 +194,8 @@
 (defun type-check-parameter-set (space-system)
   (check-parameter-refs space-system)
   (check-container-set-refs space-system)
-  (check-stream-set-refs space-system))
+  (check-stream-set-refs space-system)
+  )
 
 (defun make-long-description (s)
   (check-type s string)

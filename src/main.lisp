@@ -192,43 +192,23 @@
 	(CHECK))
   )
 
-(defun monad (space-system frame-queue)
-  (with-state
-	(loop
-	  for frame = (lparallel.queue:pop-queue frame-queue)
-	  when (null frame)
-		return :exit
-	  do
-		 (print "Got Frame")
-		 (multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
-		   (incf frame-counter)
-		   (setf frame-stream-processor-continuation next-continuation)
-		   (print frame-counter)
-		   (print frame)
-		   (print state)
-		   (print (slot-value stream-type 'next-ref))
-		   )
-	)))
-
-
-(defun a (space-system frame )
-  (with-state space-system
-	(multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
-	  (incf frame-counter)
-	  (setf frame-stream-processor-continuation next-continuation)
-	  (print frame-counter)
-	  (print frame)
-	  (print state)
-	  (print next-ref)
-	  (print (dereference-named-object next-ref symbol-table))
-	  )
-	))
-
-(defparameter qqqq (a nasa-cfs::NASA-cFS qq))
-
-(print qqqq)
-
-;TODO Typecheck container references
+;; (defun monad (space-system frame-queue)
+;;   (with-state
+;; 	(loop
+;; 	  for frame = (lparallel.queue:pop-queue frame-queue)
+;; 	  when (null frame)
+;; 		return :exit
+;; 	  do
+;; 		 (print "Got Frame")
+;; 		 (multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
+;; 		   (incf frame-counter)
+;; 		   (setf frame-stream-processor-continuation next-continuation)
+;; 		   (print frame-counter)
+;; 		   (print frame)
+;; 		   (print state)
+;; 		   (print (slot-value stream-type 'next-ref))
+;; 		   )
+;; 	)))
 
 (defmacro with-state (space-system &body body)
   `(let* ((telemetry-metadata (slot-value ,space-system 'telemetry-metadata))
@@ -240,17 +220,49 @@
 	 ,@body
 	 ))
 
+
 (defun dereference-named-object (obj current-table)
   (let ((ref (format nil "~A" (slot-value obj (intern "CONTAINER-REF" :xtce)))))
 	(print ref)
 	(filesystem-hash-table:find-key-by-path ref current-table)))
 
+(defgeneric dereference (object-with-reference symbol-table))
+(defmethod dereference ((obj xtce::container-ref) symbol-table)
+  (let* ((reference (xtce::container-ref obj))
+		(interned (symbol-name reference) )
+		(res (filesystem-hash-table:find-key-by-path interned symbol-table))
+		 )
+	;; (print interned)
+	;; (print (alexandria:hash-table-keys symbol-table))
+	(print res)
+	res
+	))
+ 
+(defun a (space-system frame )
+  (with-state space-system
+	(multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
+	  (incf frame-counter)
+	  (setf frame-stream-processor-continuation next-continuation)
+	  ;; (print frame-counter)
+	  ;; (print frame)
+	  ;; (print state)
+	  ;; (print next-ref)
+	  (dereference next-ref symbol-table)
+	  )
+	))
 
-(defparameter frame-queue (lparallel.queue:make-queue))
-(defparameter test (bt:make-thread (lambda () (monad nasa-cfs::NASA-cFS frame-queue)) :name "monad"))
+(defparameter qqqq (a nasa-cfs::NASA-cFS qq))
 
-(lparallel.queue:push-queue qq frame-queue)
-(lparallel.queue:push-queue nil frame-queue)
+
+;TODO Typecheck container referencesg
+
+
+
+;; (defparameter frame-queue (lparallel.queue:make-queue))
+;; (defparameter test (bt:make-thread (lambda () (monad nasa-cfs::NASA-cFS frame-queue)) :name "monad"))
+
+;; (lparallel.queue:push-queue qq frame-queue)
+;; (lparallel.queue:push-queue nil frame-queue)
 
 
 
