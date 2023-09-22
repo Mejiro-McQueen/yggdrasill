@@ -201,10 +201,10 @@ static throughout a Mission Phase.")))
 	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count|)
 	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Replay-Flag|)
 	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag|)
-	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Reserved-Spare-Type|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Reserved-Spare|)
 	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle|))
 	(when use-AOS.Header.Frame-Header-Error-Control-Field
-	  (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control-Type|)))))
+	  (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control|)))))
 
 (defvar CCSDS.AOS.Container.Transfer-Frame-Insert-Zone
   (make-sequence-container

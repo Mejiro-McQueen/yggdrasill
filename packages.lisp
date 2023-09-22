@@ -124,6 +124,7 @@
    #:check-to-lock-good-frames
    #:max-bit-errors-in-sync-pattern
    #:make-fixed
+   #:entry-list
    ))
 
 (defpackage :xtce-engine

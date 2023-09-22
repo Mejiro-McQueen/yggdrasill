@@ -216,28 +216,64 @@
 		  (frame-stream-processor-continuation (get-fixed-frame-stream-initial-state stream-type))
 		  (symbol-table (slot-value space-system 'symbol-table))
 		  (next-ref (slot-value stream-type 'next-ref))
+		  (next (dereference next-ref symbol-table))
 		  (frame-counter 0))
 	 ,@body
 	 ))
-
-
-(defun dereference-named-object (obj current-table)
-  (let ((ref (format nil "~A" (slot-value obj (intern "CONTAINER-REF" :xtce)))))
-	(print ref)
-	(filesystem-hash-table:find-key-by-path ref current-table)))
 
 (defgeneric dereference (object-with-reference symbol-table))
 (defmethod dereference ((obj xtce::container-ref) symbol-table)
   (let* ((reference (xtce::container-ref obj))
 		(interned (symbol-name reference) )
-		(res (filesystem-hash-table:find-key-by-path interned symbol-table))
-		 )
-	;; (print interned)
-	;; (print (alexandria:hash-table-keys symbol-table))
-	(print res)
+		(res (filesystem-hash-table:find-key-by-path interned symbol-table)))
+	res))
+
+(defmethod dereference ((obj xtce::container-ref-entry) symbol-table)
+  (let* ((reference (xtce::ref obj))
+		(interned (symbol-name reference))
+		(res (filesystem-hash-table:find-key-by-path interned symbol-table)))
+
+	;(print res)
+	res))
+
+(defmethod dereference ((obj xtce::parameter) symbol-table)
+  (let* ((reference (xtce::ref obj))
+		(interned (symbol-name reference))
+		(res (filesystem-hash-table:find-key-by-path interned symbol-table)))
 	res
+  ))
+
+(defmethod dereference ((obj xtce::parameter-ref-entry) symbol-table)
+  (let* ((reference (xtce::ref obj))
+		(interned (symbol-name reference))
+		(res (filesystem-hash-table:find-key-by-path interned symbol-table)))
+
+	res))
+
+(defgeneric decode (data decodable-object symbol-table))
+
+(defmethod decode (data (container-ref-entry xtce::container-ref-entry) symbol-table)
+  (let* ((res nil)	 
+		 (dereferenced-container (dereference container-ref-entry symbol-table)))
+	;(print container-ref-entry)
+	;(print dereferenced-container)
+	(decode data dereferenced-container symbol-table)
 	))
- 
+
+(defmethod decode (data (container xtce::sequence-container) symbol-table)
+  (dolist (ref (entry-list container))	
+	;(print ref)
+	(decode data (dereference ref symbol-table) symbol-table)))
+
+(defmethod decode (data (parameter xtce::parameter) symbol-table)
+  (print (dereference parameter symbol-table))
+  )
+
+;; (defmethod decode (data (param-type xtce::binary-parameter-type) symbol-table)
+;;   ;(describe param-type)
+;;   (decode data (dereference (xtce::ref param-type) symbol-table))
+;;   )
+
 (defun a (space-system frame )
   (with-state space-system
 	(multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
@@ -247,12 +283,13 @@
 	  ;; (print frame)
 	  ;; (print state)
 	  ;; (print next-ref)
-	  (dereference next-ref symbol-table)
+	  ;(print next)
+	  ;(print (type-of next))
+	  (decode frame next symbol-table)
 	  )
 	))
 
 (defparameter qqqq (a nasa-cfs::NASA-cFS qq))
-
 
 ;TODO Typecheck container referencesg
 

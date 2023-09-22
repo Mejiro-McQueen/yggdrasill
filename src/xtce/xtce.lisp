@@ -84,8 +84,7 @@
   (setf (slot-value space-system 'parent-system) parent-system)
   (register-system-keys space-system)
   (when parent-system
-	(register-filesystem-hash-table (slot-value parent-system 'symbol-table) (slot-value space-system 'symbol-table) (slot-value space-system 'name))
-	(add-unique-key 'back parent-system (slot-value space-system 'symbol-table)))
+	(link-filesystem-hash-tables (slot-value parent-system 'symbol-table) (slot-value space-system 'symbol-table) (symbol-name (slot-value space-system 'name))))
   (restart-case (type-check-parameter-set space-system)
 	  (continue-with-overwrite () :report (lambda (stream) (format stream "overwrite parameter-ref value and continue."))))
   (when (slot-value space-system 'space-system-list)
@@ -101,7 +100,7 @@
   (macrolet ((register-keys-in-sequence (sequence slot-name)
 			   `(let* ((slot-name-sequence (slot-value ,sequence ,slot-name)))
 				  (dolist (item slot-name-sequence)
-					(restart-case (add-unique-key (slot-value item 'name) item symbol-table)
+					(restart-case (add-unique-key (symbol-name (slot-value item 'name)) item symbol-table)
 					  (continue-with-overwrite () :report (lambda (stream)
 															(format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
 																	(slot-value item 'name)
@@ -116,7 +115,7 @@
 						(add-unique-key new-key item symbol-table))
 					  (continue-with-current () :report (lambda (stream)
 														  (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
-																  (slot-value item 'name)
+																  (symbol-name (slot-value item 'name))
 																  (gethash (slot-value item 'name) symbol-table)
 																  space-system))))))))
 	
@@ -164,6 +163,7 @@
 		   (unless (find-key-by-path (format nil "~A" (slot-value next-ref 'container-ref)) symbol-table)
 			 (error `stream-next-ref-not-found :_stream stream :next-ref next-ref))))))))
 
+;TODO: Use dereference from xtce-engine (i.e. move it here)
 (defun check-container-set-refs (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
@@ -171,9 +171,15 @@
 	(dolist (container container-set)
 	  (with-slots (entry-list) container
 		(dolist (entry-item entry-list)
-		  (let ((entry-name (entry entry-item)))
-			(unless (find-key-by-path (format nil "~A" entry-name) symbol-table)
-			  (error `entry-not-found :container container :entry entry-name))))))))
+		  (check-type entry-item entry "is not a valid container entry-list item:  <parameter-ref-entry | paraemter-segment-ref-entry | container-ref-entry | container-segment-entry | stream-segment-entry | indirect-parameter-ref-entry | array-parameter-ref-entry>")
+		  (let* ((entry-ref (ref entry-item))
+				 (entry-ref-string (format nil "~A" entry-ref))
+				 (dereferenced-entry (find-key-by-path entry-ref-string symbol-table)))
+			(check-dereference-mismatch entry-item dereferenced-entry)
+			(unless dereferenced-entry
+			  (error `entry-not-found :container container :entry entry-ref))))))))
+
+;Type of entry should align with dereferenced type
 
 (defun check-parameter-refs (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
@@ -333,7 +339,7 @@
 								 (default-rate-in-stream :initarg :default-rate-in-stream :type default-rate-in-stream)
 								 (rate-in-stream-set :initarg :rate-in-stream-set :type rate-in-stream-set)
 								 (binary-encoding :initarg :binary-encoding :type binary-encoding)
-								 (entry-list :initarg :entry-list :type entry-list)
+								 (entry-list :initarg :entry-list :type entry-list :reader entry-list)
 								 (base-container :initarg :base-container :type base-container)))
 
 (defun make-sequence-container (name
@@ -452,7 +458,7 @@
   (and (listp l)
 	   (every #'(lambda (i) (typep i 'entry)) l)))
 
-(defclass parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref :type symbol :accessor entry)
+(defclass parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref :type symbol :reader ref)
 									   (short-description :initarg :short-description :type string)
 									   (location-in-container-in-bits
 										:initarg :location-in-container-in-bits
@@ -494,13 +500,8 @@
 	(marshall time-association)
 	(marshall ancillary-data-set))))
 
-(defmethod print-object ((obj parameter-ref-entry) stream)
-      (print-unreadable-object (obj stream :type t)
-        (with-slots (parameter-ref) obj
-          (format stream "parameter-ref: ~a" parameter-ref))))
-
 (defclass rate-in-stream () ((stream-ref :initarg :stream-ref
-										 :accessor stream-ref)
+										 :reader stream-ref)
 							 (basis :initarg :basis)
 							 (minimum-value :initarg :minimum-value)
 							 (maximum-value :initarg :maximum-value)))
@@ -577,7 +578,7 @@
 	  (marshall ancillary-data-set))))
 
 (defclass container-ref-entry (entry)
-  ((container-ref :initarg :container-ref :type symbol :reader entry)
+  ((container-ref :initarg :container-ref :type symbol :reader ref)
    (short-description :initarg :short-description :type string)
    (location-in-container-in-bits :initarg :location-in-container-in-bits :type location-in-container-in-bits)
    (repeat-entry :initarg :repeat-entry :type repeat-entry)
@@ -617,6 +618,10 @@
 				 :time-association time-association
 				 :ancillary-data-set ancillary-data-set))
 
+(defmethod print-object ((obj entry) stream)
+  (print-unreadable-object (obj stream :type t)
+    (format stream "reference: ~a" (ref obj))))
+
 (defmethod marshall ((obj container-ref-entry))
     (with-slots (container-ref
 				 size-in-bits
@@ -636,7 +641,7 @@
 	  (marshall ancillary-data-set))))
 
 
-(defclass container-segment-ref-entry (entry) ((container-ref :initarg :container-ref :type symbol :reader :entry)
+(defclass container-segment-ref-entry (entry) ((container-ref :initarg :container-ref :type symbol :reader ref)
 											   (size-in-bits :initarg :size-in-bits :type positive-integer)
 											   (short-description :initarg :short-description :type string)
 											   (order :initarg :order)
@@ -689,7 +694,7 @@
 	  (marshall time-association)
 	  (marshall ancillary-data-set))))
 
-(defclass stream-segment-entry (entry) ((stream-ref :initarg :stream-ref :type symbol :reader :entry)
+(defclass stream-segment-entry (entry) ((stream-ref :initarg :stream-ref :type symbol :reader ref)
 										(size-in-bits :initarg :size-in-bits :type positive-integer)
 										(short-description :initarg :short-description :type string)
 										(location-in-container-in-bits :initarg :location-in-container-in-bits
@@ -749,7 +754,7 @@
 												(include-condition :initarg :include-condition :type include-condition)
 												(time-association :initarg :time-association :type time-association)
 												(ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
-												(parameter-instance :initarg :parameter-ref :type parameter-instance :reader :entry)))
+												(parameter-instance :initarg :parameter-ref :type parameter-instance :reader ref)))
 
 (defun make-indirect-parameter-ref-entry (parameter-instance
 										  &key
@@ -791,7 +796,7 @@
 	  (marshall time-association)
 	  (marshall ancillary-data-set))))
 
-(defclass array-parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref :type symbol :reader :entry)
+(defclass array-parameter-ref-entry (entry) ((parameter-ref :initarg :parameter-ref :type symbol :reader ref)
 											 (short-description :initarg :short-description :type string)
 											 (location-in-container-in-bits :initarg :location-in-container-in-bits
 																			:type location-in-container-in-bits)
@@ -1700,18 +1705,15 @@
 
 
 ;TODO: Encoding parameters may not accept all data encodings 
-
-
 (defclass parameter ()
-  ((name :initarg :name :type string)
-   (parameter-type-ref :initarg :parameter-type-ref :type string)
+  ((name :initarg :name :type symbol)
+   (parameter-type-ref :initarg :parameter-type-ref :type symbol :reader ref)
    (short-description :initarg :short-description :type string)
    (initial-value :initarg :initial-value)
    (long-description :initarg :long-description :type long-description)
    (alias-set :initarg :alias-set :type alias-set)
    (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
    (parameter-properties :initarg :parameter-properties :type parameter-properties)))
-
 
 (defun make-parameter (name
 					   parameter-type-ref
@@ -2502,3 +2504,18 @@
 
 (defmethod unparse-attribute ((obj symbol))
   (format nil "~A" obj))
+
+(define-condition dereference-mismatch (error)
+  ((reference-holder :initarg :reference-holder :accessor reference-holder)
+   (dereferenced-obj :initarg :dereferenced-obj :accessor dereferenced-obj))
+  (:report (lambda (condition stream)
+     (format stream "~A was dereferenced from ~A and is an incompatible reference. Check the reference holder.~&" (dereferenced-obj condition) (reference-holder condition)))))
+
+(defgeneric check-dereference-mismatch (reference-holder dereferenced-object))
+(defmethod check-dereference-mismatch ((reference-holder parameter-ref-entry) dereferenced-object)
+  (unless (typep dereferenced-object 'parameter)
+	(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)))
+
+(defmethod check-dereference-mismatch ((reference-holder container-ref-entry) dereferenced-object)
+  (unless (typep dereferenced-object 'sequence-container)
+	(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)))
