@@ -266,13 +266,27 @@
 	(decode data (dereference ref symbol-table) symbol-table)))
 
 (defmethod decode (data (parameter xtce::parameter) symbol-table)
-  (print (dereference parameter symbol-table))
+  (let ((parameter-type (dereference parameter symbol-table)))
+	(decode data parameter-type symbol-table)))
+
+(defmethod decode (data (param-type xtce::binary-parameter-type) symbol-table)
+  ;(describe param-type)
+  (let ((data-encoding (xtce:data-encoding param-type)))
+	(print data-encoding)
+	)
   )
 
-;; (defmethod decode (data (param-type xtce::binary-parameter-type) symbol-table)
-;;   ;(describe param-type)
-;;   (decode data (dereference (xtce::ref param-type) symbol-table))
-;;   )
+(defmethod decode (data (parameter-type xtce::enumerated-parameter-type) symbol-table)
+  (print parameter-type)
+  )
+
+(defmethod decode (data (parameter-type xtce::integer-parameter-type) symbol-table)
+  ;(describe param-type)
+  ;; (let ((data-encoding (xtce::data-encoding param-type)))
+  ;; 	(print data-encoding)
+  ;; 	)
+  (print parameter-type)
+  )
 
 (defun a (space-system frame )
   (with-state space-system
@@ -292,7 +306,7 @@
 (defparameter qqqq (a nasa-cfs::NASA-cFS qq))
 
 ;TODO Typecheck container referencesg
-
+;  #<XTCE::PARAMETER name: STC.CCSDS.AOS.Header.Replay-Flag, description: NIL, type: STC.CCSDS.AOS.Header.Replay-Flag > is a shitshow causing infinite recursion
 
 
 ;; (defparameter frame-queue (lparallel.queue:make-queue))

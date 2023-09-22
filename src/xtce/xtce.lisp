@@ -1372,11 +1372,12 @@
 
 (defclass binary-parameter-type (parameter-type)
   ((short-description :initarg :short-description :type string)
-   (name :initarg :name :type string)
+   (name :initarg :name :type symbol)
    (initial-value :initarg :initial-value)
    (base-type :initarg :base-type)
    (data-encoding :initarg :data-encoding
-				  :type data-encoding)
+				  :type data-encoding
+				  :reader data-encoding)
    (default-alarm :initarg :default-alarm
 				  :type enumeration-alarm-type)
    (binary-context-alarm-list :initarg :binary-context-alarm-list
@@ -1389,20 +1390,20 @@
    (unit-set :initarg :unit-set :type unit-set)))
 
 (defun make-binary-parameter-type (name
-									   &key
-										 short-description
-										 base-type
-										 initial-value
-										 long-description
-										 alias-set
-										 ancillary-data-set
-										 unit-set
-										 data-encoding
-										 default-alarm
-										 binary-context-alarm-list)
+								   &key
+									 short-description
+									 base-type
+									 initial-value
+									 long-description
+									 alias-set
+									 ancillary-data-set
+									 unit-set
+									 data-encoding
+									 default-alarm
+									 binary-context-alarm-list)
   (check-type name symbol)
   (check-optional-type short-description string)
-  ;(check-optional-type base-type T)
+										;(check-optional-type base-type T)
   (check-optional-type long-description long-description)
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
@@ -1410,19 +1411,19 @@
   (check-optional-type data-encoding data-encoding)
   (check-optional-type default-alarm enumeration-alarm)
   (check-optional-type binary-context-alarm-list binary-context-alarm-list)
-  ;(check-optional-type initial-value T)
-  ; Need to check if inital value is in enumeration list
+										;(check-optional-type initial-value T)
+										; Need to check if inital value is in enumeration list
   (make-instance 'binary-parameter-type :name name
-											:short-description short-description
-											:base-type base-type
-											:initial-value initial-value
-											:long-description long-description
-											:alias-set alias-set
-											:ancillary-data-set ancillary-data-set
-											:unit-set unit-set
-											:data-encoding data-encoding
-											:default-alarm default-alarm
-											:binary-context-alarm-list binary-context-alarm-list))
+										:short-description short-description
+										:base-type base-type
+										:initial-value initial-value
+										:long-description long-description
+										:alias-set alias-set
+										:ancillary-data-set ancillary-data-set
+										:unit-set unit-set
+										:data-encoding data-encoding
+										:default-alarm default-alarm
+										:binary-context-alarm-list binary-context-alarm-list))
 
 (defmethod marshall ((obj binary-parameter-type))
   (with-slots (name short-description base-type initial-value long-description alias-set ancillary-data-set unit-set data-encoding default-alarm binary-context-alarm-list) obj

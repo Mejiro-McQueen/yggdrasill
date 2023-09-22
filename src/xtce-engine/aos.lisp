@@ -145,7 +145,7 @@ static throughout a Mission Phase.")))
   (make-parameter '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count| '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type|))
 
 (defvar CCSDS.AOS.Header.Replay-Flag
-  (make-parameter '|STC.CCSDS.AOS.Header.Replay-Flag| '|STC.CCSDS.AOS.Header.Replay-Flag|))
+  (make-parameter '|STC.CCSDS.AOS.Header.Replay-Flag| '|STC.CCSDS.AOS.Header.Replay-Flag-Type|))
 
 (defvar CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag
   (make-parameter '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag| '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type|))
@@ -262,3 +262,8 @@ static throughout a Mission Phase.")))
 	 (make-container-ref '|STC.CCSDS.AOS.Container.Frame|)
 	 (make-sync-strategy (make-sync-pattern))
 	 :short-description "CCSDS AOS Stream"))))
+
+
+;; ;Good pathatlogical cycle:
+;; (defvar CCSDS.AOS.Header.Replay-Flag
+;;   (make-parameter '|STC.CCSDS.AOS.Header.Replay-Flag| '|STC.CCSDS.AOS.Header.Replay-Flag|))

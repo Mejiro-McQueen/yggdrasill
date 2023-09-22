@@ -125,6 +125,7 @@
    #:max-bit-errors-in-sync-pattern
    #:make-fixed
    #:entry-list
+   #:data-encoding
    ))
 
 (defpackage :xtce-engine
