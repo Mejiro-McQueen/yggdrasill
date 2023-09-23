@@ -1254,7 +1254,8 @@
    (unit-set :initarg :unit-set
              :type unit-set)
    (data-encoding :initarg :data-encoding
-                  :type encoding)
+                  :type encoding
+				  :reader data-encoding)
    (to-string :initarg :to-string)
    (valid-range :initarg :valid-range)
    (default-alarm :initarg :default-alarm
@@ -1295,20 +1296,20 @@
 
 (defun make-integer-parameter-type (name
                                     &key
-                                    short-description                                    
-                                    base-type
-                                    initial-value
-                                    size-in-bits
-                                    (signed 'NOTHING)
-                                    long-description
-                                    alias-set
-                                    ancillary-data-set
-                                    unit-set 
-                                    data-encoding
-                                    to-string
-                                    valid-range
-                                    default-alarm
-                                    context-alarm-list)
+                                      short-description                                    
+                                      base-type
+                                      initial-value
+                                      size-in-bits
+                                      (signed 'NOTHING)
+                                      long-description
+                                      alias-set
+                                      ancillary-data-set
+                                      unit-set 
+                                      data-encoding
+                                      to-string
+                                      valid-range
+                                      default-alarm
+                                      context-alarm-list)
   (check-type name symbol)
   (check-optional-type short-description string)
   (if base-type nil)
@@ -1478,7 +1479,7 @@
 										 context-alarm-list)
   (check-type name symbol)
   (check-optional-type short-description string)
-  ;(check-optional-type base-type T)
+										;(check-optional-type base-type T)
   (check-optional-type long-description long-description)
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
@@ -1487,9 +1488,9 @@
   (check-optional-type enumeration-list enumeration-list)
   (check-optional-type default-alarm enumeration-alarm)
   (check-optional-type context-alarm-list context-alarm-list)
-  ;(check-optional-type initial-value T)
-  ; Need to check if inital value is in enumeration list
-  ; TODO: mapcar?
+										;(check-optional-type initial-value T)
+										; Need to check if inital value is in enumeration list
+										; TODO: mapcar?
   (let* ((alist (loop for enumeration in enumeration-list
 					  for label = (slot-value enumeration 'label)
 					  for value = (slot-value enumeration 'value)
@@ -1516,10 +1517,10 @@
 (defun make-enumeration-alarm (alarm-level enumeration-label)
   (let ((alarm-level (intern (symbol-name alarm-level) :xtce))
 		(allowed-alarm-levels '(normal watch warning distress critical sever)))
-  (check-type enumeration-label symbol)
-  (check-type alarm-level symbol)
-  (assert (member alarm-level allowed-alarm-levels) (alarm-level) "Alarm level ~A is not one of ~A" alarm-level allowed-alarm-levels) 
-  (make-instance 'enumeration-alarm :alarm-level alarm-level  :enumeration-label enumeration-label)))
+	(check-type enumeration-label symbol)
+	(check-type alarm-level symbol)
+	(assert (member alarm-level allowed-alarm-levels) (alarm-level) "Alarm level ~A is not one of ~A" alarm-level allowed-alarm-levels) 
+	(make-instance 'enumeration-alarm :alarm-level alarm-level  :enumeration-label enumeration-label)))
 
 (deftype enumeration-list ()
   `(satisfies enumeration-list-p))
@@ -1530,16 +1531,16 @@
 
 (defclass enumeration ()
   ((value :initarg :value)
-  (max-value :initarg :max-value)
-  (label :initarg :label
-		 ;; :type symbol
-		 )
-  (short-description :initarg :short-description
-					 :type string)))
+   (max-value :initarg :max-value)
+   (label :initarg :label
+		  ;; :type symbol
+		  )
+   (short-description :initarg :short-description
+					  :type string)))
 
 (defun make-enumeration (label value &key max-value short-description)
-  ;(check-type value symbol)
-  ;(check-type label symbol)
+										;(check-type value symbol)
+										;(check-type label symbol)
   (check-optional-type max-value number)
   (check-optional-type short-description string)
   (make-instance 'enumeration :value value :label label :max-value max-value :short-description short-description))
@@ -1591,18 +1592,18 @@
 
 (defun make-absolute-time-parameter (name
 									 &key
-									 short-description
-									 base-type
-									 initial-value
-									 long-description
-									 alias-set
-									 ancillary-data-set
-									 encoding
-									 reference-time)
+									   short-description
+									   base-type
+									   initial-value
+									   long-description
+									   alias-set
+									   ancillary-data-set
+									   encoding
+									   reference-time)
   (check-type name symbol)
   (check-optional-type short-description string)
   (check-optional-type base-type string)
-  ;(check-optional-type initial-value T)
+										;(check-optional-type initial-value T)
   (check-optional-type long-description string)
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
@@ -1655,12 +1656,12 @@
 				:type symbol)))
 
 (defun make-epoch (epoch-value)
-  ; TODO: figure out xs and dateTime types
+										; TODO: figure out xs and dateTime types
   (let ((epoch-value (intern (symbol-name epoch-value) :xtce))
 		(allowed-epoch-enumerations '(TAI J2000 UNIX GPS)))
-  (check-type epoch-value symbol)
-  (assert (member epoch-value allowed-epoch-enumerations) (epoch-value)
-		  "epoch string enumeration value ~A is not in ~A" epoch-value allowed-epoch-enumerations))
+	(check-type epoch-value symbol)
+	(assert (member epoch-value allowed-epoch-enumerations) (epoch-value)
+			"epoch string enumeration value ~A is not in ~A" epoch-value allowed-epoch-enumerations))
   (make-instance 'epoch :epoch-value epoch-value))
 
 (defmethod marshall ((obj epoch))
@@ -1705,7 +1706,7 @@
 	  (marshall data-encoding))))
 
 
-;TODO: Encoding parameters may not accept all data encodings 
+										;TODO: Encoding parameters may not accept all data encodings 
 (defclass parameter ()
   ((name :initarg :name :type symbol)
    (parameter-type-ref :initarg :parameter-type-ref :type symbol :reader ref)
@@ -1790,7 +1791,7 @@
 	(cxml:with-element* ("xtce" "ParameterProperties")
 	  (optional-xml-attribute "dataSource" data-source)
 	  (if (not (equal read-only :null))
-		(optional-xml-attribute "readOnly" read-only))
+		  (optional-xml-attribute "readOnly" read-only))
 	  (optional-xml-attribute "persistence" persistence)
 	  (marshall system-name)
 	  (marshall validity-condition)
@@ -1828,10 +1829,10 @@
                             :initarg :context-calibrator-list)))
 
 (defun make-integer-data-encoding (&key (size-in-bits 8)
-                                        (encoding 'UNSIGNED)
-                                        (change-threshold nil)
-                                        (default-calibrator nil)
-                                        (context-calibrator-list nil))
+                                     (encoding 'UNSIGNED)
+                                     (change-threshold nil)
+                                     (default-calibrator nil)
+                                     (context-calibrator-list nil))
   (valid-integer-encoding-p encoding)
   (check-type size-in-bits integer)
   (assert (plusp size-in-bits) (size-in-bits) "size-in-bits ~A must be a positive integer" size-in-bits)
