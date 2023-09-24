@@ -221,40 +221,11 @@
 	 ,@body
 	 ))
 
-(defgeneric dereference (object-with-reference symbol-table))
-(defmethod dereference ((obj xtce::container-ref) symbol-table)
-  (let* ((reference (xtce::container-ref obj))
-		(interned (symbol-name reference) )
-		(res (filesystem-hash-table:find-key-by-path interned symbol-table)))
-	res))
-
-(defmethod dereference ((obj xtce::container-ref-entry) symbol-table)
-  (let* ((reference (xtce::ref obj))
-		(interned (symbol-name reference))
-		(res (filesystem-hash-table:find-key-by-path interned symbol-table)))
-
-	;(print res)
-	res))
-
-(defmethod dereference ((obj xtce::parameter) symbol-table)
-  (let* ((reference (xtce::ref obj))
-		(interned (symbol-name reference))
-		(res (filesystem-hash-table:find-key-by-path interned symbol-table)))
-	res
-  ))
-
-(defmethod dereference ((obj xtce::parameter-ref-entry) symbol-table)
-  (let* ((reference (xtce::ref obj))
-		(interned (symbol-name reference))
-		(res (filesystem-hash-table:find-key-by-path interned symbol-table)))
-
-	res))
-
 (defgeneric decode (data decodable-object symbol-table alist bit-offset))
 
 (defmethod decode (data (container-ref-entry xtce::container-ref-entry) symbol-table alist bit-offset)
   (let* ((res nil)	 
-		 (dereferenced-container (dereference container-ref-entry symbol-table)))
+		 (dereferenced-container (xtce:dereference container-ref-entry symbol-table)))
 	;(print container-ref-entry)
 	;(print dereferenced-container)
 	(decode data dereferenced-container symbol-table alist bit-offset)
@@ -263,10 +234,10 @@
 (defmethod decode (data (container xtce::sequence-container) symbol-table alist bit-offset)
   (dolist (ref (entry-list container))	
 	;(print ref)
-	(decode data (dereference ref symbol-table) symbol-table alist bit-offset)))
+	(decode data (xtce::dereference ref symbol-table) symbol-table alist bit-offset)))
 
 (defmethod decode (data (parameter xtce::parameter) symbol-table alist bit-offset)
-  (let ((parameter-type (dereference parameter symbol-table)))
+  (let ((parameter-type (xtce::dereference parameter symbol-table)))
 	(decode data parameter-type symbol-table alist bit-offset)))
 
 (defmethod decode (data (param-type xtce::binary-parameter-type) symbol-table alist bit-offset)
@@ -286,7 +257,7 @@
 (defmethod decode (data (parameter-type xtce::integer-parameter-type) symbol-table alist bit-offset)
   ;(describe param-type)
   (let ((data-encoding (xtce:data-encoding parameter-type)))
-	(decode data parameter-type symbol-table alist bit-offset)))
+	(decode data data-encoding symbol-table alist bit-offset)))
 
 (defun a (space-system frame )
   (with-state space-system

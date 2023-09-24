@@ -15,8 +15,7 @@
 							 (:file "standard-template-constructs")
 							 (:file "aos")
 							 (:file "space-packet")
-							 (:file "mpdu")
-							 )))
+							 (:file "mpdu"))))
   :description ""
   :in-order-to ((test-op (test-op "bifrost-integral/tests"))))
 

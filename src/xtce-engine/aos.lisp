@@ -230,7 +230,6 @@ static throughout a Mission Phase.")))
 (defvar CCSDS.AOS.Container.Frame
   (make-sequence-container
    '|STC.CCSDS.AOS.Container.Frame|
-
    (append 
 	(list
 	 (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header|)

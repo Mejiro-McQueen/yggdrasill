@@ -192,7 +192,7 @@
 		;; (print parameter-type-ref)
 		;; (print (symbol-name parameter-type-ref))
 		;; (print (find-key-by-path (symbol-name parameter-type-ref) symbol-table))
-		
+		(dereference-with-cycle-detection parameter symbol-table)
 		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
 		  (error `parameter-ref-not-found :parameter parameter :parameter-type-ref parameter-type-ref))
 		))))
@@ -202,6 +202,7 @@
   (check-container-set-refs space-system)
   (check-stream-set-refs space-system)
   )
+
 
 (defun make-long-description (s)
   (check-type s string)
@@ -1728,6 +1729,7 @@
 						 parameter-properties)
   (check-type name symbol)
   (check-type parameter-type-ref symbol)
+  (assert (not (equal name parameter-type-ref)) () "Error instantiating parameter ~A. The name of this parameter and its parameter-type-reference are the same. This would cause an immediate circular reference." name)
   (make-instance
    'parameter
    :name name
@@ -2521,3 +2523,40 @@
 (defmethod check-dereference-mismatch ((reference-holder container-ref-entry) dereferenced-object)
   (unless (typep dereferenced-object 'sequence-container)
 	(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)))
+
+
+(defgeneric dereference (object-with-reference symbol-table))
+
+(defmethod dereference ((obj container-ref) symbol-table)
+  (let* ((reference (container-ref obj))
+		 (res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+	res))
+
+(defmethod dereference ((obj xtce::container-ref-entry) symbol-table)
+  (let* ((reference (xtce::ref obj))
+		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+	res))
+
+(defmethod dereference ((obj xtce::parameter) symbol-table)
+  (let* ((reference (xtce::ref obj))
+		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+	res
+  ))
+
+(defmethod dereference ((obj xtce::parameter-ref-entry) symbol-table)
+  (let* ((reference (xtce::ref obj))
+		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+	res))
+
+(define-condition circular-reference-found (error)
+  ((visited :initarg :visited :accessor visited)
+   (reference-holder :initarg :reference-holder :accessor reference-holder))
+  (:report (lambda (condition stream)
+     (format stream "Detected circular reference in ~A. Dereference chain: ~A~&" (reference-holder condition) (visited condition)))))
+
+(defun dereference-with-cycle-detection (item symbol-table &optional (visited '()))
+  (when (typep item '(or entry sequence-container parameter))
+	(let ((dereference (dereference item symbol-table)))
+	  (if (member item visited)
+		  (error 'circular-reference-found :visited visited :reference-holder item)
+		  (dereference-with-cycle-detection dereference symbol-table (push item visited))))))

@@ -126,6 +126,8 @@
    #:make-fixed
    #:entry-list
    #:data-encoding
+   #:dereference
+   ;;#:decode
    ))
 
 (defpackage :xtce-engine
@@ -170,6 +172,8 @@
    #:CCSDS.MPDU.Header.First-Header-Pointer
    #:CCSDS.MPDU.Header.Reserved-Spare
    #:CCSDS.MPDU.Header.Reserved-Spare-Type
+   #:CCSDS.MPDU.Packet
+   #:CCSDS.MPDU.Packet-Type
    #:CCSDS.MPDU.Packet-Zone
    #:CCSDS.Space-Packet.Header.Application-Process-Identifier
    #:CCSDS.Space-Packet.Header.Application-Process-Identifier-Type
@@ -191,14 +195,13 @@
    #:CCSDS.Space-Packet.Header.Sequence-Control
    #:CCSDS.Space-Packet.Header.Sequence-Flags
    #:CCSDS.Space-Packet.Header.Types
+   #:make-space-packet-container
    #:with-ccsds.aos.header.parameters
    #:with-ccsds.aos.header.types
+   #:with-ccsds.aos.stream
+   #:with-ccsds.mpdu.header.parameters
    #:with-ccsds.space-packet.header.parameters
    #:with-ccsds.space-packet.header.types
-   #:CCSDS.MPDU.Packet-Type
-   #:CCSDS.MPDU.Packet
-   #:with-ccsds.aos.stream
-   #:make-space-packet-container
    ))
 
 (defpackage :nasa-cfs

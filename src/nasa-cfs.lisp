@@ -503,7 +503,7 @@
 	  (list
 	   (make-parameter '|CURRENTLCSTATE| '|/U8-Type| :short-description "Current LC application operating state.")
 	   (make-parameter '|WPRESULTS| '|WPRESULTS-Type| :short-description "Packed watchpoint results data, 2 bits per watchpoint.")
-	   (make-parameter '|APRESULTS| '|APRESULTS| :short-description "Packed actionpoint results data, 4 bits per actionpoint.")
+	   (make-parameter '|APRESULTS| '|APRESULTS-Type| :short-description "Packed actionpoint results data, 4 bits per actionpoint.")
 	   (make-parameter '|PASSIVERTSEXECCOUNT| '|/U16-Type| :short-description "Total count of RTS sequences not initiated because the LC state is set to LC_STATE_PASSIVE.")
 	   (make-parameter '|WPSINUSE| '|/U16-Type| :short-description "How many watchpoints are currently in effect.")
 	   (make-parameter '|ACTIVEAPS| '|/U16-Type| :short-description "How many actionpoints are currently active.")
