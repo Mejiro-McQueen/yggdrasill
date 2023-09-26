@@ -1815,12 +1815,15 @@
 (defun valid-integer-encoding-p (enc)
   (let ((enc (intern (symbol-name enc) :xtce)))
 	(assert (member enc '(unsigned sign-magnitude twos-complement ones-compliment bcd packed-bcd)) (enc)
-			"Int Encoding ~A is not <Unsigned | twos-complement | ones-compliment | bcd | packed-bcd" enc) 
+			"Int Encoding ~A is not <'unsigned | 'twos-complement | 'ones-compliment | 'bcd | 'packed-bcd" enc) 
 	t))
 
+(deftype integer-encoding ()
+  '(satisfies valid-integer-encoding-p))
+
 (defclass integer-data-encoding (data-encoding)
-  ((encoding :documentation "Specifies integer numeric value to raw encoding method."
-             :initarg :encoding)
+  ((integer-encoding :documentation "Specifies integer numeric value to raw encoding method."
+					 :initarg :integer-encoding)
    (size-in-bits :documentation "Number of bits to use for the raw encoding."
                  :initarg :size-in-bits :type integer)
    (change-threshold :documentation "Error detection algorithm"
@@ -1831,25 +1834,24 @@
                             :initarg :context-calibrator-list)))
 
 (defun make-integer-data-encoding (&key (size-in-bits 8)
-                                     (encoding 'UNSIGNED)
+                                     (integer-encoding 'UNSIGNED)
                                      (change-threshold nil)
                                      (default-calibrator nil)
                                      (context-calibrator-list nil))
-  (valid-integer-encoding-p encoding)
+  (valid-integer-encoding-p integer-encoding)
   (check-type size-in-bits integer)
   (assert (plusp size-in-bits) (size-in-bits) "size-in-bits ~A must be a positive integer" size-in-bits)
   (make-instance 'integer-data-encoding
                  :size-in-bits size-in-bits
-                 :encoding encoding
+                 :integer-encoding integer-encoding
                  :change-threshold change-threshold
                  :context-calibrator-list context-calibrator-list
                  :default-calibrator default-calibrator))
 
-
 (defmethod marshall ((obj integer-data-encoding))
-  (with-slots (size-in-bits encoding change-threshold default-calibrator context-calibrator-list) obj
+  (with-slots (size-in-bits integer-encoding change-threshold default-calibrator context-calibrator-list) obj
     (cxml:with-element* ("xtce" "IntegerDataEncodingType")
-      (optional-xml-attribute "encoding" encoding)
+      (optional-xml-attribute "encoding" integer-encoding)
       (optional-xml-attribute "sizeInBits" size-in-bits)
       (optional-xml-attribute "changeThreshold" change-threshold)
       (marshall default-calibrator)

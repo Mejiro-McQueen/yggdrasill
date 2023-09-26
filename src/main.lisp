@@ -177,6 +177,10 @@
 (setf qq #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
 (defun process-frame-result (frame state next-ref symbol-table)
+  (declare (ignore frame)
+		   (ignore next-ref)
+		   (ignore symbol-table)
+		   )
   (case state
 	(LOCK
 										;(accept-frame frame)
@@ -224,7 +228,7 @@
 (defgeneric decode (data decodable-object symbol-table alist bit-offset))
 
 (defmethod decode (data (container-ref-entry xtce::container-ref-entry) symbol-table alist bit-offset)
-  (let* ((res nil)	 
+  (let* (;(res nil)	 
 		 (dereferenced-container (xtce:dereference container-ref-entry symbol-table)))
 	;(print container-ref-entry)
 	;(print dereferenced-container)
@@ -259,25 +263,39 @@
   (let ((data-encoding (xtce:data-encoding parameter-type)))
 	(decode data data-encoding symbol-table alist bit-offset)))
 
+(defmethod decode (data (integer-data-encoding xtce::integer-data-encoding) symbol-table alist bit-offset)
+										;TODO: A ton of things
+  (let ((result nil))
+	(with-slots (xtce::integer-encoding xtce::size-in-bits) integer-data-encoding
+	  (case xtce::integer-encoding
+		(xtce::'unsigned
+		 (setf result (ldb-left xtce::size-in-bits bit-offset data))))
+	(describe integer-data-encoding)
+	(print (type-of xtce::integer-encoding))
+	(print data)
+	(print result)
+	(print bit-offset)
+	  )))
+
 (defun a (space-system frame )
   (with-state space-system
-	(multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
-	  (incf frame-counter)
-	  (setf frame-stream-processor-continuation next-continuation)
-	  ;; (print frame-counter)
-	  ;; (print frame)
-	  ;; (print state)
-	  ;; (print next-ref)
-	  ;(print next)
-	  ;(print (type-of next))
-	  (decode frame next symbol-table '() 0)
-	  )
+	qq(multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
+		(incf frame-counter)
+		(setf frame-stream-processor-continuation next-continuation)
+		;; (print frame-counter)
+		;; (print frame)
+		;; (print state)
+		;; (print next-ref)
+										;(print next)
+										;(print (type-of next))
+		(decode frame next symbol-table '() 0)
+		)
 	))
 
 (defparameter qqqq (a nasa-cfs::NASA-cFS qq))
 
-;TODO Typecheck container referencesg
-;  #<XTCE::PARAMETER name: STC.CCSDS.AOS.Header.Replay-Flag, description: NIL, type: STC.CCSDS.AOS.Header.Replay-Flag > is a shitshow causing infinite recursion
+										;TODO Typecheck container referencesg
+										;  #<XTCE::PARAMETER name: STC.CCSDS.AOS.Header.Replay-Flag, description: NIL, type: STC.CCSDS.AOS.Header.Replay-Flag > is a shitshow causing infinite recursion
 
 
 ;; (defparameter frame-queue (lparallel.queue:make-queue))
@@ -346,3 +364,101 @@
 ;;      (incf *counter*)))
 ;;   *counter*)
 
+
+(defparameter AOS-TEST-HEADER (list (cons 'transfer-frame-version-number #*01)
+									(cons 'space-craft-id #*01100011)
+									(cons 'virtual-channel-id #*00101011)
+									(cons 'virtual-channel-frame-count #*100101110000100010101011)
+									(cons 'replay-flag #*0)
+									(cons 'virtual-channel-frame-couont-usage-flag #*1)
+									(cons 'reserved-space #*00)
+									(cons 'vc-frame-count-cycle #*1010)))
+
+(defparameter AOS-TEST-Transfer-Frame-Data-Field #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+
+
+(vector-push 1 #*)
+
+
+(defun new-bit-vector () (make-array 1 :element-type 'bit :adjustable t :fill-pointer 0))
+
+(defun t3 () (reduce (lambda (acc element) (vector-push-extend element acc) acc)
+		#*10101010 :initial-value (new-bit-vector)))
+
+(disassemble 't3)
+(disassemble 't1)
+(disassemble 't2)
+(disassemble 't4)
+
+(coerce #*000101 'integer)
+
+(declaim (optimize speed))
+
+(require :sb-sprof)
+
+(defun t1 ()
+  (declare (optimize (speed 3) (safety 0)))
+  (reduce (lambda (acc bit) (logior (ash acc 1) bit)) #*1111))
+
+(defun profile-test (f)
+  (dotimes (i 100000000)
+	(funcall f)))
+
+
+(sb-sprof:with-profiling (:max-samples 1000
+                          :report :flat
+                          :loop t
+                          :show-progress t)
+  (profile-test 'j))
+
+(time (profile-test 't1))
+
+(time (profile-test 't2))
+
+(defun t5 ()
+  (parse-integer (format nil "~A" ) :radix 2))
+
+
+(t1)
+
+(defun concat-bit-arrays (a b)
+  (let ((n (+ (length a) (length b))))
+	(concatenate `(bit-vector ,n) a b)))
+
+(t4 #* #*01010101)
+(disassemble 't4)
+
+(defun j ()
+  (array-dimension #*01010011 0))
+
+(defun k ()
+  (length #*01010011))
+
+(format nil "~a" #*1111)
+
+(write-to-string #b1111 :base 2)
+
+(map 'list #'digit-char-p (write-to-string #b1111))
+
+(type-of 3.14)
+
+(parse-integer "1111" :radix 2)
+
+(type-of #*1)
+
+(type-of (parse-integer "1" :radix 2))
+
+(defun int->bit-vector (n)
+  (coerce (mapcar #'(lambda (i) (digit-char-p i)) (coerce (format nil "~b" n) 'list )) 'bit-vector))
+
+(format nil "~b" -14)
+
+#b-1111
+
+(parse-integer "1111" :radix 2)
+
+(t1)
+
+(write-to-string -15 :base 2)
+
+(coerce #*1111 'integer)
