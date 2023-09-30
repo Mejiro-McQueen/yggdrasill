@@ -364,101 +364,294 @@
 ;;      (incf *counter*)))
 ;;   *counter*)
 
-
+;We must use bit-vector since CL will drop padded 0's
 (defparameter AOS-TEST-HEADER (list (cons 'transfer-frame-version-number #*01)
 									(cons 'space-craft-id #*01100011)
 									(cons 'virtual-channel-id #*00101011)
 									(cons 'virtual-channel-frame-count #*100101110000100010101011)
 									(cons 'replay-flag #*0)
-									(cons 'virtual-channel-frame-couont-usage-flag #*1)
+									(cons 'virtual-channel-frame-count-usage-flag #*1)
 									(cons 'reserved-space #*00)
 									(cons 'vc-frame-count-cycle #*1010)))
 
 (defparameter AOS-TEST-Transfer-Frame-Data-Field #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-
-(vector-push 1 #*)
-
-
 (defun new-bit-vector () (make-array 1 :element-type 'bit :adjustable t :fill-pointer 0))
 
-(defun t3 () (reduce (lambda (acc element) (vector-push-extend element acc) acc)
-		#*10101010 :initial-value (new-bit-vector)))
-
-(disassemble 't3)
-(disassemble 't1)
-(disassemble 't2)
-(disassemble 't4)
-
-(coerce #*000101 'integer)
-
-(declaim (optimize speed))
+(defun t3 (v) (reduce (lambda (acc element) (vector-push-extend element acc) acc)
+		v :initial-value (new-bit-vector)))
 
 (require :sb-sprof)
 
-(defun t1 ()
-  (declare (optimize (speed 3) (safety 0)))
-  (reduce (lambda (acc bit) (logior (ash acc 1) bit)) #*1111))
-
 (defun profile-test (f)
-  (dotimes (i 100000000)
+  (dotimes (i 1000000)
 	(funcall f)))
 
-
-(sb-sprof:with-profiling (:max-samples 1000
+(defun p (f)
+  (sb-sprof:with-profiling (:max-samples 10
                           :report :flat
                           :loop t
                           :show-progress t)
-  (profile-test 'j))
+	(profile-test f)))
 
-(time (profile-test 't1))
+(defun g ()
+  (uint->bit-vector5 6))
 
-(time (profile-test 't2))
+(p 'g)
 
-(defun t5 ()
-  (parse-integer (format nil "~A" ) :radix 2))
+(defun concatenate-bit-arrays (&rest rest)
+  (apply #'concatenate 'bit-vector rest))
+
+(defun invert (bit)
+  (declare (type bit bit))
+  (logxor bit 1))
+
+(defun bit-vector->twos-complement->integer (v)
+  (declare (optimize (speed 3) (safety 0)))
+  (let ((neg (equal 1 (bit v 0)))
+		(res nil))
+	(if neg
+		(setf res (map 'string #'digit-char (bit-not v)))
+		(setf res (map 'string #'(lambda (bit) (digit-char bit)) v)))
+
+	(setf res (parse-integer res :radix 2))
+	;(setf res (format nil "~b" res))
+	(when neg
+	  (setf res (- (+ res #b1))))
+	res
+  ))
+
+;; (defun uint->bit-vector (n &optional (pad 0))
+;;   "~197"
+;;   (declare (optimize (speed 3) (safety 0))
+;; 		   (type integer pad))
+;;   (let* ((v (coerce (mapcar #'(lambda (i) (digit-char-p i)) (coerce (format nil "~b" n) 'list )) 'bit-vector))
+;; 		 (padded (- (length v) pad)))
+;; 	(concat-bit-arrays (make-sequence 'bit-vector padded :initial-element 0) v)))
+
+;; (defun uint->bit-vector (n &optional (pad 0))
+;;   "~149 instructions"
+;;   (declare (optimize (speed 3) (safety 0))
+;; 		   (type integer pad))
+;;   (let* ((v (coerce (mapcar #'(lambda (i) (digit-char-p i)) (coerce (write-to-string n :base 2) 'list)) 'bit-vector))
+;; 		 (padded (- (length v) pad)))
+;; 	(concat-bit-arrays (make-sequence 'bit-vector padded :initial-element 0) v)))
+
+;; (defun uint->bit-vector (n &optional (pad 0))
+;;   "~128 instructions"
+;;   (declare (optimize (speed 3) (safety 0))
+;; 		   (type integer pad))
+;;   (let* ((v (map 'bit-vector #'(lambda (i) (digit-char-p i)) (write-to-string n :base 2)))
+;; 		 (padded (- (length v) pad)))
+	;; (concat-bit-arrays (make-sequence 'bit-vector padded :initial-element 0) v)))
+
+(defun uint->bit-vector (n &optional (res (new-bit-vector)))
+  "~35*recursions"
+  (declare (optimize (speed 3) (safety 0)))
+  (if (< 0 n)
+	  (progn
+		(vector-push-extend (logand n 1) res)
+		(uint->bit-vector (ash n -1) res))
+	  (reverse res)))
+
+(defun uint->bit-vector2 (n &optional (res (make-sequence 'bit-vector 16)) (pos 0))
+  "~43"
+  (declare (optimize (speed 3) (safety 0)))
+  (if (< 0 n)
+	  (progn
+		(setf (aref res pos) (logand n 1))
+		(uint->bit-vector (ash n -1) res (1+ pos)))
+	  (reverse res)))
+
+(defun uint->bit-vector3 (n) 
+  "~66"
+  (declare (optimize (speed 3) (safety 0)))
+  (let ((pos 0)
+		(res (make-sequence 'bit-vector 16)))
+  (loop while (> n 0)
+	  do
+		 (setf (aref res pos) (logand n 1))
+		 (setf n (ash n -1))
+		 (setf pos (+ 1 pos)))
+	  (reverse res)))
+
+(defun uint->bit-vector4 (n) 
+  "~78"
+  (declare (optimize (speed 3) (safety 0)))
+  (let ((res (make-sequence 'bit-vector 16)))
+  (loop while (> n 0)
+		for pos from 0 to 16
+	  do
+		 (setf (aref res pos) (logand n 1))
+		 (setf n (ash n -1)))
+	  (reverse res)))
 
 
-(t1)
+(defun uint->bit-vector (n &optional (pad (integer-length n))) 
+  "~43 HAYAI!"
+  (declare (optimize (speed 3) (safety 0)))
+  (let ((pos (- pad 1))
+		(res (make-sequence 'bit-vector pad :initial-element 0)))
+  (loop while (> n 0)
+	  do
+		 (setf (aref res pos) (logand n 1))
+		 (setf n (ash n -1))
+		 (setf pos (- pos 1)))
+	  res))
 
-(defun concat-bit-arrays (a b)
-  (let ((n (+ (length a) (length b))))
-	(concatenate `(bit-vector ,n) a b)))
+(defun uint->bit-vector6 (n &optional (res (new-bit-vector)))
+  "~42"
+  (declare (optimize (speed 3) (safety 0)))
+  (if (< 0 n)
+	  (progn
+		(vector-push-extend (mod n 2) res)
+		(uint->bit-vector (floor (/ n 2)) res))
+	  (reverse (coerce res 'bit-vector))))
 
-(t4 #* #*01010101)
-(disassemble 't4)
+(defun uint->bit-vector7 (n)
+  "~120"
+  (coerce (map 'vector #'(lambda (i) (digit-char-p i)) (write-to-string n :base 2)) 'bit-vector) )
 
-(defun j ()
-  (array-dimension #*01010011 0))
+(uint->bit-vector5 4)
 
-(defun k ()
-  (length #*01010011))
+(time (dotimes (i 10000000)
+		(uint->bit-vector7 4)))
 
-(format nil "~a" #*1111)
+(time (dotimes (i 100000000)
+		(uint->bit-vector5 4 16)))
+		
+(disassemble 'uint->bit-vector5)
 
-(write-to-string #b1111 :base 2)
 
-(map 'list #'digit-char-p (write-to-string #b1111))
+(defun bit-vector->twos-complement->dec (v)
+  (declare (optimize (speed 3) (safety 0)))
+  (let ((neg (equal 1 (bit v 0)))
+		(res nil))
+	(if neg
+		(setf res (map 'string #'digit-char (bit-not v)))
+		(setf res (map 'string #'(lambda (bit) (digit-char bit)) v)))
+	(setf res (parse-integer res :radix 2))
+	(when neg
+	  (setf res (- (+ res #b1))))
+	res))
 
-(type-of 3.14)
+(defun bit-vector->ones-complement->dec (v)
+  (declare (optimize (speed 3) (safety 0)))
+  (let ((neg (equal 1 (bit v 0)))
+		(res nil))
+	(if neg
+		(setf res (map 'string #'digit-char (bit-not v)))
+		(setf res (map 'string #'(lambda (bit) (digit-char bit)) v)))
+	(setf res (parse-integer res :radix 2))
+	(when neg
+	  (setf res (- res)))
+	res))
 
-(parse-integer "1111" :radix 2)
+(defun bit-vector->uint (v)
+  (parse-integer (map 'string #'digit-char v) :radix 2))
 
-(type-of #*1)
+(defun dec->twos-complement (integer pad)
+  (declare (optimize (speed 3) (safety 0)))
+  (assert (twos-complement-representable-p integer pad) (integer pad) "Insufficient bits to represent this integer.")
+  (if (< integer 0)
+	  (uint->bit-vector (+ #b1 (bit-vector->uint (bit-not (uint->bit-vector (abs integer) pad)))) pad)
+	  (pad-bit-vector (uint->bit-vector integer pad))))
 
-(type-of (parse-integer "1" :radix 2))
+(dec->twos-complement -16 7)
 
-(defun int->bit-vector (n)
-  (coerce (mapcar #'(lambda (i) (digit-char-p i)) (coerce (format nil "~b" n) 'list )) 'bit-vector))
+(defun twos-complement-representable-p (n bits)
+  (let ((max (expt 2 (- bits 1))))
+	(and (< n max) (>= n (- max)))))
+		
+(disassemble 'dec->twos-complement)
 
-(format nil "~b" -14)
+(defun dec->ones-complement (integer pad)
+  (if (< integer 0)
+	  (bit-not (uint->bit-vector (abs integer) pad)
+	  (uint->bit-vector integer pad))))
 
-#b-1111
+(dec->ones-complement -5 16)
 
-(parse-integer "1111" :radix 2)
+(uint->bit-vector 5)
 
-(t1)
+(defun pad-bit-vector (v pad &optional (pad-element 0))
+  (declare (optimize (speed 3) (safety 0)))
+  (if (< (length v) pad)
+	  (concat-bit-arrays (make-sequence 'bit-vector (- pad (length v)) :initial-element pad-element) v)
+	  v))
 
-(write-to-string -15 :base 2)
+(time (dotimes (i 1000000)
+		(dec->twos-complement -5 4)
+		))
 
-(coerce #*1111 'integer)
+
+(time (dotimes (i 1000000)
+		(dec->ones-complement -16 16)
+		))
+
+(bit-vector->uint #*01111101)
+
+(defun bit-vector->sign-mag->dec (v)
+  (let* ((sign (bit v 0))
+		 (neg (equal 1 sign))
+		 (res nil))
+	(setf (bit v 0) 0)
+	(setf res (bit-vector->uint v))
+	(if neg
+		(- res)
+		res)))
+  
+(bit-vector->sign-mag->dec #*01111110)
+
+(defun dec->sign-mag (n pad)
+  (let ((res (uint->bit-vector (abs n) pad)))
+	(when (< n 0)
+	  (setf (bit res 0) 1))
+	res
+	))
+
+(bit-vector->sign-mag->dec (dec->sign-mag 125 8))
+
+(defvar packedBCD-Table
+  '((1 . #*0000)
+	(2 . #*0001)
+	(3 . #*0010)
+	(4 . #*0100)
+	(5 . #*0101)
+	(6 . #*0110)
+	(7 . #*0111)
+	(8 . #*1000)
+	(9 . #*1001)))
+
+#*01111001
+
+
+(defun bcd->dec (v byte-size)
+  (loop for i from 0 to (length v) by byte-size
+		while (< i (- (length v) (- byte-size 1)))
+		collect (first(rassoc (subseq v i (+ i byte-size)) packedBCD-Table :test 'equal)) into res
+		finally (return (mapcar #'identity res)))
+  )
+
+(rassoc #*0000 packedBCD-Table :test 'equal)
+
+(bcd->dec #*1001100110011001 4)
+
+(defun digit-list->integer (l)
+  (reduce #'(lambda (acc digit) (+ (* acc 10) digit)) l))
+
+(defun dec->bcd (n &optional (pad 4))
+  (let ((digit-list (integer->digit-list n)) )
+	(apply 'concatenate-bit-arrays (mapcar #'(lambda (digit) (pad-bit-vector (cdr (assoc digit packedBCD-Table :test 'equal)) pad)) digit-list))))
+
+(defun integer->digit-list (n)
+  (loop while (> n 1)
+		collect (rem n 10 )
+		do
+		   (setf n (floor (/ n 10)))))
+
+(digit-list->integer '(1 2 3 4 5 6 7 8 9))
+
+(integer->digit-list 9999)
+
+(concatenate-bit-vectors #*0001 #*0001 #*0001 #*0001)
