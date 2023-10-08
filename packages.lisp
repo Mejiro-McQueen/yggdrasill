@@ -69,6 +69,7 @@
    #:make-stream-ref
    #:make-service-ref
    #:make-unit
+   #:make-boolean-parameter-type
    #:print-bin
    #:print-hex
    #:prompt-new-value
@@ -127,6 +128,7 @@
    #:entry-list
    #:data-encoding
    #:dereference
+   #:get-size
    ;;#:decode
    ))
 
@@ -135,7 +137,6 @@
 		:xtce)
   (:documentation "XTCE-Engine")
   (:export #:STC.CCSDS.Space-Packet-Types))
-
 
 (defpackage :standard-template-constructs
   (:use :cl
@@ -203,6 +204,7 @@
    #:with-ccsds.space-packet.header.parameters
    #:with-ccsds.space-packet.header.types
    ))
+
 
 (defpackage :nasa-cfs
   (:use :cl

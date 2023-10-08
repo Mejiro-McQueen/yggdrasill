@@ -96,36 +96,39 @@
 (defclass long-description () ((long-description :initarg :long-description
                                                  :type string)))
 
+(defun register-keys-in-sequence (sequence symbol-table system-name)
+  (dolist (item sequence)
+	(restart-case (add-unique-key (symbol-name (slot-value item 'name)) item symbol-table)
+	  (continue-with-overwrite () :report (lambda (stream)
+											(format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
+													(slot-value item 'name)
+													item
+													system-name))
+		(setf (gethash (slot-value item 'name) symbol-table item) item))
+	  (continue-with-new-key (new-key) :report (lambda (stream)
+												 (format stream "provide a new key and assign value: ~A for space system ~A"
+														 item
+														 system-name))
+									   :interactive (lambda () (prompt-new-value "Enter a new unique key-name."))
+		(add-unique-key new-key item symbol-table))
+	  (continue-with-current () :report (lambda (stream)
+										  (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
+												  (symbol-name (slot-value item 'name))
+												  (gethash (slot-value item 'name) symbol-table)
+												  system-name)))))
+  symbol-table)
+
+(defun get-items (sequence slot-name)
+  (slot-value sequence slot-name))
+
 (defun register-system-keys (space-system)
-  (macrolet ((register-keys-in-sequence (sequence slot-name)
-			   `(let* ((slot-name-sequence (slot-value ,sequence ,slot-name)))
-				  (dolist (item slot-name-sequence)
-					(restart-case (add-unique-key (symbol-name (slot-value item 'name)) item symbol-table)
-					  (continue-with-overwrite () :report (lambda (stream)
-															(format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
-																	(slot-value item 'name)
-																	item
-																	space-system))
-						(setf (gethash (slot-value item 'name) symbol-table item) item))
-					  (continue-with-new-key (new-key) :report (lambda (stream)
-																 (format stream "provide a new key and assign value: ~A for space system ~A"
-																		 item
-																		 space-system))
-													   :interactive (lambda () (prompt-new-value "Enter a new unique key-name."))
-						(add-unique-key new-key item symbol-table))
-					  (continue-with-current () :report (lambda (stream)
-														  (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
-																  (symbol-name (slot-value item 'name))
-																  (gethash (slot-value item 'name) symbol-table)
-																  space-system))))))))
-	
 	(With-slots (symbol-table space-system-list telemetry-metadata name parent-system) space-system
 	  (when telemetry-metadata
-		(register-keys-in-sequence telemetry-metadata 'parameter-type-set)
-		(register-keys-in-sequence telemetry-metadata 'parameter-set)
-		(register-keys-in-sequence telemetry-metadata 'algorithm-set)
-		(register-keys-in-sequence telemetry-metadata 'container-set)
-		(register-keys-in-sequence telemetry-metadata 'stream-set)))))
+		(register-keys-in-sequence (get-items telemetry-metadata 'parameter-type-set) symbol-table name)
+		(register-keys-in-sequence (get-items telemetry-metadata 'parameter-set) symbol-table name)
+		(register-keys-in-sequence (get-items telemetry-metadata 'algorithm-set) symbol-table name)
+		(register-keys-in-sequence (get-items telemetry-metadata 'container-set) symbol-table name)
+		(register-keys-in-sequence (get-items telemetry-metadata 'stream-set) symbol-table name))))
 
 (define-condition parameter-ref-not-found (error)
   ((parameter :initarg :parameter :accessor parameter)
@@ -934,10 +937,14 @@
 
 (defclass dynamic-value ()
   ((instance-ref :initarg :instance-ref)
-   (linear-adjustment :initarg :linear-adjustment :type lnear-adjustment)))
+   (linear-adjustment :initarg :linear-adjustment
+					  :type linear-adjustment)))
 
 (defun make-dynamic-value (instance-ref &key linear-adjustment)
   (make-instance 'dynamic-value :instance-ref instance-ref :linear-adjustment linear-adjustment))
+
+(defmethod get-size ((obj dynamic-value))
+  (assert nil () "Not implemented!"))
 
 (defmethod marshall ((obj dynamic-value))
   (with-slots (instance-ref linear-adjustment) obj
@@ -979,15 +986,23 @@
 (deftype discrete-lookup-list ()
   `(satisfies discrete-lookup-list-p))
 
+;;TODO: Turn this into a class
+;; (defmethod get-size ((obj discrete-lookup-list))
+;;   (assert nil () "Not implemented!"))
+
 (defun discrete-lookup-list-p (l)
   (and (listp l)
 	   (every #'(lambda (i) (typep i 'discrete-lookup)) l)))
 
 (defclass fixed-value ()
-  ((value :initarg :value)))
+  ((value :initarg :value
+		  :reader size)))
 
 (defun make-fixed-value (value)
   (make-instance 'fixed-value :value value))
+
+(defmethod get-size ((obj fixed-value))
+  (size obj))
 
 (defmethod marshall ((obj fixed-value))
   (with-slots (value) obj
@@ -1025,13 +1040,18 @@
   (check-type fixed-value fixed-value)
   (make-instance 'fixed :fixed-value fixed-value))
 
-;TODO: Deftype for size
-(defclass size-in-bits () ((size :initarg :size)))
+(defgeneric get-size (obj))
+
+(defclass size-in-bits () ((size :initarg :size
+								 :reader size)))
 
 (defun make-size-in-bits (size)
   ;termination-char, fixed, and leading-size are used for string encodings, yes it's weird blame the spec.
   (check-type size (or fixed-value dynamic-value discrete-lookup-list termination-char leading-size fixed))
   (make-instance 'size-in-bits :size size))
+
+(defmethod get-size ((obj size-in-bits))
+  (get-size (size obj)))
 
 (defmethod marshall ((obj size-in-bits))
   (with-slots (size) obj
@@ -1040,7 +1060,11 @@
 
 (defclass leading-size ()
   ((size-in-bits-of-size-tag :initarg size-in-bits-of-size-tag
-							 :type positive-integer)))
+							 :type positive-integer
+							 :reader size)))
+
+(defmethod get-size ((obj leading-size))
+	(size obj))
 
 (defun make-leading-size (&optional (size-in-bits-of-size-tag 16))
   (make-instance 'leading-size :size-in-bits-of-size-tag size-in-bits-of-size-tag))
@@ -1050,7 +1074,12 @@
 	  (cxml:with-element* ("xtce" "LeadingSize")
 		(cxml:attribute "size-in-bits-of-size-tag" size-in-bits-of-size-tag))))
 
-(defclass parameter-type () ())
+(defclass parameter-type ()
+  ((hort-description :initarg :short-description :type string)
+   (name :initarg :name :type symbol)
+   (long-description :initarg :long-description :type long-description)
+   (alias-set :initarg :alias-set :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
  
 (deftype parameter-type-set-p ()
   `(satisfies parameter-type-set-p))
@@ -1079,9 +1108,6 @@
    (inital-value :initarg :initial-value :type string)
    (restriction-pattern :initarg :restriction-pattern :type string)
    (character-width :initarg :character-width)
-   (long-description :initarg :long-description :type long-description)
-   (alias-set :initarg :alias-set :type alias-set)
-   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
    (unit-set :initarg :unit-set :type unit-set)
    (data-encoding :initarg :data-encoding :type encoding)
    (size-range-in-characters :initarg :size-range-in-characters :type size-range-in-characters)
@@ -1234,6 +1260,91 @@
 	  (marshall context-alarm-list)
 	  (marshall unit-set))))
 
+(defclass boolean-parameter-type (parameter-type)
+  ((short-description :initarg :short-description
+                      :type string)
+   (name :initarg :name
+         :type string)
+   (base-type :initarg :base-type)
+   (initial-value :initarg :initial-value
+                  :type integer)
+   (one-string-value :initarg :one-string-value
+					 :type string)
+   (zero-string-value :initarg :zero-string-value
+					  :type string)
+   (long-description :initarg :long-description
+                     :type string)
+   (alias-set :initarg :alias-set
+              :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set
+                        :type ancillary-data-set)
+   (unit-set :initarg :unit-set
+             :type unit-set)
+   (data-encoding :initarg :data-encoding
+                  :type encoding
+				  :reader data-encoding)
+   (default-alarm :initarg :default-alarm
+                  :type alarm)
+   (context-alarm-list :initarg :context-alarm-list
+                       :type context-alarm-list)))
+
+(defun make-boolean-parameter-type (name
+									&key
+									  data-encoding
+									  short-description
+									  base-type
+									  initial-value
+									  (one-string-value "True")
+									  (zero-string-value "False")
+									  long-description
+									  alias-set
+									  ancillary-data-set
+									  unit-set
+									  default-alarm
+									  context-alarm-list)
+  (make-instance 'boolean-parameter-type :name name
+										 :short-description short-description
+										 :base-type base-type
+										 :initial-value initial-value
+										 :one-string-value one-string-value
+										 :zero-string-value zero-string-value
+										 :long-description long-description
+										 :alias-set alias-set
+										 :ancillary-data-set ancillary-data-set
+										 :unit-set unit-set
+										 :data-encoding data-encoding
+										 :default-alarm default-alarm
+										 :context-alarm-list context-alarm-list))
+
+(defmethod marshall ((obj boolean-parameter-type))
+  (with-slots (short-description
+			   name
+			   base-type
+			   initial-value
+			   one-string-value
+			   zero-string-value
+			   long-description
+			   alias-set
+			   ancillary-data-set
+			   unit-set
+			   data-encoding
+			   default-alarm
+			   context-alarm-list) obj
+	(cxml:with-element* ("xtce" "BooleanParameterType")
+	  (cxml:attribute "name" name)
+	  (optional-xml-attribute "shortDescription" short-description)
+	  (optional-xml-attribute "baseType" base-type)
+	  (optional-xml-attribute "initialValue" initial-value)
+	  (cxml:attribute "oneStringValue" one-string-value)
+	  (cxml:attribute "zeroStringValue" zero-string-value)
+	  (marshall unit-set)
+	  (marshall long-description)
+	  (marshall alias-set)
+	  (marshall ancillary-data-set)
+	  (marshall data-encoding)
+	  (marshall default-alarm)
+	  (marshall context-alarm-list))))
+
 (defclass integer-parameter-type (parameter-type)
   ((short-description :initarg :short-description
                       :type string)
@@ -1281,7 +1392,7 @@
                context-alarm-list) obj
     (cxml:with-element* ("xtce" "IntegerParameterType")
 	  (optional-xml-attribute "shortDescription" short-description)
-      (optional-xml-attribute "name" name)
+      (cxml:attribute "name" name)
       (optional-xml-attribute "baseType" base-type)
       (optional-xml-attribute "initialValue" initial-value)
       (optional-xml-attribute"sizeInBits" size-in-bits)

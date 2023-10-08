@@ -15,6 +15,8 @@
 
 (defparameter AOS.Transfer-Frame-Trailer-Length nil)
 
+(defparameter AOS.Transfer-Frame-Data-Field-Length 976)
+
 (defun set-CCSDS.AOS.Transfer-Frame-Length (n)
   (setf AOS.Transfer-Frame-Length n))
 
@@ -41,7 +43,7 @@
 
 (defvar CCSDS.AOS.Header.Version-Number-Type
   (make-binary-parameter-type
-   '|STC.CCSDS.AOS.Header.Frame-Version-Number-Type|
+   '|STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type|
    :short-description "2 bits fixed to 01"
    :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 2)))))
 
@@ -52,10 +54,10 @@
    :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 8)))))
 
 (defvar CCSDS.AOS.Header.Virtual-Channel-ID-Type
-  (make-binary-parameter-type
+  (make-integer-parameter-type
    '|STC.CCSDS.AOS.Header.Virtual-Channel-ID-Type|
-   :short-description "6 channel ID "
-   :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 6)))))
+   :short-description "6 bit ID "
+   :data-encoding (make-integer-data-encoding :size-in-bits 6)))
 
 (defvar CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type
   (make-integer-parameter-type
@@ -64,20 +66,18 @@
    :data-encoding (make-integer-data-encoding :size-in-bits 24)))
 
 (defvar CCSDS.AOS.Header.Replay-Flag-Type
-  (make-enumerated-parameter-type
+  (make-boolean-parameter-type
    '|STC.CCSDS.AOS.Header.Replay-Flag-Type|
    :short-description "boolean flag"
-   :enumeration-list (list (make-enumeration #b0 '|Realtime-Transfer-Frame|)
-						   (make-enumeration #b1 '|Replay-Transfer-Frame|))
-   :data-encoding (boolean-flag)))
+   :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 1)))))
 
 (defvar CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type
-  (make-enumerated-parameter-type
+  (make-boolean-parameter-type
    '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type|
    :short-description "boolean flag"
-   :enumeration-list (list (make-enumeration #b0 '|Ignored|)
-						   (make-enumeration #b1 '|Interpreted|))
-   :data-encoding (boolean-flag)))
+   :one-string-value "Interpreted"
+   :zero-string-value "Ignored"
+   :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 1)))))
 
 (defvar CCSDS.AOS.Header.Reserved-Spare-Type
   (make-binary-parameter-type
@@ -86,7 +86,7 @@
    :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 2)))))
 
 (defvar CCSDS.AOS.Header.Frame-Count-Cycle-Type
-  (make-binary-parameter-type
+  (make-integer-parameter-type
    '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle-Type|
    :short-description "Set to all zeros if not used. Otherwise, increments whenever the Frame Count rolls over, effectively extending it to 28 bits."
    :data-encoding (make-integer-data-encoding :size-in-bits 4)))
@@ -112,7 +112,8 @@ Data Unit (VCA_SDU), or Idle Data. \n M_PDUs, B_PDUs, VCA_SDUs, and Idle Data sh
 Channel (i.e., if a Virtual Channel transfers M_PDUs, every Transfer Frame of that Virtual
 Channel shall contain an M_PDU). Management shall decide whether M_PDUs, B_PDUs or
 VCA_SDUs are transferred on a particular Virtual Channel, and this decision shall remain
-static throughout a Mission Phase.")))
+static throughout a Mission Phase.")
+  :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value AOS.Transfer-Frame-Data-Field-Length)))))
 
 (defun with-ccsds.aos.header.types (type-list)
   (append type-list
@@ -162,8 +163,8 @@ static throughout a Mission Phase.")))
 (defvar CCSDS.AOS.Insert-Zone
   (make-parameter '|STC.CCSDS.AOS.Insert-Zone| '|STC.CCSDS.AOS.Insert-Zone-Type|))
 
-(defvar CCSDS.AOS.Header.Frame-Version-Number 
-  (make-parameter '|STC.CCSDS.AOS.Header.Frame-Version-Number| '|STC.CCSDS.AOS.Header.Frame-Version-Number-Type|))
+(defvar CCSDS.AOS.Header.Transfer-Frame-Version-Number 
+  (make-parameter '|STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number| '|STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type|))
 
 (defvar CCSDS.AOS.Transfer-Frame-Data-Field
   (make-parameter '|STC.CCSDS.AOS.Transfer-Frame-Data-Field| '|STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type|))
@@ -184,25 +185,39 @@ static throughout a Mission Phase.")))
 	CCSDS.AOS.Header.Reserved-Spare
 	CCSDS.AOS.Header.Frame-Count-Cycle
 	CCSDS.AOS.Header.Frame-Header-Error-Control
-	CCSDS.AOS.Header.Frame-Version-Number
+	CCSDS.AOS.Header.Transfer-Frame-Version-Number
 	CCSDS.AOS.Transfer-Frame-Data-Field
 	CCSDS.AOS.Header.Spacecraft-Identifier)
    (when AOS.Insert-Zone-Length
 	 (list CCSDS.AOS.Insert-Zone))))
+
+(defvar CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID
+  (make-sequence-container
+   '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID|
+   (append
+	(list
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Spacecraft-Identifier|)))))
+
+(defvar CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Signaling-Field
+  (make-sequence-container
+   '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Signaling-Field|
+   (append
+	(list
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Replay-Flag|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Reserved-Spare|)
+	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle|)))))
 
 (defvar CCSDS.AOS.Container.Transfer-Frame-Primary-Header
   (make-sequence-container
    '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header|
    (append
 	(list
-	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Frame-Version-Number|)
-	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Spacecraft-Identifier|)
+	 (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID|)
 	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-ID|)
 	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count|)
-	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Replay-Flag|)
-	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag|)
-	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Reserved-Spare|)
-	 (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle|))
+	 (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Signaling-Field|))
 	(when use-AOS.Header.Frame-Header-Error-Control-Field
 	  (make-parameter-ref-entry '|STC.CCSDS.AOS.Header.Frame-Header-Error-Control|)))))
 
@@ -233,7 +248,7 @@ static throughout a Mission Phase.")))
    (append 
 	(list
 	 (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header|)
-	 (make-container-ref-entry  '|STC.CCSDS.AOS.Container.Transfer-Frame-Data-Field|))
+	 (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Data-Field|))
 	
 	(when AOS.Insert-Zone-Length
 	  (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Insert-Zone|))
@@ -241,14 +256,17 @@ static throughout a Mission Phase.")))
 	(when (or use-AOS.Frame-Error-Control-Field use-AOS.Operational-Control-Field) 
 	  (make-container-ref-entry '|STC.CCSDS.AOS.Container.Transfer-Frame-Trailer|)))))
 
-(defun with-ccsds-aos-containers (container-list)
+(defun with-ccsds.aos.containers (container-list)
   (append
    container-list
    (list
 	CCSDS.AOS.Container.Frame
 	CCSDS.AOS.Container.Transfer-Frame-Primary-Header
-	CCSDS.AOS.Container.Transfer-Frame-Data-Field)
-	(when (or use-AOS.Frame-Error-Control-Field use-AOS.Operational-Control-Field) 
+	CCSDS.AOS.Container.Transfer-Frame-Data-Field
+	CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Signaling-Field
+	CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID
+	)
+	(when (or use-AOS.Frame-Error-Control-Field use-AOS.Operational-Control-Field)
 	  (list CCSDS.AOS.Container.Transfer-Frame-Trailer))))
 
 (defun with-ccsds.aos.stream (frame-length-in-bits stream-list)
