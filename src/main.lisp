@@ -233,43 +233,47 @@
 ;Dispatch on container-ref
 (defmethod decode (data (container-ref-entry xtce::container-ref-entry) symbol-table alist bit-offset)
   (let* ((dereferenced-container (xtce:dereference container-ref-entry symbol-table)))
-	(multiple-value-bind (alist next-bit-offset res) (decode data dereferenced-container symbol-table alist bit-offset)
-	(values alist next-bit-offset res))))
+	(multiple-value-bind (next-bit-offset res) (decode data dereferenced-container symbol-table alist bit-offset)
+	(values next-bit-offset res))))
 
 ;; Dispatch on container
 (defmethod decode (data (container xtce::sequence-container) symbol-table alist bit-offset)
-  (dolist (ref (entry-list container))
-	(let ((dereference (xtce::dereference ref symbol-table)))
-	  (assert dereference)
-	  (multiple-value-bind (resultant-alist next-bit-offset) (decode data dereference symbol-table alist bit-offset)
-		(assert next-bit-offset () "REEEE ~A" dereference)
-		(setf alist resultant-alist)
-		(setf bit-offset next-bit-offset))))
-  (values alist bit-offset 0))
+  (with-slots (name) container
+	(let ((res-list '()))
+	  (dolist (ref (entry-list container))
+		(let ((dereference (xtce::dereference ref symbol-table)))
+		  (assert dereference)
+		  (multiple-value-bind (next-bit-offset res) (decode data dereference symbol-table alist bit-offset)
+			(assert next-bit-offset () "REEEE ~A" dereference)
+			;(print res)
+			(push res res-list)
+			(setf bit-offset next-bit-offset))))
+	  ;(push (cons name res-list) alist)
+	  ;(print res-list)
+	  (values bit-offset (cons name res-list)))))
 
 ;; Dispatch on Parameter
 (defmethod decode (data (parameter xtce::parameter) symbol-table alist bit-offset)
   (let ((parameter-type (xtce::dereference parameter symbol-table)))
-	(multiple-value-bind (alist next-bit-offset res) (decode data parameter-type symbol-table alist bit-offset)
-	  (values alist next-bit-offset res)))) ;We don't know/care what parameter this is, so dispatch it.
+	(multiple-value-bind (next-bit-offset res) (decode data parameter-type symbol-table alist bit-offset)
+	  (values next-bit-offset res))))
 
 ;; Dispatch on binary-parameter-type
 (defmethod decode (data (parameter-type xtce::binary-parameter-type) symbol-table alist bit-offset)
   (with-slots (name) parameter-type
 	(let ((data-encoding (xtce:data-encoding parameter-type)))
-	  (unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
+	  (unless data-encoding 
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	  (multiple-value-bind (alist bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
-		(setf res (bit-vector->hex res))
-		(push (cons name res) alist)
-		(values alist bit-offset res)))))
+	  (multiple-value-bind (bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+		(setf res (cons name (bit-vector->hex res)))
+		(values bit-offset res)))))
 
 ;;Decode binary-data encoding
 (defmethod decode (data (encoding xtce::binary-data-encoding) symbol-table alist bit-offset)
   (with-slots (xtce::size-in-bits) encoding
 	(let* ((size-in-bits (xtce::get-size xtce::size-in-bits))
 		   (data-segment (subseq data bit-offset (+ bit-offset size-in-bits))))
-	  (values alist (+ bit-offset size-in-bits) data-segment))))
+	  (values (+ bit-offset size-in-bits) data-segment))))
 
 ;Deccode enumerated-parameter
 ;; (defmethod decode (data (parameter-type xtce::enumerated-parameter-type) symbol-table alist bit-offset)
@@ -282,7 +286,7 @@
 		 (res nil))
 	(unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	(multiple-value-bind (alist bit-offset decoded-flag) (decode data data-encoding symbol-table alist bit-offset)
+	(multiple-value-bind (bit-offset decoded-flag) (decode data data-encoding symbol-table alist bit-offset)
 	  (with-slots (xtce::zero-string-value xtce::one-string-value xtce::name) parameter-type
 		(setf res (typecase decoded-flag
 					(bit-vector
@@ -296,19 +300,17 @@
 					(string
 					 (if (member decoded-flag '("F" "False" "Null" "No" "None" "Nil" "0" "") :test 'equalp)
 						 xtce::zero-string-value
-						 xtce::one-string-value))))
-		(push (cons xtce::name res) alist))
-	  (values alist bit-offset res))))
+						 xtce::one-string-value)))))
+	  (values bit-offset res))))
 
 ;;Decode Integer Parameter
 (defmethod decode (data (parameter-type xtce::integer-parameter-type) symbol-table alist bit-offset)
   (let ((data-encoding (xtce:data-encoding parameter-type)))
 	(unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	(multiple-value-bind (alist bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+	(multiple-value-bind (bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
 	  (with-slots (xtce::name) parameter-type
-		(push (cons xtce::name res) alist)
-		(values alist bit-offset res)))))
+		(values bit-offset (cons xtce::name res))))))
 
 ;;Decode Integer Encoding
 (defmethod decode (data (integer-data-encoding xtce::integer-data-encoding) symbol-table alist bit-offset)
@@ -318,7 +320,7 @@
 	  (case xtce::integer-encoding
 		(xtce::'unsigned
 		 (setf res (bit-vector->uint (subseq data bit-offset next-bit-offset)))))
-	  (values alist next-bit-offset res))))
+	  (values next-bit-offset res))))
 
 (defun a (space-system frame)
   (with-state space-system
@@ -590,6 +592,8 @@
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle" TEST-TABLE) TEST-TABLE '() 44)
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field" TEST-TABLE) TEST-TABLE '() 44)
 
-(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
+
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE) TEST-TABLE '() 0)
+
+(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
