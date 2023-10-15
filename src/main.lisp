@@ -250,7 +250,7 @@
 			(setf bit-offset next-bit-offset))))
 	  ;(push (cons name res-list) alist)
 	  ;(print res-list)
-	  (values bit-offset (cons name res-list)))))
+	  (values bit-offset (list (cons name res-list))))))
 
 ;; Dispatch on Parameter
 (defmethod decode (data (parameter xtce::parameter) symbol-table alist bit-offset)
@@ -567,10 +567,14 @@
 
 (defparameter AOS-TEST-HEADER-BIN (alist->bit-vector AOS-TEST-HEADER))
 
-(defparameter TEST-TABLE (xtce::register-keys-in-sequence (stc::with-ccsds.aos.containers
-															  (stc::with-ccsds.aos.header.parameters
-																  (stc::with-ccsds.aos.header.types '())))
-														  (filesystem-hash-table:make-filesystem-hash-table) 'Test))
+(defparameter TEST-TABLE (xtce::register-keys-in-sequence
+						  (stc::with-ccsds.mpdu.containers
+							  (stc::with-ccsds.mpdu.types
+							  (stc::with-ccsds.mpdu.parameters
+								  (stc::with-ccsds.aos.containers
+									  (stc::with-ccsds.aos.header.parameters
+										  (stc::with-ccsds.aos.header.types '()))))))
+							(filesystem-hash-table:make-filesystem-hash-table) 'Test))
 
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type" TEST-TABLE) TEST-TABLE '() 0)
