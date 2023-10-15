@@ -282,32 +282,33 @@
 
 ;;Decode boolean parameter 
 (defmethod decode (data (parameter-type xtce::boolean-parameter-type) symbol-table alist bit-offset)
-  (let* ((data-encoding (xtce:data-encoding parameter-type))
-		 (res nil))
-	(unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
+  (with-slots (name) parameter-type
+	(let* ((data-encoding (xtce:data-encoding parameter-type))
+		   (res nil))
+	  (unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	(multiple-value-bind (bit-offset decoded-flag) (decode data data-encoding symbol-table alist bit-offset)
-	  (with-slots (xtce::zero-string-value xtce::one-string-value xtce::name) parameter-type
-		(setf res (typecase decoded-flag
-					(bit-vector
-					 (if (equal decoded-flag #*0)
-						 xtce::zero-string-value
-						 xtce::one-string-value))
-					(number
-					 (if (equalp decoded-flag 0)
-						 xtce::zero-string-value
-						 xtce::one-string-value))
-					(string
-					 (if (member decoded-flag '("F" "False" "Null" "No" "None" "Nil" "0" "") :test 'equalp)
-						 xtce::zero-string-value
-						 xtce::one-string-value)))))
-	  (values bit-offset res))))
+	  (multiple-value-bind (bit-offset decoded-flag) (decode data data-encoding symbol-table alist bit-offset)
+		(with-slots (xtce::zero-string-value xtce::one-string-value xtce::name) parameter-type
+		  (setf res (typecase decoded-flag
+					  (bit-vector
+					   (if (equal decoded-flag #*0)
+						   xtce::zero-string-value
+						   xtce::one-string-value))
+					  (number
+					   (if (equalp decoded-flag 0)
+						   xtce::zero-string-value
+						   xtce::one-string-value))
+					  (string
+					   (if (member decoded-flag '("F" "False" "Null" "No" "None" "Nil" "0" "") :test 'equalp)
+						   xtce::zero-string-value
+						   xtce::one-string-value)))))
+		(values bit-offset (cons name res))))))
 
 ;;Decode Integer Parameter
 (defmethod decode (data (parameter-type xtce::integer-parameter-type) symbol-table alist bit-offset)
   (let ((data-encoding (xtce:data-encoding parameter-type)))
 	(unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
-		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
+	  (error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
 	(multiple-value-bind (bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
 	  (with-slots (xtce::name) parameter-type
 		(values bit-offset (cons xtce::name res))))))
@@ -597,3 +598,5 @@
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE) TEST-TABLE '() 0)
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
+
+(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
