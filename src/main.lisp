@@ -248,14 +248,14 @@
 			;(print res)
 			(push res res-list)
 			(setf bit-offset next-bit-offset))))
-	  (values bit-offset (cons (symbol-name name) (list res-list))))))
+	  (values bit-offset (list (cons (symbol-name name) res-list))))))
 
 ;; Dispatch on Parameter
 (defmethod decode (data (parameter xtce::parameter) symbol-table alist bit-offset)
   (With-slots (name) parameter
   (let ((parameter-type (xtce::dereference parameter symbol-table)))
 	(multiple-value-bind (next-bit-offset res) (decode data parameter-type symbol-table alist bit-offset)
-	  (values next-bit-offset (cons (symbol-name name) res))))))
+	  (values next-bit-offset (list (cons (symbol-name name) res)))))))
 
 ;; Dispatch on binary-parameter-type
 (defmethod decode (data (parameter-type xtce::binary-parameter-type) symbol-table alist bit-offset)
@@ -603,20 +603,22 @@
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
 
-(multiple-value-bind (_ alist)
-	(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
-  (defparameter decoded-frame (list alist)))
 
-decoded-frame
 
 (defun mpdu-depacketizer (alist symbol-table)
-  (let* ((frame (second (assoc "STC.CCSDS.AOS.Container.Frame" alist :test 'equalp))))
-	frame
-	;(assoc "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" frame)
+  (let* ((frame (second (assoc "STC.CCSDS.AOS.Container.Frame" alist :test 'equalp)))
+		 (frame-data-field (second (assoc "STC.CCSDS.AOS.Container.Transfer-Frame-Data-Field" frame :test 'equalp)))
+		 (frame-data (cdr (assoc "STC.CCSDS.AOS.Transfer-Frame-Data-Field" frame-data-field :test 'equalp)))
+		 )
+	frame-data
 	)
   )
 
-(mpdu-depacketizer decoded-frame TEST-TABLE)
+(multiple-value-bind (_ alist)
+	(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
+  (defparameter decoded-frame alist)
+  (mpdu-depacketizer decoded-frame TEST-TABLE))
+
 
 ;; (assoc "STC.CCSDS.AOS.Container.Frame" decoded-frame :test 'equalp)
 
@@ -631,3 +633,7 @@ decoded-frame
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE)
 		TEST-TABLE '() 0)
+
+(pairlis '(a b) '(c d))
+
+(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
