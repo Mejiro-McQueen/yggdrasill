@@ -248,15 +248,14 @@
 			;(print res)
 			(push res res-list)
 			(setf bit-offset next-bit-offset))))
-	  ;(push (cons name res-list) alist)
-	  ;(print res-list)
-	  (values bit-offset (list (cons name res-list))))))
+	  (values bit-offset (cons (symbol-name name) (list res-list))))))
 
 ;; Dispatch on Parameter
 (defmethod decode (data (parameter xtce::parameter) symbol-table alist bit-offset)
+  (With-slots (name) parameter
   (let ((parameter-type (xtce::dereference parameter symbol-table)))
 	(multiple-value-bind (next-bit-offset res) (decode data parameter-type symbol-table alist bit-offset)
-	  (values next-bit-offset res))))
+	  (values next-bit-offset (cons (symbol-name name) res))))))
 
 ;; Dispatch on binary-parameter-type
 (defmethod decode (data (parameter-type xtce::binary-parameter-type) symbol-table alist bit-offset)
@@ -265,7 +264,7 @@
 	  (unless data-encoding 
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
 	  (multiple-value-bind (bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
-		(setf res (cons name (bit-vector->hex res)))
+		(setf res (bit-vector->hex res))
 		(values bit-offset res)))))
 
 ;;Decode binary-data encoding
@@ -302,7 +301,7 @@
 					   (if (member decoded-flag '("F" "False" "Null" "No" "None" "Nil" "0" "") :test 'equalp)
 						   xtce::zero-string-value
 						   xtce::one-string-value)))))
-		(values bit-offset (cons name res))))))
+		(values bit-offset res)))))
 
 ;;Decode Integer Parameter
 (defmethod decode (data (parameter-type xtce::integer-parameter-type) symbol-table alist bit-offset)
@@ -311,7 +310,7 @@
 	  (error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
 	(multiple-value-bind (bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
 	  (with-slots (xtce::name) parameter-type
-		(values bit-offset (cons xtce::name res))))))
+		(values bit-offset res)))))
 
 ;;Decode Integer Encoding
 (defmethod decode (data (integer-data-encoding xtce::integer-data-encoding) symbol-table alist bit-offset)
@@ -599,8 +598,36 @@
 
 
 
-(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE) TEST-TABLE '() 0)
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
+
+(multiple-value-bind (_ alist)
+	(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
+  (defparameter decoded-frame (list alist)))
+
+decoded-frame
+
+(defun mpdu-depacketizer (alist symbol-table)
+  (let* ((frame (second (assoc "STC.CCSDS.AOS.Container.Frame" alist :test 'equalp))))
+	frame
+	;(assoc "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" frame)
+	)
+  )
+
+(mpdu-depacketizer decoded-frame TEST-TABLE)
+
+;; (assoc "STC.CCSDS.AOS.Container.Frame" decoded-frame :test 'equalp)
+
+;; decoded-frame
+
+
+;; (let* ((a (pairlis '(a b) '(c d)))
+;; 	   (z (pairlis '(e) (list a))))
+;;   (second (assoc 'e z))
+;;   )
+
+
+(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE)
+		TEST-TABLE '() 0)
