@@ -264,7 +264,7 @@
 	  (unless data-encoding 
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
 	  (multiple-value-bind (bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
-		(setf res (bit-vector->hex res))
+		;(setf res (bit-vector->hex res))
 		(values bit-offset res)))))
 
 ;;Decode binary-data encoding
