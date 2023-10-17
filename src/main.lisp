@@ -567,12 +567,15 @@
 (defparameter AOS-TEST-HEADER-BIN (alist->bit-vector AOS-TEST-HEADER))
 
 (defparameter TEST-TABLE (xtce::register-keys-in-sequence
-						  (stc::with-ccsds.mpdu.containers
-							  (stc::with-ccsds.mpdu.types
-							  (stc::with-ccsds.mpdu.parameters
-								  (stc::with-ccsds.aos.containers
-									  (stc::with-ccsds.aos.header.parameters
-										  (stc::with-ccsds.aos.header.types '()))))))
+						  (stc::with-ccsds.space-packet.parameters
+							  (stc::with-ccsds.space-packet.types
+								  (stc::with-ccsds.space-packet.containers
+									  (stc::with-ccsds.mpdu.containers
+										  (stc::with-ccsds.mpdu.types
+											  (stc::with-ccsds.mpdu.parameters
+												  (stc::with-ccsds.aos.containers
+													  (stc::with-ccsds.aos.header.parameters
+														  (stc::with-ccsds.aos.header.types '())))))))))
 							(filesystem-hash-table:make-filesystem-hash-table) 'Test))
 
 
@@ -613,7 +616,6 @@
 		 )
 	frame-data
 	(decode frame-data container symbol-table '() 0)
-	
 	)
   )
 
@@ -628,3 +630,8 @@
 		TEST-TABLE '() 0)
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
+
+
+(defparameter zero-header-pointer #*00000000000)
+(pad-bit-vector (concatenate-bit-arrays #*00000 zero-header-pointer)
+				(stc::ccsds.aos.get-transfer-frame-data-field-length) 0)
