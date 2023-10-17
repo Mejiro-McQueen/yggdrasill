@@ -3,7 +3,7 @@
 
 ;TODO: Pull these out as ancillary data
 
-(defparameter AOS.Transfer-Frame-Length 1024)
+(defparameter AOS.Transfer-Frame-Length (* 8 1024))
 
 (defparameter use-AOS.Operational-Control-Field nil)
 
@@ -15,14 +15,22 @@
 
 (defparameter AOS.Transfer-Frame-Trailer-Length nil)
 
-(defparameter AOS.Transfer-Frame-Data-Field-Length 976)
+(defparameter AOS.Transfer-Frame-Data-Field-Length
+  (if use-AOS.Frame-Error-Control-Field
+	  (- AOS.Transfer-Frame-Length (* 8 6) (*8 2))
+	  (- AOS.Transfer-Frame-Length (* 8 6))))
 
 (defun set-CCSDS.AOS.Transfer-Frame-Length (n)
   (setf AOS.Transfer-Frame-Length n))
 
-(defun get-transfer-frame-data-field-length ()
+(defun ccsds.aos.get-transfer-frame-header-length ()
+  (if use-AOS.Header.Frame-Header-Error-Control-Field (* 8 8) (* 8 6)))
+
+(defun ccsds.aos.get-transfer-frame-data-field-length ()
   (- AOS.Transfer-Frame-Length
-	 (+ AOS.Insert-Zone-Length AOS.Transfer-Frame-Trailer-Length)))
+	 (+ (ccsds.aos.get-transfer-frame-header-length)
+		(if (integerp AOS.Insert-Zone-Length) AOS.Insert-Zone-Length 0)
+		(if (integerp AOS.Transfer-Frame-Trailer-Length) AOS.Transfer-Frame-Trailer-Length 0))))
 
 (defun set-CCSDS.AOS.Set-Insert-Zone-Length (n)
   (setf AOS.Insert-Zone-Length n))

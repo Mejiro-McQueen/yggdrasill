@@ -1903,8 +1903,8 @@
   (with-slots (data-source read-only persistence system-name validity-condition physical-address-set time-association) obj
 	(cxml:with-element* ("xtce" "ParameterProperties")
 	  (optional-xml-attribute "dataSource" data-source)
-	  (if (not (equal read-only :null))
-		  (optional-xml-attribute "readOnly" read-only))
+	  (unless (equal read-only :null)
+		(optional-xml-attribute "readOnly" read-only))
 	  (optional-xml-attribute "persistence" persistence)
 	  (marshall system-name)
 	  (marshall validity-condition)

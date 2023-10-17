@@ -1,6 +1,9 @@
 (in-package :standard-template-constructs)
 (use-package :xtce)
 
+(defvar CCSDS.MPDU.Transfer-Zone.Packet-Zone-Length
+  (- AOS.Transfer-Frame-Data-Field-Length (* 8 2)))
+
 (defvar CCSDS.MPDU.Header.Reserved-Spare-Type
   (make-binary-parameter-type
    '|STC.CCSDS.MPDU.Header.Reserved-Spare-Type|
@@ -14,7 +17,10 @@
 
 (defvar CCSDS.MPDU.Packet-Zone-Type
   (make-binary-parameter-type '|STC.CCSDS.MPDU.Packet-Zone-Type|
-  :short-description "Contains a series of MPDU"))
+  :short-description "Contains a series of MPDU"
+  :data-encoding (make-binary-data-encoding
+				  (make-size-in-bits
+				   (make-fixed-value (- (ccsds.aos.get-transfer-frame-data-field-length) 16))))))
 
 (defvar CCSDS.MPDU.Packet-Type
   (make-binary-parameter-type '|STC.CCSDS.MPDU.Packet-Type|
@@ -36,7 +42,8 @@
   (make-parameter '|STC.CCSDS.MPDU.Header.First-Header-Pointer| '|STC.CCSDS.MPDU.Header.First-Header-Pointer-Type|))
   
 (defvar CCSDS.MPDU.Packet-Zone
-  (make-parameter '|STC.CCSDS.MPDU.Packet-Zone| '|STC.CCSDS.MPDU.Packet-Zone-Type|))
+  (make-parameter
+   '|STC.CCSDS.MPDU.Packet-Zone| '|STC.CCSDS.MPDU.Packet-Zone-Type|))
 
 (defvar CCSDS.MPDU.Packet
   (make-parameter '|STC.CCSDS.MPDU.Packet| '|STC.CCSDS.MPDU.Packet-Type|))
@@ -59,7 +66,7 @@
   (make-sequence-container
    '|STC.CCSDS.MPDU.Container.Packet-Zone|
    (list
-	(make-container-ref-entry '|STC.CCSDS.Space-Packet| :short-description "Request Auto MPDU Depacketize"))))
+	(make-parameter-ref-entry '|STC.CCSDS.MPDU.Packet-Zone|))))
 
 (defvar CCSDS.MPDU.Container.MPDU
   (make-sequence-container

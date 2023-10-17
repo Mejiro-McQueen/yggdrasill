@@ -242,7 +242,7 @@
 	(let ((res-list '()))
 	  (dolist (ref (entry-list container))
 		(let ((dereference (xtce::dereference ref symbol-table)))
-		  (assert dereference)
+		  (assert dereference () "No dereference for ref ~A" ref)
 		  (multiple-value-bind (next-bit-offset res) (decode data dereference symbol-table alist bit-offset)
 			(assert next-bit-offset () "REEEE ~A" dereference)
 			;(print res)
@@ -561,7 +561,7 @@
 									(cons 'virtual-channel-frame-count-usage-flag #*1)
 									(cons 'reserved-space #*00)
 									(cons 'vc-frame-count-cycle #*1010)
-									(cons 'data-field (pad-bit-vector #* 976 1))
+									(cons 'data-field (pad-bit-vector #* (stc::ccsds.aos.get-transfer-frame-data-field-length) 1))
 									))
 
 (defparameter AOS-TEST-HEADER-BIN (alist->bit-vector AOS-TEST-HEADER))
@@ -609,15 +609,20 @@
   (let* ((frame (second (assoc stc::'|STC.CCSDS.AOS.Container.Frame| alist)))
 		 (frame-data-field (second (assoc stc::'|STC.CCSDS.AOS.Container.Transfer-Frame-Data-Field| frame)))
 		 (frame-data (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-data-field)))
+		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" TEST-TABLE))
 		 )
 	frame-data
+	(decode frame-data container symbol-table '() 0)
+	
 	)
   )
 
+(defparameter decoded-frame nil)
 (multiple-value-bind (_ alist)
 	(decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
-  (defparameter decoded-frame alist)
+  (setf decoded-frame alist)
   (mpdu-depacketizer decoded-frame TEST-TABLE))
+
 
 (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE)
 		TEST-TABLE '() 0)

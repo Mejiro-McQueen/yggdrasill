@@ -29,6 +29,7 @@
    #:make-enumeration
    #:make-enumeration-alarm
    #:make-epoch
+   #:make-parameter-properties
    #:make-fixed-frame-stream
    #:make-fixed-value
    #:make-float-data-encoding
