@@ -2,7 +2,7 @@
 (use-package :xtce)
 
 (defvar CCSDS.MPDU.Transfer-Zone.Packet-Zone-Length
-  (- AOS.Transfer-Frame-Data-Field-Length (* 8 2)))
+  (- AOS.Transfer-Frame-Data-Field-Length 16))
 
 (defvar CCSDS.MPDU.Header.Reserved-Spare-Type
   (make-binary-parameter-type
@@ -20,7 +20,7 @@
   :short-description "Contains a series of MPDU"
   :data-encoding (make-binary-data-encoding
 				  (make-size-in-bits
-				   (make-fixed-value (- (ccsds.aos.get-transfer-frame-data-field-length) 16))))))
+				   (make-fixed-value CCSDS.MPDU.Transfer-Zone.Packet-Zone-Length)))))
 
 (defvar CCSDS.MPDU.Packet-Type
   (make-binary-parameter-type '|STC.CCSDS.MPDU.Packet-Type|
