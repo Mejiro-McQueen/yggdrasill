@@ -1,6 +1,9 @@
 (ql:quickload "bifrost-yggdrasill")
 (ql:quickload "lparallel")
 (ql:quickload "filesystem-hash-table")
+(ql:quickload "log4cl")
+(ql:quickload :log4cl.log4sly)
+(log4cl.log4sly:install)
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar debug-mode t)
@@ -232,61 +235,102 @@
 
 ;Dispatch on container-ref
 (defmethod decode (data (container-ref-entry xtce::container-ref-entry) symbol-table alist bit-offset)
+  (log:debug "Dispatching on: " container-ref-entry)
   (let* ((dereferenced-container (xtce:dereference container-ref-entry symbol-table)))
 	(multiple-value-bind (next-bit-offset res) (decode data dereferenced-container symbol-table alist bit-offset)
-	(values next-bit-offset res))))
+	  (log:debug bit-offset next-bit-offset res)
+	  (values next-bit-offset res))))
+
+(defmethod decode (data (parameter-ref-entry xtce::parameter-ref-entry) symbol-table alist bit-offset)
+  (log:debug "Dispatching on:" parameter-ref-entry)
+  (let* ((dereferenced-container (xtce:dereference parameter-ref-entry symbol-table)))
+	(multiple-value-bind (next-bit-offset res) (decode data dereferenced-container symbol-table alist bit-offset)
+	  (log:debug bit-offset next-bit-offset res)
+	  (values next-bit-offset res))))
 
 ;; Dispatch on container
 (defmethod decode (data (container xtce::sequence-container) symbol-table alist bit-offset)
   (with-slots (name) container
+	(log:debug "Dispatch on: " name)
 	(let ((res-list '()))
 	  (dolist (ref (entry-list container))
-		(let ((dereference (xtce::dereference ref symbol-table)))
-		  (assert dereference () "No dereference for ref ~A" ref)
-		  (multiple-value-bind (next-bit-offset res) (decode data dereference symbol-table alist bit-offset)
-			(assert next-bit-offset () "REEEE ~A" dereference)
-			;(print res)
-			(push res res-list)
-			(setf bit-offset next-bit-offset))))
-	  (values bit-offset (list (cons name res-list))))))
+		(multiple-value-bind (next-bit-offset res) (decode data ref symbol-table (append alist res-list) bit-offset)
+		  ;(print bit-offset)
+		  (log:debug "Got Result: ~A, ~A" next-bit-offset res)
+		  (setf bit-offset next-bit-offset)
+		  (typecase ref
+			(xtce::container-ref-entry
+			 (log:debug "Appending container result.")
+			 (setf res-list (append res-list res)))
+			(xtce::parameter-ref-entry
+			 (log:debug "Pushing parameter result.")
+			 (push res res-list)))))
+	  (log:debug "Finished container processing: ~A, ~A" bit-offset res-list)
+	  (values bit-offset res-list))))
 
 ;; Dispatch on Parameter
 (defmethod decode (data (parameter xtce::parameter) symbol-table alist bit-offset)
-  (With-slots (name) parameter
-  (let ((parameter-type (xtce::dereference parameter symbol-table)))
-	(multiple-value-bind (next-bit-offset res) (decode data parameter-type symbol-table alist bit-offset)
-	  (values next-bit-offset (list (cons name res)))))))
+  (log:debug "Dispatch on: " parameter)
+  (with-slots (name) parameter
+	(let ((parameter-type (xtce::dereference parameter symbol-table)))
+	  (assert parameter-type () "No dereference for parameter ~A" parameter)
+	  (multiple-value-bind (next-bit-offset res) (decode data parameter-type symbol-table alist bit-offset)
+		(log:debug bit-offset next-bit-offset res)
+		(values next-bit-offset (cons name res))))))
 
 ;; Dispatch on binary-parameter-type
 (defmethod decode (data (parameter-type xtce::binary-parameter-type) symbol-table alist bit-offset)
+  (log:debug "Dispatch on: " parameter-type)
   (with-slots (name) parameter-type
 	(let ((data-encoding (xtce:data-encoding parameter-type)))
 	  (unless data-encoding 
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	  (multiple-value-bind (bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+	  (multiple-value-bind (next-bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
 		;(setf res (bit-vector->hex res))
-		(values bit-offset res)))))
+		(log:debug bit-offset next-bit-offset res)
+		(values next-bit-offset res)))))
+
+;; Dispatch on string-parameter-type
+(defmethod decode (data (parameter-type xtce::string-parameter-type) symbol-table alist bit-offset)
+  (with-slots (name) parameter-type
+	(let ((data-encoding (xtce:data-encoding parameter-type)))
+	  (unless data-encoding 
+		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
+	  (multiple-value-bind (next-bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+										;(setf res (bit-vector->hex res))
+		(log:debug bit-offset next-bit-offset res)
+		(values next-bit-offset res)))))
 
 ;;Decode binary-data encoding
 (defmethod decode (data (encoding xtce::binary-data-encoding) symbol-table alist bit-offset)
   (with-slots (xtce::size-in-bits) encoding
-	(let* ((size-in-bits (xtce::get-size xtce::size-in-bits))
-		   (data-segment (subseq data bit-offset (+ bit-offset size-in-bits))))
-	  (values (+ bit-offset size-in-bits) data-segment))))
+	(let* ((size-in-bits (xtce::resolve-get-size xtce::size-in-bits :alist alist :db-connection nil))
+		   (data-segment (subseq data bit-offset (+ bit-offset size-in-bits)))
+		   (next-offset (+ bit-offset size-in-bits)))
+	  (log:debug "Extracting: " size-in-bits)
+	  (log:debug bit-offset next-offset data-segment)
+	  (values next-offset data-segment))))
 
-;Deccode enumerated-parameter
-;; (defmethod decode (data (parameter-type xtce::enumerated-parameter-type) symbol-table alist bit-offset)
-  
-;;   )
+;; Dispatch on enumerated-parameter-type
+(defmethod decode (data (parameter-type xtce::enumerated-parameter-type) symbol-table alist bit-offset)
+  (log:debug parameter-type)
+  (with-slots (name) parameter-type
+	(let ((data-encoding (xtce:data-encoding parameter-type)))
+	  (unless data-encoding 
+		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
+	  (multiple-value-bind (next-bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+		(log:debug bit-offset next-bit-offset res)
+		(values next-bit-offset res)))))
 
 ;;Decode boolean parameter 
 (defmethod decode (data (parameter-type xtce::boolean-parameter-type) symbol-table alist bit-offset)
+  (log:debug parameter-type)
   (with-slots (name) parameter-type
 	(let* ((data-encoding (xtce:data-encoding parameter-type))
 		   (res nil))
 	  (unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	  (multiple-value-bind (bit-offset decoded-flag) (decode data data-encoding symbol-table alist bit-offset)
+	  (multiple-value-bind (next-bit-offset decoded-flag) (decode data data-encoding symbol-table alist bit-offset)
 		(with-slots (xtce::zero-string-value xtce::one-string-value xtce::name) parameter-type
 		  (setf res (typecase decoded-flag
 					  (bit-vector
@@ -301,25 +345,35 @@
 					   (if (member decoded-flag '("F" "False" "Null" "No" "None" "Nil" "0" "") :test 'equalp)
 						   xtce::zero-string-value
 						   xtce::one-string-value)))))
-		(values bit-offset res)))))
+		(log:debug next-bit-offset bit-offset res)
+		(values next-bit-offset res)))))
 
 ;;Decode Integer Parameter
 (defmethod decode (data (parameter-type xtce::integer-parameter-type) symbol-table alist bit-offset)
+  (log:debug parameter-type)
   (let ((data-encoding (xtce:data-encoding parameter-type)))
 	(unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
 	  (error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	(multiple-value-bind (bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+	(multiple-value-bind (next-bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
 	  (with-slots (xtce::name) parameter-type
-		(values bit-offset res)))))
+		(log:debug bit-offset res)
+		(values next-bit-offset res)))))
 
 ;;Decode Integer Encoding
 (defmethod decode (data (integer-data-encoding xtce::integer-data-encoding) symbol-table alist bit-offset)
+  (log:debug integer-data-encoding)
   (with-slots (xtce::integer-encoding xtce::size-in-bits) integer-data-encoding
 	(let ((res nil)
 		  (next-bit-offset (+ bit-offset xtce::size-in-bits)))
 	  (case xtce::integer-encoding
 		(xtce::'unsigned
-		 (setf res (bit-vector->uint (subseq data bit-offset next-bit-offset)))))
+		 (let* ((data-segment (subseq data bit-offset next-bit-offset)))
+		   ;;(print (format nil "~A ~A" bit-offset next-bit-offset))
+		   ;;(print data-segment)
+		   (setf res (bit-vector->uint data-segment))
+		   (log:debug bit-offset next-bit-offset res)
+		   (log:debug "Extracted: " data-segment)
+		   )))
 	  (values next-bit-offset res))))
 
 ;; (defun a (space-system frame)
@@ -505,7 +559,6 @@
   (if (< (length v) pad)
 	  (case position
 		(left
-		 (print "ZOOF")
 		 (concatenate-bit-arrays (make-sequence 'bit-vector (- pad (length v)) :initial-element pad-element) v))
 		(right
 		 (concatenate-bit-arrays v (make-sequence 'bit-vector (- pad (length v)) :initial-element pad-element))))
@@ -582,11 +635,9 @@
 									   (cons 'appid #*00000000001)
 									   (cons 'sequence-flags #*11)
 									   (cons 'sequence-count #*00001010011010)
-									   (cons 'data-len #*00000100110000)
+									   (cons 'data-len #*0000000000011100)
 									   (cons 'data (uint->bit-vector #xBADC0DE)))))
 
-;304
-(print-bin 304)
 (defparameter space-packets (concatenate-bit-arrays
 							 test-space-packet
 							 test-space-packet
@@ -602,13 +653,6 @@
 						  :position 'right))
 
 
-;; (decode (pad-bit-vector (alist->bit-vector test-mpdu-header) 8144 :pad-element 0 :position 'right)
-;; 		(gethash "STC.CCSDS.MPDU.Container.MPDU" TEST-TABLE)
-;; 		TEST-TABLE '() 0)
-
-
-;; (setf beeg (pad-bit-vector beeg 8192 :position 'right))
-
 (defparameter TEST-TABLE (xtce::register-keys-in-sequence
 						  (stc::with-ccsds.space-packet.parameters
 							  (stc::with-ccsds.space-packet.types
@@ -619,59 +663,82 @@
 												  (stc::with-ccsds.aos.containers
 													  (stc::with-ccsds.aos.header.parameters
 														  (stc::with-ccsds.aos.header.types '())))))))))
-							(filesystem-hash-table:make-filesystem-hash-table) 'Test))
+						  (filesystem-hash-table:make-filesystem-hash-table) 'Test))
 
 
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type" TEST-TABLE) TEST-TABLE '() 0)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier-Type" TEST-TABLE) TEST-TABLE '() 2)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID-Type" TEST-TABLE) TEST-TABLE '() 10)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type" TEST-TABLE) TEST-TABLE '() 16)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Replay-Flag-Type" TEST-TABLE) TEST-TABLE '() 40)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type" TEST-TABLE) TEST-TABLE '() 41)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Reserved-Spare-Type" TEST-TABLE) TEST-TABLE '() 42)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle-Type" TEST-TABLE) TEST-TABLE '() 44)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type" TEST-TABLE) TEST-TABLE '() 44)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number" TEST-TABLE) TEST-TABLE '() 0)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier" TEST-TABLE) TEST-TABLE '() 2)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID" TEST-TABLE) TEST-TABLE '() 10)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count" TEST-TABLE) TEST-TABLE '() 16)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Replay-Flag" TEST-TABLE) TEST-TABLE '() 40)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag" TEST-TABLE) TEST-TABLE '() 41)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Reserved-Spare" TEST-TABLE) TEST-TABLE '() 42)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle" TEST-TABLE) TEST-TABLE '() 44)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field" TEST-TABLE) TEST-TABLE '() 44)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
-;; (decode AOS-TEST-HEADER-BIN (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE) TEST-TABLE '() 0)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type" TEST-TABLE) TEST-TABLE '() 0)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier-Type" TEST-TABLE) TEST-TABLE '() 2)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID-Type" TEST-TABLE) TEST-TABLE '() 10)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type" TEST-TABLE) TEST-TABLE '() 16)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Replay-Flag-Type" TEST-TABLE) TEST-TABLE '() 40)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type" TEST-TABLE) TEST-TABLE '() 41)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Reserved-Spare-Type" TEST-TABLE) TEST-TABLE '() 42)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle-Type" TEST-TABLE) TEST-TABLE '() 44)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type" TEST-TABLE) TEST-TABLE '() 44)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number" TEST-TABLE) TEST-TABLE '() 0)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier" TEST-TABLE) TEST-TABLE '() 2)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID" TEST-TABLE) TEST-TABLE '() 10)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count" TEST-TABLE) TEST-TABLE '() 16)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Replay-Flag" TEST-TABLE) TEST-TABLE '() 40)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag" TEST-TABLE) TEST-TABLE '() 41)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Reserved-Spare" TEST-TABLE) TEST-TABLE '() 42)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle" TEST-TABLE) TEST-TABLE '() 44)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field" TEST-TABLE) TEST-TABLE '() 44)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
+;(decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE) TEST-TABLE '() 0)
+;; (decode full-frame stc::CCSDS.Space-Packet.Container.Space-Packet TEST-TABLE '() 0)
+;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
 
 (defun mpdu-depacketizer (alist symbol-table)
-  (let* ((frame (second (assoc stc::'|STC.CCSDS.AOS.Container.Frame| alist)))
-		 (frame-data-field (second (assoc stc::'|STC.CCSDS.AOS.Container.Transfer-Frame-Data-Field| frame)))
+  (let* ((frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| alist)))
 		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" TEST-TABLE))
-		 (transfer-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-data-field)))
-		 (mpdu nil)
-		 )
-	(multiple-value-bind (_ alist)
-		(decode transfer-data-field container symbol-table '() 0)
-	  (setf mpdu alist))
+		 (mpdu nil))
+	(multiple-value-bind (_ res)
+		(decode frame-data-field container symbol-table '() 0)
+	  res
+	  )))
 
-	))
-
-(multiple-value-bind (_ alist)
+(multiple-value-bind (_ res)
 	(decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
-  (mpdu-depacketizer alist TEST-TABLE)
-		)
+  (defparameter mpdu (mpdu-depacketizer res TEST-TABLE)))
 
-;8128
+(multiple-value-bind (next-bit alist) (decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
+  (defparameter frame-alist alist))
 
-(defparameter full-frame (pad-bit-vector 
-						  (concatenate-bit-arrays
-						   AOS-TEST-HEADER
-						   test-mpdu-header
-						   space-packets)
-						  8192
-						  :position 'right))
+(defun extract-space-packets (data first-header-pointer symbol-table alist &optional (previous-packet-segment #*) (previous-remaining-size 0))
+  (let* ((continuing-segment (subseq data 0 first-header-pointer))
+		 (current-packet nil)
+		 (packet-list nil)
+		 (maybe-new-packet (concatenate-bit-arrays previous-packet-segment))
+		 (container stc::CCSDS.Space-Packet.Container.Space-Packet)
+		 (data-length (length data)))
 
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
+	
+	(when (stc::stc.ccsds.space-packet.is-idle-pattern first-header-pointer)
+	  (return-from extract-space-packets nil))
 
-;; (decode (bit-vector->hex #*00000000000000000000000000000001110000101001101000000100110000101110101101110000001101111000000000000000011100001010011010000001001100001011101011011100000011011110000000000000000111000010100110100000010011000010111010110111000000110111100000000000000001110000101001101000000100110000101110101101110000001101111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000) (gethash "STC.CCSDS.MPDU.Container.MPDU" TEST-TABLE) TEST-TABLE '() 0)
+	(when (stc::stc.ccsds.space-packet.is-spanning-pattern first-header-pointer)
+	  (decf previous-packet-segment (length data))
+	  (setf previous-packet-segment (concatenate-bit-arrays previous-packet-segment data))
+	  (if (eq previous-packet-segment 0)
+		  (return-from extract-space-packets (decode previous-packet-segment container symbol-table alist 0))
+		  (return-from extract-space-packets (values nil nil nil))))
+
+	(let ((next-pointer 0)
+		  (current-packet nil))
+	  (when (> data-length 0)
+			 (multiple-value-bind (bits-consumed res-list) (decode (subseq data first-header-pointer) container symbol-table alist next-pointer)
+			   ;(print res-list)
+			   (setf next-pointer bits-consumed)
+			   (decf data-length bits-consumed)
+			   (push res-list packet-list))))
+	(car packet-list)))
+
+
+(defparameter payload (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+
+(defparameter z (extract-space-packets payload 0 TEST-TABLE mpdu)
+
+  )
+
+

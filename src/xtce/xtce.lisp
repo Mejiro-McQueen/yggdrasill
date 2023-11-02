@@ -336,7 +336,7 @@
 (defclass sequence-container () ((name :initarg :name :type string)
 								 (short-description :initarg :short-description :type string)
 								 (abstract :initarg :abstract :type bool)
-								 (idle-pattern :initarg :idle-pattern)
+								 (idle-pattern :initarg :idle-pattern :reader idle-pattern)
 								 (long-description :initarg :long-description :type long-description)
 								 (alias-set :initarg :alias-set :type alias-set)
 								 (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
@@ -392,7 +392,7 @@
 	  (cxml:attribute "name" name)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "abstract" abstract)
-	  (optional-xml-attribute "idlePattern" idle-pattern)
+	  (optional-xml-attribute "idlePattern" (print-hex idle-pattern))
 	  (marshall long-description)
 	  (marshall alias-set)
 	  (marshall ancillary-data-set)
@@ -401,6 +401,7 @@
 	  (marshall binary-encoding)
 	  (marshall entry-list)
 	  (marshall base-container))))
+
 
 ;TODO: I think I would rather just have a conditional reader macro to choose that suggested non-XTCE format 
 (defclass resolved-sequence-container (sequence-container)
@@ -424,7 +425,7 @@
 	  (cxml:attribute "name" name)
 	  (optional-xml-attribute "shortDescription" short-description)
 	  (optional-xml-attribute "abstract" abstract)
-	  (optional-xml-attribute "idlePattern" idle-pattern)
+	  (optional-xml-attribute "idlePattern" (print-hex idle-pattern))
 	  (marshall long-description)
 	  (marshall alias-set)
 	  (marshall ancillary-data-set)
@@ -936,15 +937,40 @@
 	  (cxml:attribute "nextContainer" container-ref))))
 
 (defclass dynamic-value ()
-  ((instance-ref :initarg :instance-ref)
+  ((parameter-instance-ref :initarg :parameter-instance-ref
+						   :type parameter-instance-ref)
    (linear-adjustment :initarg :linear-adjustment
 					  :type linear-adjustment)))
 
-(defun make-dynamic-value (instance-ref &key linear-adjustment)
-  (make-instance 'dynamic-value :instance-ref instance-ref :linear-adjustment linear-adjustment))
+(defun make-dynamic-value (parameter-instance-ref &key linear-adjustment)
+  (make-instance 'dynamic-value :parameter-instance-ref parameter-instance-ref :linear-adjustment linear-adjustment))
 
-(defmethod get-size ((obj dynamic-value))
-  (assert nil () "Not implemented!"))
+(defun resolve-dynamic-get-size (dynamic-value alist db-connection)
+  (with-slots (parameter-instance-ref linear-adjustment) dynamic-value
+	(with-slots (parameter-reference instance use-calibrated-value) parameter-instance-ref
+	  ;(print "WOOOOOOO")
+	  ;(print alist)
+	  ;(print parameter-reference)
+	  ;(print (format nil "~%"))
+	  (log:debug parameter-reference alist )
+	  (cond
+		((= instance 0)
+		 (assert (listp alist))
+		 (assert (assoc parameter-reference alist))
+		 (cdr (assoc parameter-reference alist))
+		 )
+		
+		((< instance 0)
+		 (assert db-connection)
+		 (assert nil () "Not implemented!!")))))
+  )
+
+(defun resolve-get-size (obj &key alist db-connection)
+  (with-slots (size) obj
+  (typecase size
+	(dynamic-value
+	 (resolve-dynamic-get-size size alist db-connection))
+	(t (get-size size)))))
 
 (defmethod marshall ((obj dynamic-value))
   (with-slots (instance-ref linear-adjustment) obj
@@ -971,7 +997,7 @@
    (instance :initarg :instance)
    (use-calibrated-value :initarg :use-calibrated-value)))
 
-(defun make-parameter-instance-ref (parameter-ref &key instance use-calibrated-value)
+(defun make-parameter-instance-ref (parameter-ref &key (instance 0) (use-calibrated-value 'True))
   (make-instance 'parameter-instance-ref :parameter-ref parameter-ref :instance instance :use-calibrated-value use-calibrated-value))
 
 (defmethod marshall ((obj parameter-instance-ref))
@@ -1050,9 +1076,6 @@
   (check-type size (or fixed-value dynamic-value discrete-lookup-list termination-char leading-size fixed))
   (make-instance 'size-in-bits :size size))
 
-(defmethod get-size ((obj size-in-bits))
-  (get-size (size obj)))
-
 (defmethod marshall ((obj size-in-bits))
   (with-slots (size) obj
 	(cxml:with-element* ("xtce" "SizeInBits") obj
@@ -1109,7 +1132,9 @@
    (restriction-pattern :initarg :restriction-pattern :type string)
    (character-width :initarg :character-width)
    (unit-set :initarg :unit-set :type unit-set)
-   (data-encoding :initarg :data-encoding :type encoding)
+   (data-encoding :initarg :data-encoding
+				  :type encoding
+				  :accessor data-encoding)
    (size-range-in-characters :initarg :size-range-in-characters :type size-range-in-characters)
    (default-alarm :initarg :default-alarm :type default-alarm)
    (context-alarm-list :initarg :context-alarm-list :type context-alarm-list)))
@@ -1560,7 +1585,8 @@
    (initial-value :initarg :initial-value)
    (base-type :initarg :base-type)
    (data-encoding :initarg :data-encoding
-				  :type data-encoding)
+				  :type data-encoding
+				  :reader data-encoding)
    (enumeration-list :initarg :enumeration-list
 					 :type enumeration-list)
    (default-alarm :initarg :default-alarm
