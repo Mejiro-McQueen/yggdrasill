@@ -635,14 +635,53 @@
 									   (cons 'appid #*00000000001)
 									   (cons 'sequence-flags #*11)
 									   (cons 'sequence-count #*00001010011010)
-									   (cons 'data-len #*0000000000011100)
-									   (cons 'data (uint->bit-vector #xBADC0DE)))))
+									   (cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xBADC0DED)) 8) 1) 16))
+									   (cons 'data (uint->bit-vector #xBADC0DED)))))
+
+(defparameter test-idle-packet (alist->bit-vector
+								(list (cons 'packet-version-number  #*000)
+									  (cons 'packet-type #*0)
+									  (cons 'sec-hdr-flag #*0)
+									  (cons 'appid #*11111111111)
+									  (cons 'sequence-flags #*11)
+									  (cons 'sequence-count #*00001010011010)
+									   (cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xFFFFFFFF)) 8) 1) 16))
+									   (cons 'data (uint->bit-vector #xFFFFFFFF)))))
 
 (defparameter space-packets (concatenate-bit-arrays
 							 test-space-packet
 							 test-space-packet
 							 test-space-packet
-							 test-space-packet))
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-space-packet
+							 test-idle-packet
+							 test-idle-packet
+							 ))
 
 (defparameter full-frame (pad-bit-vector 
 						  (concatenate-bit-arrays
@@ -650,7 +689,8 @@
 						   test-mpdu-header
 						   space-packets)
 						  8192
-						  :position 'right))
+						  :position 'right
+						  :pad-element 1))
 
 
 (defparameter TEST-TABLE (xtce::register-keys-in-sequence
@@ -713,27 +753,38 @@
 		 (container stc::CCSDS.Space-Packet.Container.Space-Packet)
 		 (data-length (length data)))
 
-	
+	(log:debug "Attempting to extract space packets...")
+	;Not correct, first-header-pointer corresponds to MPDU idle pattern
 	(when (stc::stc.ccsds.space-packet.is-idle-pattern first-header-pointer)
+	  (log:debug "Found idle pattern.")
 	  (return-from extract-space-packets nil))
 
 	(when (stc::stc.ccsds.space-packet.is-spanning-pattern first-header-pointer)
+	  (log:debug "Attempting to reconstruct spanning packet.")
 	  (decf previous-packet-segment (length data))
 	  (setf previous-packet-segment (concatenate-bit-arrays previous-packet-segment data))
 	  (if (eq previous-packet-segment 0)
 		  (return-from extract-space-packets (decode previous-packet-segment container symbol-table alist 0))
 		  (return-from extract-space-packets (values nil nil nil))))
 
-	(let ((next-pointer 0)
-		  (current-packet nil))
-	  (when (> data-length 0)
-			 (multiple-value-bind (bits-consumed res-list) (decode (subseq data first-header-pointer) container symbol-table alist next-pointer)
-			   ;(print res-list)
-			   (setf next-pointer bits-consumed)
-			   (decf data-length bits-consumed)
-			   (push res-list packet-list))))
-	(car packet-list)))
-
+	(let ((next-pointer first-header-pointer))
+	  (log:debug "Attempting to extract packets from zero.")
+	  (loop while (< next-pointer data-length)
+			do
+			   (multiple-value-bind (bits-consumed res-list)
+				   (decode data container symbol-table alist next-pointer)
+				 ;(log:debug res-list)
+				 (log:debug (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
+				 
+				 (setf next-pointer bits-consumed)
+				 (push res-list packet-list)
+				 (log:debug "Extracted ~A of ~A bytes" bits-consumed data-length)
+				 (when (stc::stc.ccsds.space-packet.is-idle-pattern (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
+				   (log:info "Found idle Packet! Abandoning remainder of frame.")
+				   (log:info "Extracted ~A packets." (length packet-list))
+					   (return packet-list))
+				 )))
+	packet-list))
 
 (defparameter payload (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
 
@@ -742,3 +793,42 @@
   )
 
 
+(defclass expression-element () ())
+
+(defun expression-list-p (l)
+  (and (listp l)
+	   (every (lambda (i) (typep i 'expression-element)) l)))
+
+(deftype expression-list ()
+  '(satisfies expression-list-p))
+
+(defclass math-operation-calibrator ()
+  ((ancillary-data-set :initarg :ancillary-data-set
+					  :type ancillary-data-set)
+  (expression-list :initarg :expression-list
+				   :type expression-list)
+  ))
+
+(defclass value-operand (expression-element)
+  ((value :initarg :value :type number)))
+
+(defclass this-parameter-operand (expression-element) ())
+
+(defun make-this-parameter-operand ()
+  (make-instance 'this-parameter-operand))
+
+(defclass operator (expression-element)
+  ((operator :initarg :operator :type symbol)))
+
+(defun make-operator (operator)
+  (make-instance 'operator :operator operator))
+
+(defclass parameter-instance-ref-operand (expression-element)
+  ((parameter-ref :initarg :parameter-ref
+				  :type parameter-ref)
+   (instance :initarg :instance
+			 :type number)
+   (use-calibrated-value :initarg :use-calibrated-value
+						 :type boolean)))
+
+(stc::stc.ccsds.space-packet.is-idle-pattern #*11111111111)

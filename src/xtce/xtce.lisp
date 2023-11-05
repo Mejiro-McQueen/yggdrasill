@@ -957,8 +957,12 @@
 		((= instance 0)
 		 (assert (listp alist))
 		 (assert (assoc parameter-reference alist))
-		 (cdr (assoc parameter-reference alist))
-		 )
+		 (let ((value (cdr (assoc parameter-reference alist))))
+		   (if linear-adjustment
+			   (with-slots (slope intercept ) linear-adjustment
+				 (log:debug (+ (* slope value) intercept) slope intercept value)
+				 (+ (* slope value) intercept))
+			   value)))
 		
 		((< instance 0)
 		 (assert db-connection)
@@ -1036,8 +1040,8 @@
 	  (cxml:text (format nil "~A" value)))))
 
 (defclass linear-adjustment ()
-  ((slope :initarg slope :type float)
-   (intercept :initarg intercept :type float)))
+  ((slope :initarg :slope :type float)
+   (intercept :initarg :intercept :type float)))
 
 (defun make-linear-adjustment (&key slope intercept)
   (make-instance 'linear-adjustment :slope slope :intercept intercept))
@@ -2148,6 +2152,16 @@
                       :initarg :short-description)
    (ancillary-data-set :documentation "Optional additional information"
                        :initarg :ancillary-data-set)))
+
+(defclass default-calibrator ()
+  ((ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+   (callibrator :initarg :numeric-calibrator :type numeric-calibrator)))
+
+(defun make-default-calibrator (numeric-calibrator &key ancillary-data-set)
+  (make-instance 'default-calibrator
+				 :numeric-calibrator numeric-calibrator
+				 :ancillary-data-set ancillary-data-set))
+
 
 (defclass context-calibrator ()
   ((context-match)

@@ -135,7 +135,12 @@
   (make-binary-parameter-type
    '|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field-Type|
    :short-description "Bytes containing the packet payload"
-   :data-encoding (make-binary-data-encoding (make-size-in-bits (make-dynamic-value (make-parameter-instance-ref '|STC.CCSDS.Space-Packet.Header.Packet-Data-Length|))))))
+   :data-encoding (make-binary-data-encoding
+				   (make-size-in-bits
+					(make-dynamic-value
+					 (make-parameter-instance-ref '|STC.CCSDS.Space-Packet.Header.Packet-Data-Length|)
+					 :linear-adjustment (make-linear-adjustment :slope 8 :intercept 8)
+					 )))))
 
 (defun with-ccsds.space-packet.header.types (type-list)
   (append type-list
@@ -259,8 +264,7 @@
 	(make-sequence-container
 	 '|STC.CCSDS.Space-Packet.Container.Space-Packet|
 	 entry-list
-	 :idle-pattern (- #b11111111111 1) ;TODO: read bit size from first header pointer?
-	 )))
+	 :idle-pattern #*11111111111)))
 
 (defun with-ccsds.space-packet.containers (container-list)
   (append
@@ -309,12 +313,13 @@
 							 :binary-encoding binary-encoding
 							 :base-container '|STC.CCSDS.Space-Packet|)))
 
-(defun stc.ccsds.space-packet.is-idle-pattern (first-header-pointer)
+(defun stc.ccsds.space-packet.is-idle-pattern (apid)
   (with-slots (xtce::idle-pattern) CCSDS.Space-Packet.Container.Space-Packet
-	(if (eq xtce::idle-pattern first-header-pointer)
+	(if (equal xtce::idle-pattern apid)
 		t
 		nil)))
 
+;This is wrong, should be for MPDU
 (defun stc.ccsds.space-packet.is-spanning-pattern (first-header-pointer)
 	(if (eq first-header-pointer #b11111111111)
 		t
