@@ -553,16 +553,15 @@
 	  (bit-not (uint->bit-vector (abs integer) pad)
 			   (uint->bit-vector integer pad))))
 
-(defun pad-bit-vector (v pad &key (pad-element 0) (position 'left))
-  ;;(declare (optimize (speed 3) (safety 0)))
-  (setf position (intern (symbol-name position)))
+(defun pad-bit-vector (v pad &key (pad-element 0) (position :left))
+  (assert (or (equal position :left) (equal position :right)) (position) "~A is an invalid value: Position must be one of: :right :left" position)
   (if (< (length v) pad)
-	  (case position
-		(left
-		 (concatenate-bit-arrays (make-sequence 'bit-vector (- pad (length v)) :initial-element pad-element) v))
-		(right
-		 (concatenate-bit-arrays v (make-sequence 'bit-vector (- pad (length v)) :initial-element pad-element))))
-	  v))
+		(case position
+		  (:left
+		   (concatenate-bit-arrays (make-sequence 'bit-vector (- pad (length v)) :initial-element pad-element) v))
+		  (:right
+		   (concatenate-bit-arrays v (make-sequence 'bit-vector (- pad (length v)) :initial-element pad-element))))
+		v))
 
 (defun bit-vector->sign-mag->dec (v)
   (let* ((sign (bit v 0))
@@ -689,7 +688,7 @@
 						   test-mpdu-header
 						   space-packets)
 						  8192
-						  :position 'right
+						  :position :right
 						  :pad-element 1))
 
 
@@ -754,12 +753,11 @@
 		 (data-length (length data)))
 
 	(log:debug "Attempting to extract space packets...")
-	;Not correct, first-header-pointer corresponds to MPDU idle pattern
-	(when (stc::stc.ccsds.space-packet.is-idle-pattern first-header-pointer)
+	(when (stc::stc.ccsds.mpdu.is-idle-pattern first-header-pointer)
 	  (log:debug "Found idle pattern.")
 	  (return-from extract-space-packets nil))
 
-	(when (stc::stc.ccsds.space-packet.is-spanning-pattern first-header-pointer)
+	(when (stc::stc.ccsds.mpdu.is-spanning-pattern first-header-pointer)
 	  (log:debug "Attempting to reconstruct spanning packet.")
 	  (decf previous-packet-segment (length data))
 	  (setf previous-packet-segment (concatenate-bit-arrays previous-packet-segment data))
@@ -768,22 +766,26 @@
 		  (return-from extract-space-packets (values nil nil nil))))
 
 	(let ((next-pointer first-header-pointer))
-	  (log:debug "Attempting to extract packets from zero.")
+	  (log:debug "Attempting to extract packets starting from zero pointer.")
 	  (loop while (< next-pointer data-length)
 			do
-			   (multiple-value-bind (bits-consumed res-list)
-				   (decode data container symbol-table alist next-pointer)
-				 ;(log:debug res-list)
-				 (log:debug (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
-				 
-				 (setf next-pointer bits-consumed)
-				 (push res-list packet-list)
-				 (log:debug "Extracted ~A of ~A bytes" bits-consumed data-length)
-				 (when (stc::stc.ccsds.space-packet.is-idle-pattern (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
-				   (log:info "Found idle Packet! Abandoning remainder of frame.")
-				   (log:info "Extracted ~A packets." (length packet-list))
+			   (handler-case 
+				   (multiple-value-bind (bits-consumed res-list)
+					   (decode data container symbol-table alist next-pointer)
+										;(log:debug res-list)
+					 (log:debug (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
+					 
+					 (setf next-pointer bits-consumed)
+					 (push res-list packet-list)
+					 (log:debug "Extracted ~A of ~A bytes" bits-consumed data-length)
+					 (when (stc::stc.ccsds.space-packet.is-idle-pattern (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
+					   (log:info "Found idle Packet! Abandoning remainder of frame.")
+					   (log:info "Extracted ~A packets." (length packet-list))
 					   (return packet-list))
-				 )))
+					 )
+			   (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
+													 (log:info "Attempted to index beyond frame data")))
+			))
 	packet-list))
 
 (defparameter payload (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
@@ -832,3 +834,14 @@
 						 :type boolean)))
 
 (stc::stc.ccsds.space-packet.is-idle-pattern #*11111111111)
+
+
+; Unwind when we try to index outside of the array
+
+
+(handler-case 
+	(subseq #*1 0 100)
+ (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
+   (print err)
+   (print err)
+   ))

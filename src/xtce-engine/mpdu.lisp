@@ -77,9 +77,19 @@
 
 ;Use binary sequence encoding on container to turn m_pdu packet zone to packets, then reference the packet container
 
-(defun with-ccsds.mpdu.containers(parameter-list)
+(defun with-ccsds.mpdu.containers (parameter-list)
   (append parameter-list
 		  (list
 		   CCSDS.MPDU.Container.MPDU
 		   CCSDS.MPDU.Container.Header
 		   CCSDS.MPDU.Container.Packet-Zone)))
+
+(defun stc.ccsds.mpdu.is-spanning-pattern (first-header-pointer)
+	(if (eq first-header-pointer #b11111111111)
+		t
+		nil))
+
+(defun stc.ccsds.mpdu.is-idle-pattern (first-header-pointer)
+  (if (eq first-header-pointer #b11111111110) ;equiv to (- #b11111111111 1)
+		t
+		nil))

@@ -318,9 +318,3 @@
 	(if (equal xtce::idle-pattern apid)
 		t
 		nil)))
-
-;This is wrong, should be for MPDU
-(defun stc.ccsds.space-packet.is-spanning-pattern (first-header-pointer)
-	(if (eq first-header-pointer #b11111111111)
-		t
-		nil))

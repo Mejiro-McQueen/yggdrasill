@@ -133,12 +133,6 @@
    ;;#:decode
    ))
 
-(defpackage :xtce-engine
-  (:use :cl
-		:xtce)
-  (:documentation "XTCE-Engine")
-  (:export #:STC.CCSDS.Space-Packet-Types))
-
 (defpackage :standard-template-constructs
   (:use :cl
 		:xtce)
@@ -204,8 +198,20 @@
    #:with-ccsds.mpdu.header.parameters
    #:with-ccsds.space-packet.header.parameters
    #:with-ccsds.space-packet.header.types
+   #:with-ccsds.space-packet.types
    ))
 
+(defpackage :xtce-engine
+  (:use :cl
+		:xtce
+		:standard-template-constructs)
+  (:documentation "XTCE-Engine")
+  (:export
+   #:alist->bit-vector
+   #:uint->bit-vector
+   #:concatenate-bit-arrays
+   #:pad-bit-vector
+   #:decode))
 
 (defpackage :nasa-cfs
   (:use :cl
