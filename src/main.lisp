@@ -624,7 +624,7 @@
 									 (cons 'vc-frame-count-cycle #*1010))))
 
 (defparameter test-space-packet (alist->bit-vector
-								 (list (cons 'packet-version-number  #*000)
+								 (list (cons 'packet-version-number #*000)
 									   (cons 'packet-type #*0)
 									   (cons 'sec-hdr-flag #*0)
 									   (cons 'appid #*00000000001)
@@ -735,18 +735,16 @@
 ;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
 
 
-(defun monad (frame symbol-table &key packet-extractor)
+(defun monad (frame symbol-table &key (packet-extractor #'extract-space-packets))
   (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
 		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
 		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
 		 (mpdu (decode frame-data-field container symbol-table '() 0))
 		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
 		 (first-header-pointer (* 8 (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
-		 ;(packets (extract-space-packets packet-zone first-header-pointer symbol-table mpdu))
-		 (packets (extract-space-packets packet-zone first-header-pointer symbol-table mpdu fragged-space-packet-lead 40))
-		 
-		 )
+		 (packets (funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)))
 	packets))
+
 
 (defun extract-space-packets (data first-header-pointer symbol-table alist &optional (previous-packet-segment nil) (previous-remaining-size 0))
   (log:info first-header-pointer)
@@ -754,7 +752,7 @@
 			 (equal (length fragment) previous-remaining-size))
 		   )
 	
-	(let* ((fragment (subseq data 0 first-header-pointer))
+	(let* ((lead-fragment (subseq data 0 first-header-pointer))
 		   (packet-list nil)
 		   (container stc::CCSDS.Space-Packet.Container.Space-Packet)
 		   (data-length (length data)))
@@ -773,7 +771,7 @@
 			(return-from extract-space-packets (values nil nil nil))))
 
 	  (unless (equal first-header-pointer 0)
-		(log:info "Attempting to reconcile fragmented packet.")
+		(log:info "Attempting to reconcile lead-fragmented packet.")
 		(print first-header-pointer)
 		(print previous-packet-segment)
 		(print previous-remaining-size)
@@ -783,8 +781,8 @@
 		  (if (would-complete-fragment (subseq data 0 first-header-pointer))
 			  (progn
 				(log:info "Fragment would complete packet: Restoring fragmented packet.")
-				 (assert (equal (concatenate-bit-arrays previous-packet-segment fragment) test-space-packet))
-				(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment fragment))
+				 (assert (equal (concatenate-bit-arrays previous-packet-segment lead-fragment) test-space-packet))
+				(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment lead-fragment))
 					   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
 				  (if (stc::stc.ccsds.space-packet.is-idle-pattern
 					   (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| decoded-packet)))
@@ -793,7 +791,7 @@
 						(log:info "Restored packet!")
 						(push decoded-packet packet-list)))))
 			  (log:info "Fragment would not complete packet -> Fragment-size: ~A, Required to complete: ~A"
-						(length fragment) previous-remaining-size))))
+						(length lead-fragment) previous-remaining-size))))
 	  
 	  (let ((next-pointer first-header-pointer))
 		(log:debug "Attempting to extract packets starting from zero pointer.")
@@ -818,7 +816,11 @@
 			  ))
 	  packet-list)))
 
-(monad full-frame TEST-TABLE)
+
+(monad full-frame TEST-TABLE
+	   :packet-extractor
+	   (lambda (data first-header-pointer symbol-table alist)
+		 (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 40)))
 
 
 
