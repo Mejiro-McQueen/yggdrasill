@@ -834,3 +834,18 @@
 ;;    (print err)
 ;;    (print err)
 ;;    ))
+
+(defun pack-arrays-with-padding (padding-vector max-size &rest arrays)
+  (declare (optimize (speed 3) (safety 0)))
+  (let* ((v (apply #'concatenate-bit-arrays arrays))
+		 (size-to-go (- max-size (length v)))
+		 (pack-quantity (floor (/ size-to-go (length padding-vector))))
+		 (padding-items ()))
+	(declare (bit-vector padding-vector)
+			 (integer max-size pack-quantity)
+			 (bit-vector v))
+	(dotimes (i pack-quantity)
+	  (push padding-vector padding-items))
+	(apply #'concatenate-bit-arrays v padding-items)))
+
+(pack-arrays-with-padding test-idle-packet 8192 AOS-TEST-HEADER test-mpdu-header test-space-packet) 
