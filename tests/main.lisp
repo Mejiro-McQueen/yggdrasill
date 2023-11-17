@@ -128,9 +128,9 @@
 						  test-space-packet
 						  test-space-packet
 						  test-space-packet
-						  test-space-packet
-						  test-idle-packet
-						  test-idle-packet))
+						  test-space-packet  ;30
+						  test-idle-packet   ;31 
+						  test-idle-packet)) ;32
 
 		  (full-frame (pad-bit-vector 
 					   (concatenate-bit-arrays
@@ -229,4 +229,23 @@
 		   (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field" TEST-TABLE) TEST-TABLE '() 48)))
 	  )))
 
+
+(test AOS-decode
+  "Simple decode test of AOS frame"
+  (with-AOS-TEST-1
+	(with-pack-frame
+	  (let ((packet-list (xtce-engine::monad full-frame TEST-TABLE)))
+		(is (equal 30 (length packet-list)))
+	  (dolist (i packet-list)
+		(is (equal
+			 i
+			 (list (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Data-Length| 3)
+				   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Version-Number| 0)
+				   (cons STC::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| #*00000000001)
+				   (cons STC::'|STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag| 0)
+				   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Type| 0)
+				   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count| 666)
+				   (cons STC::'|STC.CCSDS.Space-Packet.Header.Sequence-Flags| #*11)
+				   (cons STC::'|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field| #*10111010110111000000110111101101))
+			 )))))))
 

@@ -623,10 +623,6 @@
 									 (cons 'reserved-space #*00)
 									 (cons 'vc-frame-count-cycle #*1010))))
 
-(defparameter test-mpdu-header (alist->bit-vector
-								(list (cons 'spare #*00000)
-									  (cons 'first-header-pointer #*00000000000))))
-
 (defparameter test-space-packet (alist->bit-vector
 								 (list (cons 'packet-version-number  #*000)
 									   (cons 'packet-type #*0)
@@ -644,10 +640,21 @@
 									  (cons 'appid #*11111111111)
 									  (cons 'sequence-flags #*11)
 									  (cons 'sequence-count #*00001010011010)
-									   (cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xFFFFFFFF)) 8) 1) 16))
-									   (cons 'data (uint->bit-vector #xFFFFFFFF)))))
+									  (cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xFFFFFFFF)) 8) 1) 16))
+									  (cons 'data (uint->bit-vector #xFFFFFFFF)))))
+
+(defparameter test-mpdu-header (alist->bit-vector
+								(list (cons 'spare #*00000)
+									  (cons 'first-header-pointer #*00000000101)))) ;5 octets
+
+(defparameter fragged-space-packet-lead (subseq test-space-packet 0 (/ (length test-space-packet) 2)))
+
+(defparameter fragged-space-packet-rear (subseq test-space-packet (/ (length test-space-packet) 2)))
+
+(assert (equal test-space-packet (concatenate-bit-arrays fragged-space-packet-lead fragged-space-packet-rear)))
 
 (defparameter space-packets (concatenate-bit-arrays
+							 fragged-space-packet-rear
 							 test-space-packet
 							 test-space-packet
 							 test-space-packet
@@ -728,59 +735,88 @@
 ;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
 
 
-(defun monad (frame symbol-table)
+(defun monad (frame symbol-table &key packet-extractor)
   (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
 		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
 		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
 		 (mpdu (decode frame-data-field container symbol-table '() 0))
 		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
-		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu)))
-		 (packets (extract-space-packets packet-zone first-header-pointer symbol-table mpdu)))
+		 (first-header-pointer (* 8 (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+		 ;(packets (extract-space-packets packet-zone first-header-pointer symbol-table mpdu))
+		 (packets (extract-space-packets packet-zone first-header-pointer symbol-table mpdu fragged-space-packet-lead 40))
+		 
+		 )
 	packets))
 
-(defun extract-space-packets (data first-header-pointer symbol-table alist &optional (previous-packet-segment #*) (previous-remaining-size 0))
-  (let* ((continuing-segment (subseq data 0 first-header-pointer))
-		 (current-packet nil)
-		 (packet-list nil)
-		 (maybe-new-packet (concatenate-bit-arrays previous-packet-segment))
-		 (container stc::CCSDS.Space-Packet.Container.Space-Packet)
-		 (data-length (length data)))
+(defun extract-space-packets (data first-header-pointer symbol-table alist &optional (previous-packet-segment nil) (previous-remaining-size 0))
+  (log:info first-header-pointer)
+  (labels ((would-complete-fragment (fragment)
+			 (equal (length fragment) previous-remaining-size))
+		   )
+	
+	(let* ((fragment (subseq data 0 first-header-pointer))
+		   (packet-list nil)
+		   (container stc::CCSDS.Space-Packet.Container.Space-Packet)
+		   (data-length (length data)))
 
-	(log:debug "Attempting to extract space packets...")
-	(when (stc::stc.ccsds.mpdu.is-idle-pattern first-header-pointer)
-	  (log:debug "Found idle pattern.")
-	  (return-from extract-space-packets nil))
+	  (log:debug "Attempting to extract space packets...")
+	  (when (stc::stc.ccsds.mpdu.is-idle-pattern first-header-pointer)
+		(log:debug "Found idle pattern.")
+		(return-from extract-space-packets nil))
 
-	(when (stc::stc.ccsds.mpdu.is-spanning-pattern first-header-pointer)
-	  (log:debug "Attempting to reconstruct spanning packet.")
-	  (decf previous-packet-segment (length data))
-	  (setf previous-packet-segment (concatenate-bit-arrays previous-packet-segment data))
-	  (if (eq previous-packet-segment 0)
-		  (return-from extract-space-packets (decode previous-packet-segment container symbol-table alist 0))
-		  (return-from extract-space-packets (values nil nil nil))))
+	  (when (stc::stc.ccsds.mpdu.is-spanning-pattern first-header-pointer)
+		(log:debug "Attempting to reconstruct spanning packet.")
+		(decf previous-packet-segment (length data))
+		(setf previous-packet-segment (concatenate-bit-arrays previous-packet-segment data))
+		(if (eq previous-packet-segment 0)
+			(return-from extract-space-packets (decode previous-packet-segment container symbol-table alist 0))
+			(return-from extract-space-packets (values nil nil nil))))
 
-	(let ((next-pointer first-header-pointer))
-	  (log:debug "Attempting to extract packets starting from zero pointer.")
-	  (loop while (< next-pointer data-length)
-			do
-			   (handler-case 
-				   (multiple-value-bind (res-list bits-consumed)
-					   (decode data container symbol-table alist next-pointer)
+	  (unless (equal first-header-pointer 0)
+		(log:info "Attempting to reconcile fragmented packet.")
+		(print first-header-pointer)
+		(print previous-packet-segment)
+		(print previous-remaining-size)
+		(unless previous-packet-segment
+		  (log:info "Found fragmented packet at the front of the MPDU but we did not see it's lead fragment in the last MPDU."))
+		(when previous-packet-segment
+		  (if (would-complete-fragment (subseq data 0 first-header-pointer))
+			  (progn
+				(log:info "Fragment would complete packet: Restoring fragmented packet.")
+				 (assert (equal (concatenate-bit-arrays previous-packet-segment fragment) test-space-packet))
+				(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment fragment))
+					   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
+				  (if (stc::stc.ccsds.space-packet.is-idle-pattern
+					   (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| decoded-packet)))
+					  (log:info "Idle packet restored; Discarding.")
+					  (progn 
+						(log:info "Restored packet!")
+						(push decoded-packet packet-list)))))
+			  (log:info "Fragment would not complete packet -> Fragment-size: ~A, Required to complete: ~A"
+						(length fragment) previous-remaining-size))))
+	  
+	  (let ((next-pointer first-header-pointer))
+		(log:debug "Attempting to extract packets starting from zero pointer.")
+		(loop while (< next-pointer data-length)
+			  do
+				 (handler-case 
+					 (multiple-value-bind (res-list bits-consumed)
+						 (decode data container symbol-table alist next-pointer)
 										;(log:debug res-list)
-					 (log:debug (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
-					 
-					 (setf next-pointer bits-consumed)
-					 (push res-list packet-list)
-					 (log:debug "Extracted ~A of ~A bytes" bits-consumed data-length)
-					 (when (stc::stc.ccsds.space-packet.is-idle-pattern (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
-					   (log:info "Found idle Packet! Abandoning remainder of frame.")
-					   (log:info "Extracted ~A packets." (length packet-list))
-					   (return packet-list))
-					 )
-			   (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
-													 (log:info "Attempted to index beyond frame data")))
-			))
-	packet-list))
+					   (log:debug (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
+					   
+					   (setf next-pointer bits-consumed)
+					   (log:info "Extracted ~A of ~A bytes" bits-consumed data-length)
+					   (when (stc::stc.ccsds.space-packet.is-idle-pattern (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
+						 (log:info "Found idle Packet! Abandoning remainder of frame.")
+						 (log:info "Extracted ~A packets." (length packet-list))
+						 (return packet-list))
+					   (push res-list packet-list)
+					   )
+				   (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
+					 (log:info "Attempted to index beyond frame data ~A" err)))
+			  ))
+	  packet-list)))
 
 (monad full-frame TEST-TABLE)
 
