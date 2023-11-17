@@ -781,7 +781,6 @@
 		  (if (would-complete-fragment (subseq data 0 first-header-pointer))
 			  (progn
 				(log:info "Fragment would complete packet: Restoring fragmented packet.")
-				 (assert (equal (concatenate-bit-arrays previous-packet-segment lead-fragment) test-space-packet))
 				(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment lead-fragment))
 					   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
 				  (if (stc::stc.ccsds.space-packet.is-idle-pattern
@@ -805,15 +804,17 @@
 					   
 					   (setf next-pointer bits-consumed)
 					   (log:info "Extracted ~A of ~A bytes" bits-consumed data-length)
-					   (when (stc::stc.ccsds.space-packet.is-idle-pattern (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
-						 (log:info "Found idle Packet! Abandoning remainder of frame.")
-						 (log:info "Extracted ~A packets." (length packet-list))
-						 (return packet-list))
-					   (push res-list packet-list)
+					   (if (stc::stc.ccsds.space-packet.is-idle-pattern
+							(cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
+						 (log:info "Found idle Packet!")
+						 (push res-list packet-list))
 					   )
 				   (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
-					 (log:info "Attempted to index beyond frame data ~A" err)))
+										; Stop Condition, you have to hit this.
+					 (log:info "Attempted to index beyond frame data ~A" err)
+					 (return-from extract-space-packets packet-list)))
 			  ))
+	  (log:info "Extracted ~A packets." (length packet-list))
 	  packet-list)))
 
 

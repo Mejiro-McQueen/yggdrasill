@@ -90,9 +90,10 @@
 						  test-space-packet
 						  test-space-packet
 						  test-space-packet
-						  test-space-packet  ;30
-						  test-idle-packet   ;31 
-						  test-idle-packet)) ;32
+						  test-space-packet ;30
+						  test-idle-packet ;31 
+						  test-idle-packet ;32
+						  test-space-packet)) ;32
 
 		  (full-frame (pad-bit-vector 
 					   (concatenate-bit-arrays
@@ -197,7 +198,7 @@
   (with-AOS-TEST-1
 	(with-pack-frame
 	  (let ((packet-list (xtce-engine::monad full-frame TEST-TABLE)))
-		(is (equal 30 (length packet-list)))
+		(is (equal 31 (length packet-list)))
 	  (dolist (i packet-list)
 		(is (equal
 			 i
@@ -336,3 +337,119 @@
 				   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count| 666)
 				   (cons STC::'|STC.CCSDS.Space-Packet.Header.Sequence-Flags| #*11)
 				   (cons STC::'|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field| #*10111010110111000000110111101101)))))))))
+
+
+(defmacro with-AOS-TEST-3 (&body body)
+  "AOS Frame with lead fragment short circuiting idle packets"
+  `(let* ((AOS-TEST-HEADER (alist->bit-vector
+							(list (cons 'transfer-frame-version-number #*01)
+								  (cons 'spacecraft-id #*01100011) ;0x63
+								  (cons 'virtual-channel-id #*101011) ;43
+								  (cons 'virtual-channel-frame-count #*100101110000100010101011); 9898155
+								  (cons 'replay-flag #*0)
+								  (cons 'virtual-channel-frame-count-usage-flag #*1)
+								  (cons 'reserved-space #*00)
+								  (cons 'vc-frame-count-cycle #*1010))))
+
+		  (test-space-packet (alist->bit-vector
+							  (list (cons 'packet-version-number  #*000)
+									(cons 'packet-type #*0)
+									(cons 'sec-hdr-flag #*0)
+									(cons 'apid #*00000000001)
+									(cons 'sequence-flags #*11)
+									(cons 'sequence-count #*00001010011010)
+									(cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xBADC0DED)) 8) 1) 16))
+									(cons 'data (uint->bit-vector #xBADC0DED)))))
+
+		  (test-idle-packet (alist->bit-vector
+							 (list (cons 'packet-version-number  #*000)
+								   (cons 'packet-type #*0)
+								   (cons 'sec-hdr-flag #*0)
+								   (cons 'appid #*11111111111)
+								   (cons 'sequence-flags #*11)
+								   (cons 'sequence-count #*00001010011010)
+								   (cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xFFFFFFFF)) 8) 1) 16))
+								   (cons 'data (uint->bit-vector #xFFFFFFFF)))))
+
+		  (fragged-space-packet-lead (subseq test-idle-packet 0 (/ (length test-idle-packet) 2)))
+		  
+		  (fragged-space-packet-rear (subseq test-idle-packet (/ (length test-idle-packet) 2)))
+		  
+		  (test-mpdu-header (alist->bit-vector
+							 (list (cons 'spare #*00000)
+								   (cons 'first-header-pointer #*00000000101)))))
+	 
+	 ,@body
+	 ))
+
+(defmacro with-pack-lead-fragment-idle-frame (&body body)
+  `(let* ((space-packets (concatenate-bit-arrays
+						  fragged-space-packet-rear
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet
+						  test-space-packet  ;30
+						  test-idle-packet   ;31 
+						  test-idle-packet)) ;32
+
+		  (full-frame (pad-bit-vector 
+					   (concatenate-bit-arrays
+						AOS-TEST-HEADER
+						test-mpdu-header
+						space-packets)
+					   8192
+					   :position :right
+					   :pad-element 1))
+
+
+		  (TEST-TABLE (xtce::register-keys-in-sequence
+					   (stc::with-ccsds.space-packet.parameters
+						   (stc::with-ccsds.space-packet.types
+							   (stc::with-ccsds.space-packet.containers
+								   (stc::with-ccsds.mpdu.containers
+									   (stc::with-ccsds.mpdu.types
+										   (stc::with-ccsds.mpdu.parameters
+											   (stc::with-ccsds.aos.containers
+												   (stc::with-ccsds.aos.header.parameters
+													   (stc::with-ccsds.aos.header.types '())))))))))
+					   (filesystem-hash-table:make-filesystem-hash-table) 'Test)))
+	 ,@body
+	 ))
+
+(test leading-idle-frame-fragment
+  "Simple decode test of AOS frame"
+  (with-AOS-TEST-3
+	(with-pack-lead-fragment-idle-frame
+	  (is (equal test-idle-packet (concatenate-bit-arrays fragged-space-packet-lead fragged-space-packet-rear)))
+	  (let ((packet-list (xtce-engine::monad full-frame TEST-TABLE
+											 :packet-extractor
+											 (lambda (data first-header-pointer symbol-table alist)
+											   (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 40)))))
+		(is (equal 29 (length packet-list)))
+
+		))))
