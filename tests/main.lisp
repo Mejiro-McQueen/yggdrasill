@@ -58,6 +58,45 @@
 	 ,@body
 	 ))
 
+(defmacro with-AOS-TEST-2 (&body body)
+  "AOS Frame: 
+     First packet is spanning and is missed."
+  `(let* ((AOS-TEST-HEADER (alist->bit-vector
+							(list (cons 'transfer-frame-version-number #*01)
+								  (cons 'spacecraft-id #*01100011) ;0x63
+								  (cons 'virtual-channel-id #*101011) ;43
+								  (cons 'virtual-channel-frame-count #*100101110000100010101011); 9898155
+								  (cons 'replay-flag #*0)
+								  (cons 'virtual-channel-frame-count-usage-flag #*1)
+								  (cons 'reserved-space #*00)
+								  (cons 'vc-frame-count-cycle #*1010))))
+
+		  (test-mpdu-header (alist->bit-vector
+							 (list (cons 'spare #*00000)
+								   (cons 'first-header-pointer #*00000000000))))
+
+		  (test-space-packet (alist->bit-vector
+							  (list (cons 'packet-version-number  #*000)
+									(cons 'packet-type #*0)
+									(cons 'sec-hdr-flag #*0)
+									(cons 'apid #*00000000001)
+									(cons 'sequence-flags #*11)
+									(cons 'sequence-count #*00001010011010)
+									(cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xBADC0DED)) 8) 1) 16))
+									(cons 'data (uint->bit-vector #xBADC0DED)))))
+
+		  (test-idle-packet (alist->bit-vector
+							 (list (cons 'packet-version-number  #*000)
+								   (cons 'packet-type #*0)
+								   (cons 'sec-hdr-flag #*0)
+								   (cons 'appid #*11111111111)
+								   (cons 'sequence-flags #*11)
+								   (cons 'sequence-count #*00001010011010)
+								   (cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xFFFFFFFF)) 8) 1) 16))
+								   (cons 'data (uint->bit-vector #xFFFFFFFF))))))
+	 ,@body
+	 ))
+
 (defmacro with-pack-frame (&body body)
   `(let* ((space-packets (concatenate-bit-arrays
 						  test-space-packet
@@ -189,3 +228,5 @@
 	  (is (equal (cons STC::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| (subseq full-frame (* 6 8))) ;6 octets
 		   (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field" TEST-TABLE) TEST-TABLE '() 48)))
 	  )))
+
+

@@ -727,21 +727,16 @@
 ;; (decode full-frame stc::CCSDS.Space-Packet.Container.Space-Packet TEST-TABLE '() 0)
 ;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
 
-(defun mpdu-depacketizer (alist symbol-table)
-  (let* ((frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| alist)))
-		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" TEST-TABLE))
-		 (mpdu nil))
-	(multiple-value-bind (res)
-		(decode frame-data-field container symbol-table '() 0)
-	  res
-	  )))
 
-(multiple-value-bind (res)
-	(decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
-  (defparameter mpdu (mpdu-depacketizer res TEST-TABLE)))
-
-(multiple-value-bind (next-bit alist) (decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
-  (defparameter frame-alist alist))
+(defun monad (frame symbol-table)
+  (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
+		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
+		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
+		 (mpdu (decode frame-data-field container symbol-table '() 0))
+		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu)))
+		 (packets (extract-space-packets packet-zone first-header-pointer symbol-table mpdu)))
+	packets))
 
 (defun extract-space-packets (data first-header-pointer symbol-table alist &optional (previous-packet-segment #*) (previous-remaining-size 0))
   (let* ((continuing-segment (subseq data 0 first-header-pointer))
@@ -769,7 +764,7 @@
 	  (loop while (< next-pointer data-length)
 			do
 			   (handler-case 
-				   (multiple-value-bind (res-list bits-consumed )
+				   (multiple-value-bind (res-list bits-consumed)
 					   (decode data container symbol-table alist next-pointer)
 										;(log:debug res-list)
 					 (log:debug (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
@@ -787,52 +782,8 @@
 			))
 	packet-list))
 
-(defparameter payload (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+(monad full-frame TEST-TABLE)
 
-(defparameter z (extract-space-packets payload 0 TEST-TABLE mpdu)
-
-  )
-
-
-(defclass expression-element () ())
-
-(defun expression-list-p (l)
-  (and (listp l)
-	   (every (lambda (i) (typep i 'expression-element)) l)))
-
-(deftype expression-list ()
-  '(satisfies expression-list-p))
-
-(defclass math-operation-calibrator ()
-  ((ancillary-data-set :initarg :ancillary-data-set
-					  :type ancillary-data-set)
-  (expression-list :initarg :expression-list
-				   :type expression-list)
-  ))
-
-(defclass value-operand (expression-element)
-  ((value :initarg :value :type number)))
-
-(defclass this-parameter-operand (expression-element) ())
-
-(defun make-this-parameter-operand ()
-  (make-instance 'this-parameter-operand))
-
-(defclass operator (expression-element)
-  ((operator :initarg :operator :type symbol)))
-
-(defun make-operator (operator)
-  (make-instance 'operator :operator operator))
-
-(defclass parameter-instance-ref-operand (expression-element)
-  ((parameter-ref :initarg :parameter-ref
-				  :type parameter-ref)
-   (instance :initarg :instance
-			 :type number)
-   (use-calibrated-value :initarg :use-calibrated-value
-						 :type boolean)))
-
-(stc::stc.ccsds.space-packet.is-idle-pattern #*11111111111)
 
 
 ; Unwind when we try to index outside of the array

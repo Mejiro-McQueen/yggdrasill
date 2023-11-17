@@ -211,7 +211,8 @@
    #:uint->bit-vector
    #:concatenate-bit-arrays
    #:pad-bit-vector
-   #:decode))
+   #:decode
+   #:extract-space-packets))
 
 (defpackage :nasa-cfs
   (:use :cl
