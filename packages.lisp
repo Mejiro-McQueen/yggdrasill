@@ -216,7 +216,8 @@
 (defpackage :nasa-cfs
   (:use :cl
 		:xtce
-		:stc)
+		:stc
+		:xtce-engine)
   (:nicknames :cfs)
   (:documentation "NASA-cFS")
   (:export))

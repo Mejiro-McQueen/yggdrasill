@@ -16,16 +16,12 @@
 
 (in-suite mpdu-tests)
 
-(test find-key-in-current-map
-  "User wants to find an absolute key in a subpath"
-	(is (equal 'OK 'OK )))
-	
-
 ;; (setf *TEST* #x1acffc1dFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA)
 ;; (print-hex (look-for-pattern *TEST*
 ;; 							 (make-sync-pattern #x1acffc1d (integer-length #x1acffc1d))))
 
 (defmacro with-AOS-TEST-1 (&body body)
+  "AOS Frame with no spanning MPDU and short circuiting idle packets"
   `(let* ((AOS-TEST-HEADER (alist->bit-vector
 							(list (cons 'transfer-frame-version-number #*01)
 								  (cons 'spacecraft-id #*01100011) ;0x63
@@ -44,7 +40,7 @@
 							  (list (cons 'packet-version-number  #*000)
 									(cons 'packet-type #*0)
 									(cons 'sec-hdr-flag #*0)
-									(cons 'appid #*00000000001)
+									(cons 'apid #*00000000001)
 									(cons 'sequence-flags #*11)
 									(cons 'sequence-count #*00001010011010)
 									(cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xBADC0DED)) 8) 1) 16))
@@ -126,32 +122,70 @@
   "Simple decode test of AOS frame"
   (with-AOS-TEST-1
 	(with-pack-frame
-	  (is (equal 1 1))
-	  (is (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type" TEST-TABLE) TEST-TABLE '() 0) #*01)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier-Type" TEST-TABLE) TEST-TABLE '() 2)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID-Type" TEST-TABLE) TEST-TABLE '() 10)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type" TEST-TABLE) TEST-TABLE '() 16)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Replay-Flag-Type" TEST-TABLE) TEST-TABLE '() 40)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type" TEST-TABLE) TEST-TABLE '() 41)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Reserved-Spare-Type" TEST-TABLE) TEST-TABLE '() 42)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle-Type" TEST-TABLE) TEST-TABLE '() 44)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type" TEST-TABLE) TEST-TABLE '() 44)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number" TEST-TABLE) TEST-TABLE '() 0)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier" TEST-TABLE) TEST-TABLE '() 2)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID" TEST-TABLE) TEST-TABLE '() 10)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count" TEST-TABLE) TEST-TABLE '() 16)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Replay-Flag" TEST-TABLE) TEST-TABLE '() 40)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag" TEST-TABLE) TEST-TABLE '() 41)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Reserved-Spare" TEST-TABLE) TEST-TABLE '() 42)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle" TEST-TABLE) TEST-TABLE '() 44)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field" TEST-TABLE) TEST-TABLE '() 44)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
-										;(decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE) TEST-TABLE '() 0)
-	  te;; (decode full-frame stc::CCSDS.Space-Packet.Container.Space-Packet TEST-TABLE '() 0)
-	  ;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
-	  )))
+	;;;Types
+	  (is (equal #*01 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type" TEST-TABLE) TEST-TABLE '() 0)))
+	  (is (equal #*01100011 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier-Type" TEST-TABLE) TEST-TABLE '() 2)))
+	  (is (equal 43 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID-Type" TEST-TABLE) TEST-TABLE '() 10)))
+	  (is (equal 9898155 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type" TEST-TABLE) TEST-TABLE '() 16)))
+	  (is (equal "False" (decode full-frame (gethash "STC.CCSDS.AOS.Header.Replay-Flag-Type" TEST-TABLE) TEST-TABLE '() 40)))
+	  (is (equal "Interpreted" (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type" TEST-TABLE) TEST-TABLE '() 41)))
+	  (is (equal #*00 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Reserved-Spare-Type" TEST-TABLE) TEST-TABLE '() 42)))
+	  (is (equal 10 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle-Type" TEST-TABLE) TEST-TABLE '() 44)))
+	  (is (equal (subseq full-frame (* 6 8)) ;6 octets
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type" TEST-TABLE) TEST-TABLE '() 48)))
 
-(with-AOS-TEST-1
-  (with-pack-frame
-	FULL-FRAME
-	))
+	;;;Containers
+	  (is (equal (list (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count| 9898155)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-ID| 43)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Spacecraft-Identifier| #*01100011)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number| #*01)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle| 10)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Reserved-Spare| #*00)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag| "Interpreted")
+					   (cons STC::'|STC.CCSDS.AOS.Header.Replay-Flag| "False"))
+		   (decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)))
+
+	  		  
+	  (is (equal (list (cons STC::'|STC.CCSDS.AOS.Header.Spacecraft-Identifier| #*01100011)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number| #*01))
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE) TEST-TABLE '() 0)))
+
+	  (is (equal (list (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count| 9898155)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-ID| 43)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Spacecraft-Identifier| #*01100011)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number| #*01)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle| 10)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Reserved-Spare| #*00)
+					   (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag| "Interpreted")
+					   (cons STC::'|STC.CCSDS.AOS.Header.Replay-Flag| "False")
+					   (cons STC::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| (subseq full-frame (* 6 8)))) ;6 octets
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)))
+
+	;;;Parameters
+	   (is (equal (cons STC::'|STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number|  #*01)
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number" TEST-TABLE) TEST-TABLE '() 0)))
+	  
+	  (is (equal (cons STC::'|STC.CCSDS.AOS.Header.Spacecraft-Identifier| #*01100011)
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier" TEST-TABLE) TEST-TABLE '() 2)))
+
+	  (is (equal (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-ID| 43)
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID" TEST-TABLE) TEST-TABLE '() 10)))
+	  
+	  (is (equal (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count| 9898155)
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count" TEST-TABLE) TEST-TABLE '() 16)))
+	 
+	  (is (equal (cons STC::'|STC.CCSDS.AOS.Header.Replay-Flag| "False")
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Replay-Flag" TEST-TABLE) TEST-TABLE '() 40)))
+	  
+	  (is (equal (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag| "Interpreted")
+				 (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag" TEST-TABLE) TEST-TABLE '() 41)))
+	  
+	  (is (equal (cons STC::'|STC.CCSDS.AOS.Header.Reserved-Spare| #*00)
+		   (decode full-frame (gethash "STC.CCSDS.AOS.Header.Reserved-Spare" TEST-TABLE) TEST-TABLE '() 42)))
+	  
+	  (is (equal (cons STC::'|STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle| 10)
+		  (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle" TEST-TABLE) TEST-TABLE '() 44)))
+	  
+	  (is (equal (cons STC::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| (subseq full-frame (* 6 8))) ;6 octets
+		   (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field" TEST-TABLE) TEST-TABLE '() 48)))
+	  )))

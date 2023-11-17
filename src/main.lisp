@@ -1,9 +1,9 @@
-(ql:quickload "bifrost-yggdrasill")
-(ql:quickload "lparallel")
-(ql:quickload "filesystem-hash-table")
-(ql:quickload "log4cl")
+;(ql:quickload "bifrost-yggdrasill")
+;(ql:quickload "lparallel")
+;(ql:quickload "filesystem-hash-table")
+;(ql:quickload "log4cl")
 (ql:quickload :log4cl.log4sly)
-(log4cl.log4sly:install)
+;(log4cl.log4sly:install)
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar debug-mode t)
@@ -237,16 +237,16 @@
 (defmethod decode (data (container-ref-entry xtce::container-ref-entry) symbol-table alist bit-offset)
   (log:debug "Dispatching on: " container-ref-entry)
   (let* ((dereferenced-container (xtce:dereference container-ref-entry symbol-table)))
-	(multiple-value-bind (next-bit-offset res) (decode data dereferenced-container symbol-table alist bit-offset)
+	(multiple-value-bind (res next-bit-offset) (decode data dereferenced-container symbol-table alist bit-offset)
 	  (log:debug bit-offset next-bit-offset res)
-	  (values next-bit-offset res))))
+	  (values res next-bit-offset))))
 
 (defmethod decode (data (parameter-ref-entry xtce::parameter-ref-entry) symbol-table alist bit-offset)
   (log:debug "Dispatching on:" parameter-ref-entry)
   (let* ((dereferenced-container (xtce:dereference parameter-ref-entry symbol-table)))
-	(multiple-value-bind (next-bit-offset res) (decode data dereferenced-container symbol-table alist bit-offset)
+	(multiple-value-bind (res next-bit-offset) (decode data dereferenced-container symbol-table alist bit-offset)
 	  (log:debug bit-offset next-bit-offset res)
-	  (values next-bit-offset res))))
+	  (values res next-bit-offset))))
 
 ;; Dispatch on container
 (defmethod decode (data (container xtce::sequence-container) symbol-table alist bit-offset)
@@ -254,7 +254,7 @@
 	(log:debug "Dispatch on: " name)
 	(let ((res-list '()))
 	  (dolist (ref (entry-list container))
-		(multiple-value-bind (next-bit-offset res) (decode data ref symbol-table (append alist res-list) bit-offset)
+		(multiple-value-bind (res next-bit-offset) (decode data ref symbol-table (append alist res-list) bit-offset)
 		  ;(print bit-offset)
 		  (log:debug "Got Result: ~A, ~A" next-bit-offset res)
 		  (setf bit-offset next-bit-offset)
@@ -266,7 +266,7 @@
 			 (log:debug "Pushing parameter result.")
 			 (push res res-list)))))
 	  (log:debug "Finished container processing: ~A, ~A" bit-offset res-list)
-	  (values bit-offset res-list))))
+	  (values res-list bit-offset))))
 
 ;; Dispatch on Parameter
 (defmethod decode (data (parameter xtce::parameter) symbol-table alist bit-offset)
@@ -274,9 +274,9 @@
   (with-slots (name) parameter
 	(let ((parameter-type (xtce::dereference parameter symbol-table)))
 	  (assert parameter-type () "No dereference for parameter ~A" parameter)
-	  (multiple-value-bind (next-bit-offset res) (decode data parameter-type symbol-table alist bit-offset)
+	  (multiple-value-bind (res next-bit-offset) (decode data parameter-type symbol-table alist bit-offset)
 		(log:debug bit-offset next-bit-offset res)
-		(values next-bit-offset (cons name res))))))
+		(values (cons name res) next-bit-offset)))))
 
 ;; Dispatch on binary-parameter-type
 (defmethod decode (data (parameter-type xtce::binary-parameter-type) symbol-table alist bit-offset)
@@ -285,10 +285,10 @@
 	(let ((data-encoding (xtce:data-encoding parameter-type)))
 	  (unless data-encoding 
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	  (multiple-value-bind (next-bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+	  (multiple-value-bind (res next-bit-offset) (decode data data-encoding symbol-table alist bit-offset)
 		;(setf res (bit-vector->hex res))
 		(log:debug bit-offset next-bit-offset res)
-		(values next-bit-offset res)))))
+		(values res next-bit-offset)))))
 
 ;; Dispatch on string-parameter-type
 (defmethod decode (data (parameter-type xtce::string-parameter-type) symbol-table alist bit-offset)
@@ -296,10 +296,10 @@
 	(let ((data-encoding (xtce:data-encoding parameter-type)))
 	  (unless data-encoding 
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	  (multiple-value-bind (next-bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+	  (multiple-value-bind (res next-bit-offset) (decode data data-encoding symbol-table alist bit-offset)
 										;(setf res (bit-vector->hex res))
 		(log:debug bit-offset next-bit-offset res)
-		(values next-bit-offset res)))))
+		(values res next-bit-offset)))))
 
 ;;Decode binary-data encoding
 (defmethod decode (data (encoding xtce::binary-data-encoding) symbol-table alist bit-offset)
@@ -309,7 +309,7 @@
 		   (next-offset (+ bit-offset size-in-bits)))
 	  (log:debug "Extracting: " size-in-bits)
 	  (log:debug bit-offset next-offset data-segment)
-	  (values next-offset data-segment))))
+	  (values data-segment next-offset))))
 
 ;; Dispatch on enumerated-parameter-type
 (defmethod decode (data (parameter-type xtce::enumerated-parameter-type) symbol-table alist bit-offset)
@@ -318,9 +318,9 @@
 	(let ((data-encoding (xtce:data-encoding parameter-type)))
 	  (unless data-encoding 
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	  (multiple-value-bind (next-bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+	  (multiple-value-bind (res next-bit-offset) (decode data data-encoding symbol-table alist bit-offset)
 		(log:debug bit-offset next-bit-offset res)
-		(values next-bit-offset res)))))
+		(values res next-bit-offset)))))
 
 ;;Decode boolean parameter 
 (defmethod decode (data (parameter-type xtce::boolean-parameter-type) symbol-table alist bit-offset)
@@ -330,7 +330,7 @@
 		   (res nil))
 	  (unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
 		(error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	  (multiple-value-bind (next-bit-offset decoded-flag) (decode data data-encoding symbol-table alist bit-offset)
+	  (multiple-value-bind (decoded-flag next-bit-offset) (decode data data-encoding symbol-table alist bit-offset)
 		(with-slots (xtce::zero-string-value xtce::one-string-value xtce::name) parameter-type
 		  (setf res (typecase decoded-flag
 					  (bit-vector
@@ -346,7 +346,7 @@
 						   xtce::zero-string-value
 						   xtce::one-string-value)))))
 		(log:debug next-bit-offset bit-offset res)
-		(values next-bit-offset res)))))
+		(values res next-bit-offset)))))
 
 ;;Decode Integer Parameter
 (defmethod decode (data (parameter-type xtce::integer-parameter-type) symbol-table alist bit-offset)
@@ -354,10 +354,10 @@
   (let ((data-encoding (xtce:data-encoding parameter-type)))
 	(unless data-encoding ;Empty data-encoding is only valid for ground derrived telemetry 			
 	  (error "Can not decode data from stream without a data-encoding for ~A" parameter-type))
-	(multiple-value-bind (next-bit-offset res) (decode data data-encoding symbol-table alist bit-offset)
+	(multiple-value-bind (res next-bit-offset) (decode data data-encoding symbol-table alist bit-offset)
 	  (with-slots (xtce::name) parameter-type
 		(log:debug bit-offset res)
-		(values next-bit-offset res)))))
+		(values res next-bit-offset)))))
 
 ;;Decode Integer Encoding
 (defmethod decode (data (integer-data-encoding xtce::integer-data-encoding) symbol-table alist bit-offset)
@@ -374,7 +374,7 @@
 		   (log:debug bit-offset next-bit-offset res)
 		   (log:debug "Extracted: " data-segment)
 		   )))
-	  (values next-bit-offset res))))
+	  (values res next-bit-offset))))
 
 ;; (defun a (space-system frame)
 ;;   (with-state space-system
@@ -704,7 +704,6 @@
 														  (stc::with-ccsds.aos.header.types '())))))))))
 						  (filesystem-hash-table:make-filesystem-hash-table) 'Test))
 
-
 ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type" TEST-TABLE) TEST-TABLE '() 0)
 ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier-Type" TEST-TABLE) TEST-TABLE '() 2)
 ;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID-Type" TEST-TABLE) TEST-TABLE '() 10)
@@ -732,12 +731,12 @@
   (let* ((frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| alist)))
 		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" TEST-TABLE))
 		 (mpdu nil))
-	(multiple-value-bind (_ res)
+	(multiple-value-bind (res)
 		(decode frame-data-field container symbol-table '() 0)
 	  res
 	  )))
 
-(multiple-value-bind (_ res)
+(multiple-value-bind (res)
 	(decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
   (defparameter mpdu (mpdu-depacketizer res TEST-TABLE)))
 
@@ -770,7 +769,7 @@
 	  (loop while (< next-pointer data-length)
 			do
 			   (handler-case 
-				   (multiple-value-bind (bits-consumed res-list)
+				   (multiple-value-bind (res-list bits-consumed )
 					   (decode data container symbol-table alist next-pointer)
 										;(log:debug res-list)
 					 (log:debug (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
@@ -839,9 +838,9 @@
 ; Unwind when we try to index outside of the array
 
 
-(handler-case 
-	(subseq #*1 0 100)
- (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
-   (print err)
-   (print err)
-   ))
+;; (handler-case 
+;; 	(subseq #*1 0 100)
+;;  (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
+;;    (print err)
+;;    (print err)
+;;    ))

@@ -2,15 +2,17 @@
   :version "0.1.0"
   :author "Adrian Vazquez"
   :license "MIT"
-  :depends-on (#:cxml #:alexandria #:filesystem-hash-table)
+  :depends-on (#:cxml #:alexandria #:filesystem-hash-table #:log4cl)
   :components ((:file "packages")
 			   (:module "src"
-				:components ((:file "utils")))
+				:components ((:file "main"))
+				:depends-on ("packages" "src/xtce" "src/xtce-engine"))
 			   (:module "src/xtce"
-				:components ((:file "xtce"))
-				:depends-on ("packages" "src"))
+				:components ((:file "xtce")
+							 (:file "utils"))
+				:depends-on ("packages"))
 			   (:module "src/xtce-engine"
-				:depends-on ("packages" "src" "src/xtce")
+				:depends-on ("packages" "src/xtce")
 				:components ((:file "xtce-engine")
 							 (:file "standard-template-constructs")
 							 (:file "aos")
@@ -31,5 +33,4 @@
   :perform (test-op (op c)
                     (symbol-call :fiveam :run!
                                  (find-symbol* :bifrost-yggdrasill  :bifrost-yggdrasill/test))))
-
 
