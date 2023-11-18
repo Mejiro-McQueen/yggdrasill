@@ -645,7 +645,7 @@
 
 (defparameter test-mpdu-header (alist->bit-vector
 								(list (cons 'spare #*00000)
-									  (cons 'first-header-pointer #*00000000101)))) ;5 octets
+									  (cons 'first-header-pointer #*00000000000)))) ;5 octets
 
 (defparameter fragged-space-packet-lead (subseq test-space-packet 0 (/ (length test-space-packet) 2)))
 
@@ -711,30 +711,6 @@
 														  (stc::with-ccsds.aos.header.types '())))))))))
 						  (filesystem-hash-table:make-filesystem-hash-table) 'Test))
 
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number-Type" TEST-TABLE) TEST-TABLE '() 0)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier-Type" TEST-TABLE) TEST-TABLE '() 2)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID-Type" TEST-TABLE) TEST-TABLE '() 10)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Type" TEST-TABLE) TEST-TABLE '() 16)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Replay-Flag-Type" TEST-TABLE) TEST-TABLE '() 40)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag-Type" TEST-TABLE) TEST-TABLE '() 41)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Reserved-Spare-Type" TEST-TABLE) TEST-TABLE '() 42)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle-Type" TEST-TABLE) TEST-TABLE '() 44)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field-Type" TEST-TABLE) TEST-TABLE '() 44)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Transfer-Frame-Version-Number" TEST-TABLE) TEST-TABLE '() 0)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Spacecraft-Identifier" TEST-TABLE) TEST-TABLE '() 2)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-ID" TEST-TABLE) TEST-TABLE '() 10)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count" TEST-TABLE) TEST-TABLE '() 16)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Replay-Flag" TEST-TABLE) TEST-TABLE '() 40)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Usage-Flag" TEST-TABLE) TEST-TABLE '() 41)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Reserved-Spare" TEST-TABLE) TEST-TABLE '() 42)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Header.Virtual-Channel-Frame-Count-Cycle" TEST-TABLE) TEST-TABLE '() 44)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Transfer-Frame-Data-Field" TEST-TABLE) TEST-TABLE '() 44)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Frame" TEST-TABLE) TEST-TABLE '() 0)
-;(decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header.Master-Channel-ID" TEST-TABLE) TEST-TABLE '() 0)
-;; (decode full-frame stc::CCSDS.Space-Packet.Container.Space-Packet TEST-TABLE '() 0)
-;; (decode full-frame (gethash "STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header" TEST-TABLE) TEST-TABLE '() 0)
-
-
 (defun monad (frame symbol-table &key (packet-extractor #'extract-space-packets))
   (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
 		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
@@ -742,8 +718,9 @@
 		 (mpdu (decode frame-data-field container symbol-table '() 0))
 		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
 		 (first-header-pointer (* 8 (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
-		 (packets (funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)))
-	packets))
+		 )
+	(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
+	))
 
 
 (defun extract-space-packets (data first-header-pointer symbol-table alist &optional (previous-packet-segment nil) (previous-remaining-size 0))
@@ -755,7 +732,8 @@
 	(let* ((lead-fragment (subseq data 0 first-header-pointer))
 		   (packet-list nil)
 		   (container stc::CCSDS.Space-Packet.Container.Space-Packet)
-		   (data-length (length data)))
+		   (data-length (length data))
+		   )
 
 	  (log:debug "Attempting to extract space packets...")
 	  (when (stc::stc.ccsds.mpdu.is-idle-pattern first-header-pointer)
@@ -810,12 +788,14 @@
 						 (push res-list packet-list))
 					   )
 				   (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
-										; Stop Condition, you have to hit this.
+										; Stop Condition, you have to hit this whenever there is a fragment at the end of hte mpdu.
 					 (log:info "Attempted to index beyond frame data ~A" err)
-					 (return-from extract-space-packets packet-list)))
-			  ))
-	  (log:info "Extracted ~A packets." (length packet-list))
-	  packet-list)))
+					 (log:info next-pointer)
+					 (return)))
+			  )
+		(log:info "Extracted ~A packets." (length packet-list))
+		(values packet-list (lambda (next-data first-header-pointer symbol-table alist)
+							  (extract-space-packets next-data first-header-pointer symbol-table alist (- data-length next-pointer) (subseq data next-pointer) )))))))
 
 
 (monad full-frame TEST-TABLE
@@ -823,17 +803,12 @@
 	   (lambda (data first-header-pointer symbol-table alist)
 		 (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 40)))
 
-
+(monad full-frame TEST-TABLE
+	   :packet-extractor
+	   (lambda (data first-header-pointer symbol-table alist)
+		 (extract-space-packets data first-header-pointer symbol-table alist nil 0)))
 
 ; Unwind when we try to index outside of the array
-
-
-;; (handler-case 
-;; 	(subseq #*1 0 100)
-;;  (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
-;;    (print err)
-;;    (print err)
-;;    ))
 
 (defun pack-arrays-with-padding (padding-vector max-size &rest arrays)
   (declare (optimize (speed 3) (safety 0)))
@@ -848,4 +823,32 @@
 	  (push padding-vector padding-items))
 	(apply #'concatenate-bit-arrays v padding-items)))
 
-(pack-arrays-with-padding test-idle-packet 8192 AOS-TEST-HEADER test-mpdu-header test-space-packet) 
+
+;Might be nicer to build an alist we can concatenate at the end
+(defun make-mpdu-header (first-header-pointer-in-bits)
+  (let ((first-header-pointer-in-bytes (uint->bit-vector (* 8 first-header-pointer-in-bits) 11 )))
+	(alist->bit-vector
+	 (list (cons 'spare #*00000)
+		   (cons 'first-header-pointer first-header-pointer-in-bytes)))))
+
+(defun fragment-packet (packet-to-frag lead-fragment-size-bits)
+  (let ((lead-fragment (subseq packet-to-frag 0 lead-fragment-size-bits))
+		(rear-fragment (subseq packet-to-frag lead-fragment-size-bits))
+		(mpdu-header (make-mpdu-header lead-fragment-size-bits)))
+	(values mpdu-header lead-fragment rear-fragment)))
+
+
+(progn
+  (let* ((packed-array (pack-arrays-with-padding test-idle-packet 8192 AOS-TEST-HEADER test-mpdu-header test-space-packet))
+		 (padding-required (- 8192 (length packed-array)))
+		 
+		 )
+	(multiple-value-bind (next-mpdu-header lead-frag rear-frag) 
+		(fragment-packet test-idle-packet padding-required)
+	  (defparameter next-mpdu next-mpdu-header)
+	  (defparameter rear-frag rear-frag)
+	  (defparameter lead-frag lead-frag)
+	  (setf full-frame (concatenate-bit-arrays packed-array lead-frag)))))
+	  
+
+
