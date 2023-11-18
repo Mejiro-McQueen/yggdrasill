@@ -719,8 +719,10 @@
 		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
 		 (first-header-pointer (* 8 (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
 		 )
-	(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
-	))
+	(multiple-value-bind (alist next-extractor)
+		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
+	  (values alist (lambda (frame symbol-table) (monad frame symbol-table :packet-extractor next-extractor)))
+	  )))
 
 
 (defun extract-space-packets (data first-header-pointer symbol-table alist &optional (previous-packet-segment nil) (previous-remaining-size 0))
@@ -784,8 +786,8 @@
 					   (log:info "Extracted ~A of ~A bytes" bits-consumed data-length)
 					   (if (stc::stc.ccsds.space-packet.is-idle-pattern
 							(cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
-						 (log:info "Found idle Packet!")
-						 (push res-list packet-list))
+						   (log:info "Found idle Packet!")
+						   (push res-list packet-list))
 					   )
 				   (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
 										; Stop Condition, you have to hit this whenever there is a fragment at the end of hte mpdu.
@@ -798,17 +800,7 @@
 							  (extract-space-packets next-data first-header-pointer symbol-table alist (- data-length next-pointer) (subseq data next-pointer) )))))))
 
 
-(monad full-frame TEST-TABLE
-	   :packet-extractor
-	   (lambda (data first-header-pointer symbol-table alist)
-		 (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 40)))
-
-(monad full-frame TEST-TABLE
-	   :packet-extractor
-	   (lambda (data first-header-pointer symbol-table alist)
-		 (extract-space-packets data first-header-pointer symbol-table alist nil 0)))
-
-; Unwind when we try to index outside of the array
+										; Unwind when we try to index outside of the array
 
 (defun pack-arrays-with-padding (padding-vector max-size &rest arrays)
   (declare (optimize (speed 3) (safety 0)))
@@ -824,7 +816,7 @@
 	(apply #'concatenate-bit-arrays v padding-items)))
 
 
-;Might be nicer to build an alist we can concatenate at the end
+										;Might be nicer to build an alist we can concatenate at the end
 (defun make-mpdu-header (first-header-pointer-in-bits)
   (let ((first-header-pointer-in-bytes (uint->bit-vector (* 8 first-header-pointer-in-bits) 11 )))
 	(alist->bit-vector
@@ -840,15 +832,18 @@
 
 (progn
   (let* ((packed-array (pack-arrays-with-padding test-idle-packet 8192 AOS-TEST-HEADER test-mpdu-header test-space-packet))
-		 (padding-required (- 8192 (length packed-array)))
-		 
-		 )
+		 (padding-required (- 8192 (length packed-array))))
 	(multiple-value-bind (next-mpdu-header lead-frag rear-frag) 
 		(fragment-packet test-idle-packet padding-required)
 	  (defparameter next-mpdu next-mpdu-header)
 	  (defparameter rear-frag rear-frag)
 	  (defparameter lead-frag lead-frag)
-	  (setf full-frame (concatenate-bit-arrays packed-array lead-frag)))))
-	  
+	  (defparameter next-frame (concatenate-bit-arrays packed-array lead-frag)))))
 
 
+(multiple-value-bind (alist next-monad)
+	(monad full-frame TEST-TABLE
+		   :packet-extractor
+		   (lambda (data first-header-pointer symbol-table alist)
+			 (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 0)))
+	(funcall next-monad full-frame TEST-TABLE))
