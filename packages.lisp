@@ -212,7 +212,11 @@
    #:concatenate-bit-arrays
    #:pad-bit-vector
    #:decode
-   #:extract-space-packets))
+   #:extract-space-packets
+   #:monad
+   #:pack-arrays-with-padding
+   #:fragment-packet
+   ))
 
 (defpackage :nasa-cfs
   (:use :cl

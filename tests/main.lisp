@@ -453,3 +453,40 @@
 		(is (equal 29 (length packet-list)))
 
 		))))
+
+
+(defmacro with-fragment-frames (&body body)
+  `(let* ((packed-array (pack-arrays-with-padding test-idle-packet 8192 AOS-TEST-HEADER test-mpdu-header test-space-packet))
+		  (padding-required (- 8192 (length packed-array))))
+	(multiple-value-bind (next-mpdu-header lead-frag rear-frag) 
+		(fragment-packet test-idle-packet padding-required 1024)
+	  (let ((next-mpdu next-mpdu-header)
+			(rear-frag rear-frag)
+			(lead-frag lead-frag)
+			(next-frame (concatenate-bit-arrays packed-array lead-frag)))
+	,@body))))
+
+(test spanning-packet
+  (with-AOS-TEST-3
+	(with-pack-lead-fragment-idle-frame
+	  (with-fragment-frames
+		(let ((packets nil))
+		  (multiple-value-bind (res next-monad)
+			  (monad full-frame TEST-TABLE
+					 :packet-extractor
+					 (lambda (data first-header-pointer symbol-table alist)
+					   (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 0)))
+			(setf packets res)
+			(nconc (funcall next-monad full-frame TEST-TABLE) packets)
+			(is (equal 29 (length packets)))
+			))))))
+
+
+(test lead-fragment
+(with-AOS-TEST-3
+  (with-pack-lead-fragment-idle-frame
+	(is (equal 29 (length (monad full-frame TEST-TABLE
+		   :packet-extractor
+		   (lambda (data first-header-pointer symbol-table alist)
+			 (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 0)))
+  ))))))
