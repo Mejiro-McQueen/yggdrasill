@@ -216,6 +216,7 @@
    #:monad
    #:pack-arrays-with-padding
    #:fragment-packet
+   #:make-mpdu-header
    ))
 
 (defpackage :nasa-cfs
