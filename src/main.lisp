@@ -869,6 +869,7 @@
 		   (cons 'first-header-pointer first-header-pointer-in-bytes)))))
 
 (defun fragment-packet (packet-to-frag lead-fragment-size-bits maxmimum-packet-size)
+  (assert (equal 0 (mod lead-fragment-size-bits 8))(lead-fragment-size-bits) "number of bits must be equivalent to an integral number of bytes")
   (let* ((lead-fragment (subseq packet-to-frag 0 lead-fragment-size-bits))
 		 (rear-fragment (subseq packet-to-frag lead-fragment-size-bits))
 		 (mpdu-header (make-mpdu-header (length rear-fragment) maxmimum-packet-size)))
