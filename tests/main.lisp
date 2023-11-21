@@ -557,14 +557,34 @@
 			  )))))))))
 
 
-
-
-;; (test lead-fragment
-;;   (with-AOS-TEST-3g
-;; 	(with-pack-lead-fragment-idle-frame
-;; 	  (is (equal 29
-;; 				 (length (monad full-frame TEST-TABLE
-;; 								:packet-extractor
-;; 								(lambda (data first-header-pointer symbol-table alist)
-;; 								  (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 0)))))))))
-
+(test spanning-packet
+  (with-test-table
+	(with-aos-header
+	  (with-space-packet
+		(with-idle-packet
+		  (with-pack-lead-fragment-space-frame
+			(let ((packets nil))
+			  (multiple-value-bind (res next-monad)
+				  (monad frame-1 test-table
+						 :packet-extractor
+						 (lambda (data first-header-pointer symbol-table alist)
+						   (extract-space-packets data first-header-pointer symbol-table alist #* 0)))
+				(setf packets res)
+				(is (equal 29 (length packets)))
+				(nconc packets (funcall next-monad frame-2 test-table))
+				;;(nconc (funcall next-monad frame-2 test-table) packets)
+				;(print packets)
+				(is (equal 30 (length packets)))
+				(dolist (i packets)
+				(is (equal i
+						   (list (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Data-Length| 3)
+								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Version-Number| 0)
+								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| #*00000000001)
+								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag| 0)
+								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Type| 0)
+								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count| 666)
+								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Sequence-Flags| #*11)
+								 (cons STC::'|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field| #*10111010110111000000110111101101))
+						   )
+			  ))
+				))))))))

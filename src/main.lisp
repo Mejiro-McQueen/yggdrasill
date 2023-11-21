@@ -228,6 +228,20 @@
 	 ,@body
 	 ))
 
+
+(define-condition fragmented-packet-error (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR)
+  ((start :initarg :start :reader start)
+   (end :initarg :end :reader end))
+  (:report (lambda (condition stream) (format stream "Attempted to index outside of frame data while reading packet -> start: ~A, end:~A" (start condition) (end condition)))))
+
+
+(defun packet-subseq (sequence start &optional end)
+  (handler-case (subseq sequence start end)
+	(SB-KERNEL:BOUNDING-INDICES-BAD-ERROR ()
+	  (signal 'fragmented-packet-error :start start
+									   :end end))))
+
+
 ;;;Decode returns from encodings should not modify the alist, this may change in the future when we also want to record precalibrated values
 ;; Parameters must call decode on the encoding, calibrate the value, place it into the alist, and multiple value return
 
@@ -305,7 +319,7 @@
 (defmethod decode (data (encoding xtce::binary-data-encoding) symbol-table alist bit-offset)
   (with-slots (xtce::size-in-bits) encoding
 	(let* ((size-in-bits (xtce::resolve-get-size xtce::size-in-bits :alist alist :db-connection nil))
-		   (data-segment (subseq data bit-offset (+ bit-offset size-in-bits)))
+		   (data-segment (packet-subseq data bit-offset (+ bit-offset size-in-bits)))
 		   (next-offset (+ bit-offset size-in-bits)))
 	  (log:debug "Extracting: " size-in-bits)
 	  (log:debug bit-offset next-offset data-segment)
@@ -736,10 +750,12 @@
 			   (log:info res)
 			   res)))
 	
-	(let* ((lead-fragment (subseq data 0 first-header-pointer))
+	(let* ((rear-fragment (subseq data 0 first-header-pointer))
 		   (packet-list nil)
 		   (container stc::CCSDS.Space-Packet.Container.Space-Packet)
 		   (data-length (length data))
+		   (lead-fragment nil)
+		   (next-expected-fragment-size 0)
 		   )
 
 	  (log:info "Attempting to extract space packets...")
@@ -757,9 +773,9 @@
 						(lambda (next-data first-header-pointer symbol-table alist)
 						  (extract-space-packets next-data first-header-pointer symbol-table alist nil nil)))))
 			(progn
-			  (if (would-complete-fragment lead-fragment)
+			  (if (would-complete-fragment rear-fragment)
 				  (progn
-					(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment lead-fragment))
+					(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment rear-fragment))
 						   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
 					  (if (stc::stc.ccsds.space-packet.is-idle-pattern
 						   (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| decoded-packet)))
@@ -776,14 +792,14 @@
 				  ))
 
 	  (unless (equal first-header-pointer 0)
-		(log:info "Attempting to reconcile lead-fragmented packet.")
+		(log:info "Attempting to reconcile rear-fragmented packet.")
 		(unless previous-packet-segment
 		  (log:info "Found fragmented packet at the front of the MPDU but we did not see it's lead fragment in the last MPDU."))
 		(when previous-packet-segment
-		  (if (would-complete-fragment lead-fragment)
+		  (if (would-complete-fragment rear-fragment)
 			  (progn
 				(log:info "Fragment would complete packet: Restoring fragmented packet.")
-				(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment lead-fragment))
+				(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment rear-fragment))
 					   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
 				  (if (stc::stc.ccsds.space-packet.is-idle-pattern
 					   (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| decoded-packet)))
@@ -792,7 +808,7 @@
 						(log:info "Restored packet!")
 						(push decoded-packet packet-list)))))
 			  (log:info "Fragment would not complete packet -> Fragment-size: ~A, Required to complete: ~A"
-						(length lead-fragment) previous-remaining-size-in-bits))))
+						(length rear-fragment) previous-remaining-size-in-bits))))
 	  
 	  (let ((next-pointer first-header-pointer))
 		(log:debug "Attempting to extract packets starting from zero pointer.")
@@ -808,18 +824,21 @@
 					   (log:debug "Extracted ~A of ~A bytes" bits-consumed data-length)
 					   (if (stc::stc.ccsds.space-packet.is-idle-pattern
 							(cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
-						   (log:info "Found idle Packet!")
+						   (log:debug "Found idle Packet!")
 						   (push res-list packet-list))
 					   )
-				   (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
+				   (fragmented-packet-error (err)
 										; Stop Condition, you have to hit this whenever there is a fragment at the end of hte mpdu.
-					 (log:info "Attempted to index beyond frame data ~A" err)
+					 (log:info err)
+					 (setf lead-fragment (subseq data next-pointer))
+					 (setf next-expected-fragment-size (- (end err) (start err)))
 					 (return)))
 			  )
 		(log:info "Extracted ~A packets." (length packet-list))
 		(log:info (- data-length next-pointer))
+		(log:info (length (subseq data next-pointer) ))
 		(values packet-list (lambda (next-data first-header-pointer symbol-table alist)
-							  (extract-space-packets next-data first-header-pointer symbol-table alist (subseq data next-pointer) (- data-length next-pointer) )))))))
+							  (extract-space-packets next-data first-header-pointer symbol-table alist lead-fragment next-expected-fragment-size )))))))
 
 
 										; Unwind when we try to index outside of the array
@@ -900,3 +919,14 @@
 			 (extract-space-packets data first-header-pointer symbol-table alist fragged-space-packet-lead 0)))
 	(funcall next-monad full-frame TEST-TABLE))
 
+
+(handler-case
+	(packet-subseq #*1 10)
+  (fragmented-packet-error (err)
+	(describe err)
+	)
+  (SB-KERNEL:BOUNDING-INDICES-BAD-ERROR (err)
+	(describe err)
+	))
+
+(packet-subseq #*1 10)
