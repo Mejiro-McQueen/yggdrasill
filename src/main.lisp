@@ -725,15 +725,18 @@
 														  (stc::with-ccsds.aos.header.types '())))))))))
 						  (filesystem-hash-table:make-filesystem-hash-table) 'Test))
 
-(defun monad (frame symbol-table &key (packet-extractor #'extract-space-packets))
+(defun monad (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+						   (extract-space-packets data first-header-pointer symbol-table alist #* 0))))
   (log:info "STARTING CYCLE")
   (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
 		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
 		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
 		 (mpdu (decode frame-data-field container symbol-table '() 0))
 		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
-		 (first-header-pointer (* 8 (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+		 ;(first-header-pointer (* 8 (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu)))
 		 )
+
 	(log:info first-header-pointer)
 	(multiple-value-bind (alist next-extractor)
 		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
@@ -741,40 +744,58 @@
 	  )))
 
 (defun extract-space-packets (data first-header-pointer symbol-table alist previous-packet-segment previous-remaining-size-in-bits)
+  ;I don't think it's necessary to keep count of the previous remaining size.
   (log:info first-header-pointer)
-  (labels ((would-complete-fragment (fragment)
+  (log:info previous-remaining-size-in-bits)
+  ;(log:info previous-packet-segment)
+  (log:info "Attempting to extract space packets...")
+  
+  (when (stc::stc.ccsds.mpdu.is-idle-pattern first-header-pointer)
+	(log:info "Found idle pattern.")
+	(return-from extract-space-packets nil))
+
+    (labels ((would-complete-fragment (fragment)
 			 (let ((res (= (length fragment) previous-remaining-size-in-bits)))
 			   (log:info (length fragment))
-			   (log:info fragment)
+;			   (log:info fragment)
 			   (log:info previous-remaining-size-in-bits)
 			   (log:info res)
 			   res)))
-	
-	(let* ((rear-fragment (subseq data 0 first-header-pointer))
-		   (packet-list nil)
-		   (container stc::CCSDS.Space-Packet.Container.Space-Packet)
-		   (data-length (length data))
-		   (lead-fragment nil)
-		   (next-expected-fragment-size 0)
-		   )
 
-	  (log:info "Attempting to extract space packets...")
-	  (when (stc::stc.ccsds.mpdu.is-idle-pattern first-header-pointer)
-		(log:info "Found idle pattern.")
-		(return-from extract-space-packets nil))
+	  (let ((container stc::CCSDS.Space-Packet.Container.Space-Packet)
+			(packet-list nil)
+			(data-length (length data)))
 
-	  (when (stc::stc.ccsds.mpdu.is-spanning-pattern first-header-pointer)
-		(log:info "Attempting to reconstruct spanning packet.")
-		(if (eq previous-packet-segment 0)
-			(progn
-			  (log:info "Found spanning packet but we do not have a previous fragmented packet.")
-			  (return-from extract-space-packets
-				(values packet-list
-						(lambda (next-data first-header-pointer symbol-table alist)
-						  (extract-space-packets next-data first-header-pointer symbol-table alist nil nil)))))
-			(progn
-			  (if (would-complete-fragment rear-fragment)
-				  (progn
+		(when (stc::stc.ccsds.mpdu.is-spanning-pattern first-header-pointer)
+		  (log:info "Attempting to reconstruct spanning packet.")
+		  (if (eq previous-packet-segment #*)
+			  (progn
+				(log:info "Found spanning packet but we do not have a previous fragmented packet.")
+				(return-from extract-space-packets
+				  (values nil
+						  (lambda (next-data first-header-pointer symbol-table alist)
+							(extract-space-packets next-data first-header-pointer symbol-table alist nil nil)))))
+			  
+			  (progn
+				(log:info "Packet still fragmented.")
+				(return-from extract-space-packets
+				  (values packet-list
+						  (lambda (next-data first-header-pointer symbol-table alist)
+							(extract-space-packets next-data first-header-pointer symbol-table alist (concatenate-bit-arrays previous-packet-segment data) 0)))))))
+		
+		(let* ((rear-fragment (subseq data 0 (* 8 first-header-pointer)))
+			   
+			   (lead-fragment nil)
+			   (next-expected-fragment-size 0)
+			   )
+		  
+		  (unless (equal first-header-pointer 0)
+			(log:info "Attempting to reconcile rear-fragmented packet.")
+			(unless previous-packet-segment
+			  (log:info "Found fragmented packet at the front of the MPDU but we did not see it's lead fragment in the last MPDU."))
+			(when previous-packet-segment
+			  (progn
+				(log:info "Fragment would complete packet: Restoring fragmented packet.")
 					(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment rear-fragment))
 						   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
 					  (if (stc::stc.ccsds.space-packet.is-idle-pattern
@@ -782,35 +803,10 @@
 						  (log:info "Idle packet restored; Discarding.")
 						  (progn 
 							(log:info "Restored packet!")
-							(push decoded-packet packet-list))))))
-				  (progn
-					(log:info "Packet still fragmented: Missing ~A bits" (- previous-remaining-size-in-bits data-length ))
-					(return-from extract-space-packets
-					  (values packet-list
-							  (lambda (next-data first-header-pointer symbol-table alist)
-								(extract-space-packets next-data first-header-pointer symbol-table alist (concatenate-bit-arrays previous-packet-segment data) (- previous-remaining-size-in-bits data-length)))))))
+							(push decoded-packet packet-list)))))
 				  ))
-
-	  (unless (equal first-header-pointer 0)
-		(log:info "Attempting to reconcile rear-fragmented packet.")
-		(unless previous-packet-segment
-		  (log:info "Found fragmented packet at the front of the MPDU but we did not see it's lead fragment in the last MPDU."))
-		(when previous-packet-segment
-		  (if (would-complete-fragment rear-fragment)
-			  (progn
-				(log:info "Fragment would complete packet: Restoring fragmented packet.")
-				(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment rear-fragment))
-					   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
-				  (if (stc::stc.ccsds.space-packet.is-idle-pattern
-					   (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| decoded-packet)))
-					  (log:info "Idle packet restored; Discarding.")
-					  (progn 
-						(log:info "Restored packet!")
-						(push decoded-packet packet-list)))))
-			  (log:info "Fragment would not complete packet -> Fragment-size: ~A, Required to complete: ~A"
-						(length rear-fragment) previous-remaining-size-in-bits))))
 	  
-	  (let ((next-pointer first-header-pointer))
+	  (let ((next-pointer (* 8 first-header-pointer)))
 		(log:debug "Attempting to extract packets starting from zero pointer.")
 		(loop while (< next-pointer data-length)
 			  do
@@ -838,7 +834,7 @@
 		(log:info (- data-length next-pointer))
 		(log:info (length (subseq data next-pointer) ))
 		(values packet-list (lambda (next-data first-header-pointer symbol-table alist)
-							  (extract-space-packets next-data first-header-pointer symbol-table alist lead-fragment next-expected-fragment-size )))))))
+							  (extract-space-packets next-data first-header-pointer symbol-table alist lead-fragment next-expected-fragment-size ))))))))
 
 
 										; Unwind when we try to index outside of the array
@@ -863,13 +859,22 @@
 		  (if (<= packet-header-in-bits maxmimum-packet-size)
 			  (uint->bit-vector (/ packet-header-in-bits 8) 11)
 			  #*11111111111)))
-	(log:info packet-header-in-bits)
+	;(log:info packet-header-in-bits)
 	(alist->bit-vector
 	 (list (cons 'spare #*00000)
 		   (cons 'first-header-pointer first-header-pointer-in-bytes)))))
 
 (defun fragment-packet (packet-to-frag lead-fragment-size-bits maxmimum-packet-size)
   (assert (equal 0 (mod lead-fragment-size-bits 8))(lead-fragment-size-bits) "number of bits must be equivalent to an integral number of bytes")
+  (when (equal 0 lead-fragment-size-bits)
+	(return-from fragment-packet (values (make-mpdu-header 0 0) packet-to-frag #*)))
+
+  (when (< (length packet-to-frag) lead-fragment-size-bits)
+	(return-from fragment-packet (values
+								  (make-mpdu-header (length packet-to-frag) maxmimum-packet-size)
+								  packet-to-frag
+								  #*)))
+  
   (let* ((lead-fragment (subseq packet-to-frag 0 lead-fragment-size-bits))
 		 (rear-fragment (subseq packet-to-frag lead-fragment-size-bits))
 		 (mpdu-header (make-mpdu-header (length rear-fragment) maxmimum-packet-size)))

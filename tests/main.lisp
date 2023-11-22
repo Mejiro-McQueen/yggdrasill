@@ -362,6 +362,8 @@
 							   (cons 'data (uint->bit-vector #xBADC0DED))))))
 	 ,@body))
 
+
+
 (defmacro with-idle-packet (&body body)
   `(let ((idle-packet (alist->bit-vector
 					   (list (cons 'packet-version-number  #*000)
@@ -472,10 +474,10 @@
 
 				(monad frame-2 test-table
 					   :packet-extractor
-						 (lambda (data first-header-pointer symbol-table alist)
-						   (extract-space-packets data first-header-pointer symbol-table alist lead-frag (- (length idle-packet) (length lead-frag)))))
+					   (lambda (data first-header-pointer symbol-table alist)
+						 (extract-space-packets data first-header-pointer symbol-table alist lead-frag (- (length idle-packet) (length lead-frag)))))
 				;;(nconc (funcall next-monad frame-2 test-table) packets)
-				;(is (equal 29 (length packets)))
+										;(is (equal 29 (length packets)))
 				))))))))
 
 
@@ -538,10 +540,10 @@
 		(with-idle-packet
 		  (with-pack-lead-fragment-space-frame
 			(let ((packets nil))
-			 (setf packets (monad frame-2 test-table
-					 :packet-extractor
-					 (lambda (data first-header-pointer symbol-table alist)
-					   (extract-space-packets data first-header-pointer symbol-table alist lead-frag (length rear-frag)))))
+			  (setf packets (monad frame-2 test-table
+								   :packet-extractor
+								   (lambda (data first-header-pointer symbol-table alist)
+									 (extract-space-packets data first-header-pointer symbol-table alist lead-frag (length rear-frag)))))
 			  (is (equal 1 (length packets)))
 			  (dolist (i packets)
 				(is (equal i
@@ -554,10 +556,10 @@
 								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Sequence-Flags| #*11)
 								 (cons STC::'|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field| #*10111010110111000000110111101101))
 						   )
-			  )))))))))
+					)))))))))
 
 
-(test spanning-packet
+(test spanning-packet-3
   (with-test-table
 	(with-aos-header
 	  (with-space-packet
@@ -573,18 +575,85 @@
 				(is (equal 29 (length packets)))
 				(nconc packets (funcall next-monad frame-2 test-table))
 				;;(nconc (funcall next-monad frame-2 test-table) packets)
-				;(print packets)
+										;(print packets)
 				(is (equal 30 (length packets)))
 				(dolist (i packets)
-				(is (equal i
-						   (list (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Data-Length| 3)
-								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Version-Number| 0)
-								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| #*00000000001)
-								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag| 0)
-								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Type| 0)
-								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count| 666)
-								 (cons STC::'|STC.CCSDS.Space-Packet.Header.Sequence-Flags| #*11)
-								 (cons STC::'|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field| #*10111010110111000000110111101101))
-						   )
-			  ))
+				  (is (equal i
+							 (list (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Data-Length| 3)
+								   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Version-Number| 0)
+								   (cons STC::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| #*00000000001)
+								   (cons STC::'|STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag| 0)
+								   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Type| 0)
+								   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count| 666)
+								   (cons STC::'|STC.CCSDS.Space-Packet.Header.Sequence-Flags| #*11)
+								   (cons STC::'|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field| #*10111010110111000000110111101101))
+							 )
+					  ))
 				))))))))
+
+
+
+(defmacro with-huge-space-packet (&body body)
+  `(let* ((payload (pack-arrays-with-padding (uint->bit-vector #xBADC0DED) (* 4096 8)))
+		  (space-packet (alist->bit-vector
+						 (list (cons 'packet-version-number  #*000)
+							   (cons 'packet-type #*0)
+							   (cons 'sec-hdr-flag #*0)
+							   (cons 'apid #*00000000001)
+							   (cons 'sequence-flags #*11)
+							   (cons 'sequence-count #*00001010011010)
+							   (cons 'data-len (uint->bit-vector (- (/ (length payload) 8) 1) 16))
+							   (cons 'data payload)))))
+	 ,@body))
+
+(defun feed-data ()
+  (with-test-table
+	  (with-test-table
+		(with-aos-header
+		  (with-idle-packet
+			(with-huge-space-packet
+			  (let ((rear space-packet)
+					(size-to-frag (- 8192 48 16))
+					(mpdu (make-mpdu-header 0 0))
+					(frames)
+					(current-frame))
+
+				(loop
+				  while (not (equal rear #*))
+				  do
+					 ;(print (length rear))
+					 (print mpdu)
+					 (multiple-value-bind (next-mpdu lead rear_) (fragment-packet rear size-to-frag 8192)
+					   (multiple-value-bind (frame leftover) (pack-arrays-with-padding idle-packet 8192 aos-header mpdu lead)
+						 (setf current-frame (pad-bit-vector frame 8192 :position :right :pad-element 1))
+						 (push current-frame frames)
+						 (decf size-to-frag leftover)
+						 (setf mpdu next-mpdu)
+						 (setf rear rear_))))
+
+				
+				(let ((m 'monad)
+					(packets nil))
+
+				  (dolist (frame  (reverse frames))
+					(print (length frame))
+					(multiple-value-bind (alist next-monad) (funcall m frame TEST-TABLE)
+					  (setf m next-monad)
+					  (print alist)
+					  )
+
+				  
+					(length frames)
+					)))))))))
+
+(feed-data)
+
+(fragment-packet (pad-bit-vector #* (expt 2 14)) 8192 8192)
+
+(make-mpdu-header 8192 8192)
+
+(uint->bit-vector (* 16376 8))
+
+(stc::stc.ccsds.mpdu.is-spanning-pattern #*11111111111)
+
+(stc::stc.ccsds.mpdu.is-spanning-pattern 2047)
