@@ -977,9 +977,9 @@
 	(t (get-size size)))))
 
 (defmethod marshall ((obj dynamic-value))
-  (with-slots (instance-ref linear-adjustment) obj
+  (with-slots (parameter-instance-ref linear-adjustment) obj
 	(cxml:with-element* ("xtce" "DynamicValue")
-	  (marshall instance-ref)
+	  (marshall parameter-instance-ref)
 	  (marshall linear-adjustment))))
 
 (defclass argument-instance-ref ()

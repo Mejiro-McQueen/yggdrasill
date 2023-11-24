@@ -17,7 +17,7 @@
 
 (defparameter AOS.Transfer-Frame-Data-Field-Length
   (if use-AOS.Frame-Error-Control-Field
-	  (- AOS.Transfer-Frame-Length (* 8 6) (*8 2))
+	  (- AOS.Transfer-Frame-Length (* 8 6) (* 8 2))
 	  (- AOS.Transfer-Frame-Length (* 8 6))))
 
 (defun set-CCSDS.AOS.Transfer-Frame-Length (n)

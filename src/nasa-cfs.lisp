@@ -14,11 +14,11 @@
 	(stc:with-ccsds.aos.stream 1024 (list))
 
 	:container-set
-	(stc::with-ccsds-aos-containers (list))
+	(stc::with-ccsds.aos.containers ())
 	
 	:parameter-type-set
 	(stc::with-ccsds.aos.header.types
-		(stc::with-ccsds.mpdu.header.types
+		(stc::with-ccsds.mpdu.types
 			(stc:with-ccsds.space-packet.header.types
 				(list
 				 (make-integer-parameter-type
@@ -77,7 +77,7 @@
 				  :enumeration-list (list (make-enumeration 'ON 1) (make-enumeration 'OFF 0)))))))
 
 	:parameter-set
-	(stc::with-ccsds.mpdu.header.parameters
+	(stc::with-ccsds.mpdu.parameters
 		(stc::with-ccsds.aos.header.parameters
 			(stc::with-ccsds.space-packet.header.parameters
 				(list 
@@ -772,6 +772,6 @@
 	   (make-parameter '|TO_DF_2| '|/F64-Type| :short-description "")
 	   (make-parameter '|TO_STR| '|/ASCII-String-Type| :short-description "")))))))
 
-(time (dump-xml NASA-cFS))
+(log:info (dump-xml NASA-cFS))
 
 										;TODO: There is an electronic data sheet that can be used to interpret the AMPCS xml

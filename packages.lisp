@@ -199,6 +199,7 @@
    #:with-ccsds.space-packet.header.parameters
    #:with-ccsds.space-packet.header.types
    #:with-ccsds.space-packet.types
+   #:with-ccsds-aos-containers
    ))
 
 (defpackage :xtce-engine

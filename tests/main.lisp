@@ -220,16 +220,7 @@
 			   (packet-list (xtce-engine::monad frame TEST-TABLE)))
 		  (is (equal 30 (length packet-list)))
 		  (dolist (i packet-list)
-			(is (equal
-				 i
-				 (list (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Data-Length| 3)
-					   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Version-Number| 0)
-					   (cons STC::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| #*00000000001)
-					   (cons STC::'|STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag| 0)
-					   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Type| 0)
-					   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count| 666)
-					   (cons STC::'|STC.CCSDS.Space-Packet.Header.Sequence-Flags| #*11)
-					   (cons STC::'|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field| #*10111010110111000000110111101101))))))))))
+			(is (equal i header-result))))))))
 
 (test packet-fragmenter
   "Test packet fragmenter"
@@ -362,3 +353,24 @@
 				  ;; We should only have one packet
 				  (is (equal (length packet-list) 1))))))))))
 
+
+(defun simple-huge-packet-decode ()
+  "Simple decode test of AOS frame: Generate a frame with 30 space packets, run through monad and check decoded packet each manually."
+  (with-aos-header
+	(with-space-packet
+	  (with-test-table
+		(let* ((frame (apply #'concatenate-bit-arrays aos-header (make-mpdu-header 0 0) (make-list 10000 :initial-element space-packet)))
+			   (packets (xtce-engine::monad frame TEST-TABLE))))))))
+
+(time (simple-huge-packet-decode))
+
+  (with-aos-header
+	(with-space-packet
+	  (with-test-table
+		;; (pad-bit-vector (apply #'concatenate-bit-arrays aos-header (make-mpdu-header 0 0)
+		;; 					   (make-list 30 :initial-element space-packet)) 8192 :position :right :pad-element 1)
+		
+		
+		(pad-bit-vector (apply #'concatenate-bit-arrays aos-header (make-mpdu-header 0 0)
+							   (make-list 30 :initial-element space-packet)) 8192 :position :right :pad-element 1))))
+		
