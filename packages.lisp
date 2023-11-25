@@ -131,6 +131,7 @@
    #:dereference
    #:get-size
    ;;#:decode
+   #:container-ref
    ))
 
 (defpackage :standard-template-constructs

@@ -333,7 +333,7 @@
   (and (listp l)
 	   (every #'(lambda (i) (typep i 'sequence-container)) l)))
 
-(defclass sequence-container () ((name :initarg :name :type string)
+(defclass sequence-container () ((name :initarg :name :type string :reader name)
 								 (short-description :initarg :short-description :type string)
 								 (abstract :initarg :abstract :type bool)
 								 (idle-pattern :initarg :idle-pattern :reader idle-pattern)
@@ -591,10 +591,10 @@
    (time-association :initarg :time-association :type time-association)
    (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)))
 
-(defclass container-ref () ((container-ref :initarg :container-ref :type symbol :reader container-ref)))
+(defclass container-ref () ((container-ref :initarg :container-ref :type string :reader container-ref)))
 
 (defun make-container-ref (container-ref)
-  (check-type container-ref symbol)
+  ;(check-type container-ref string)
   (make-instance 'container-ref :container-ref container-ref))
 
 (defmethod marshall ((obj container-ref))
@@ -2570,26 +2570,29 @@
 		(optional-xml-attribute "maskLengthInBits" mask-length-in-bits)
 		(optional-xml-attribute "bitLocationFromStartOfContainer" bit-location-from-start))))
 
-(defgeneric instantiate-parameter (parameter-type data)
-  (:documentation "Instantiate a parameter given a byte"))
+(defclass ancillary-data-set ()
+  ((data-set :initarg :data-set :initform (make-hash-table))))
 
-(defmethod instantiate-parameter ((parameter enumerated-parameter-type) data)
-  (assoc data (slot-value parameter 'alist)))
+(defun make-ancillary-data-set (&rest ancillary-data)
+  (let ((table (make-hash-table)))
+	(dolist (i ancillary-data)
+	  (with-slots (name) i
+		(setf (gethash name table) i)))
+	(make-instance 'ancillary-data-set :data-set table)))
 
-(deftype ancillary-data-set ()
-  `(satisfies ancillary-data-set-p))
-
-(defun ancillary-data-set-p (l)
-  (and (listp l)
-	   (every #'(lambda (i) (typep i 'ancillary-data)) l )))
-
-(defclass ancillary-data () ((name :initarg :name :reader :name :type symbol)
-							 (value :initarg :value :reader :value)
-							 (mime-type :initarg :mime-type :reader :mime-type :type string)
-							 (href :initarg :href :reader :href :type string)))
+(defclass ancillary-data () ((name :initarg :name :reader name :type symbol)
+							 (value :initarg :value :reader value)
+							 (mime-type :initarg :mime-type :reader mime-type :type string)
+							 (href :initarg :href :reader href :type string)))
 
 (defun make-ancillary-data (name value &key mime-type href)
   (make-instance 'ancillary-data :name name :value value :mime-type mime-type :href href))
+
+
+(defmethod marshall ((obj ancillary-data-set))
+  (cxml:with-element* ("xtce" "AncillaryDataSet")
+	(with-slots (data-set) obj
+	  (maphash (lambda (key value) (marshall value)) data-set))))
 
 (defmethod marshall ((obj ancillary-data))
   (with-slots (name value mime-type href) obj

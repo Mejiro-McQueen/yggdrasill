@@ -753,3 +753,114 @@
 		 (mpdu-header (make-mpdu-header (length rear-fragment) maxmimum-packet-size)))
 	(values mpdu-header lead-fragment rear-fragment)))
 
+
+
+(defun monad (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+						   (extract-space-packets data first-header-pointer symbol-table alist #*))))
+  (log:info "STARTING CYCLE")
+  (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
+		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
+		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
+		 (mpdu (decode frame-data-field container symbol-table '() 0))
+		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+
+	(log:info first-header-pointer)
+	(multiple-value-bind (alist next-extractor)
+		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
+	  (values alist (lambda (frame symbol-table) (monad frame symbol-table :packet-extractor next-extractor))))))
+
+(defclass service ()
+  ((name :initarg :name :type symbol)
+   (short-description :initarg :short-description :type string)
+   (long-description :initarg :long-description :type long-description)
+   (alias-set :initarg :alias-set :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+   (reference-set :initarg :reference-set)))
+
+
+(defun make-service (name reference-set &key short-description long-description alias-set ancillary-data-set)
+  (make-instance 'service :name name
+						  :reference-set reference-set
+						  :short-description short-description
+						  :long-description long-description
+						  :ancillary-data-set ancillary-data-set
+						  :alias-set alias-set))
+
+(deftype service-set ()
+  `(satisfies service-set-p))
+
+(defun service-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'service)) l)))
+
+(deftype container-ref-set ()
+  `(satisfies container-set-p))
+
+(defun container-ref-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'container-ref)) l)))
+
+
+										;container+reference combinations
+
+(defun mpdu-monad (frame-alist symbol-table &key (packet-extractor #'extract-space-packets))
+  (let* ((frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
+		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
+		 (mpdu (decode frame-data-field container symbol-table '() 0))
+		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+
+	(log:info first-header-pointer)
+	(multiple-value-bind (alist next-extractor)
+		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
+	  (values alist (lambda (frame-alist symbol-table) (mpdu-monad frame-alist symbol-table :packet-extractor next-extractor))
+			  )
+	  )))
+
+(defmacro with-test-table (&body body)
+  `(let ((test-table (xtce::register-keys-in-sequence
+					  (stc::with-ccsds.space-packet.parameters
+						  (stc::with-ccsds.space-packet.types
+							  (stc::with-ccsds.space-packet.containers
+								  (stc::with-ccsds.mpdu.containers
+									  (stc::with-ccsds.mpdu.types
+										  (stc::with-ccsds.mpdu.parameters
+											  (stc::with-ccsds.aos.containers
+												  (stc::with-ccsds.aos.header.parameters
+													  (stc::with-ccsds.aos.header.types '())))))))))
+					  (filesystem-hash-table:make-filesystem-hash-table) 'Test)))
+	 ,@body))
+
+
+(defun generate-services (service symbol-table &optional (service-table (make-hash-table)))
+										; VCID -> Service
+  (with-slots (name reference-set short-description ancillary-data-set) service
+	(let* ((reference-container (first  reference-set))
+		   (reference (dereference reference-container symbol-table))
+		   (vcid (xtce::value (gethash 'VCID ancillary-data-set))))
+	  (assert reference-container)
+	  (assert vcid)
+	  (case (name reference)
+		(stc::'|STC.CCSDS.MPDU.Container.MPDU|
+		 (log:info "Generated MPDU Service for VCID ~A!" vcid)
+		 (setf (gethash vcid service-table) (list #'mpdu-monad service)))
+		(t
+		 (log:warn "Could not find a service for reference ~A" reference))))
+  service-table
+  ))
+
+(with-test-table
+  (generate-services (make-service "STC.CCSDS.MPDU.Container.MPDU"
+								   (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
+								   :short-description "Test MPDU Service"
+								   :ancillary-data-set (make-ancillary-data-set (make-ancillary-data 'VCID 0)))
+					 test-table
+					 ))
+
+
+(log:info
+ (dump-xml
+  (xtce::make-ancillary-data-set (make-ancillary-data 'VCID 4))))
+
+
