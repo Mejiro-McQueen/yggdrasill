@@ -2,7 +2,7 @@
   :version "0.1.0"
   :author "Adrian Vazquez"
   :license "MIT"
-  :depends-on (#:cxml #:alexandria #:filesystem-hash-table #:log4cl)
+  :depends-on (#:cxml #:alexandria #:filesystem-hash-table #:log4cl #:lparallel)
   :components ((:file "packages")
 			   (:module "src"
 				:components ((:file "main"))

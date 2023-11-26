@@ -206,7 +206,9 @@
 (defpackage :xtce-engine
   (:use :cl
 		:xtce
-		:standard-template-constructs)
+		:standard-template-constructs
+		:lparallel
+		:lparallel.queue)
   (:documentation "XTCE-Engine")
   (:export
    #:alist->bit-vector

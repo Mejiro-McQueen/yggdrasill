@@ -426,57 +426,6 @@
 ;; (time (process-fixed-frame-stream (make-fixed-frame-stream (make-sync-strategy) 1024) qq))
 
 
-;; (ql:quickload "lparallel")
-;; (defpackage :queue-example (:use :cl ))
-;; (in-package :queue-example)
-
-;; (setf lparallel:*kernel* (lparallel:make-kernel 10))
-
-;; (let ((queue (make-queue))
-;;       (channel (make-channel)))
-;;   (submit-task channel (lambda () (list (pop-queue queue)
-;;                                    (pop-queue queue))))
-;;   (push-queue "hello" queue)
-;;   (push-queue "world" queue)
-;;   (receive-result channel))
-
-;; (defun forever (queue channel)
-;;   (loop
-;; 	(let ((x (pop-queue queue)))
-;; 	  (print x))))
-
-;; (defparameter q (make-queue))
-;; (defparameter c (make-channel))
-
-;; (defparameter test (bt:make-thread (lambda () (forever q c))))
-
-
-;; (push-queue "hello" q)
-
-
-;; (defun print-message-top-level-fixed ()
-;;   (let ((top-level *standard-output*))
-;;     (bt:make-thread
-;;      (lambda ()
-;; 	   (loop
-;; 		 (format top-level "Hello from thread!")
-;; 		 (sleep 1)
-;; 		 ))
-;;      :name "hello"))
-;;   nil)
-
-;; (print-message-top-level-fixed)
-
-;; (defparameter *counter* 0)
-
-;; (defun test-update-global-variable ()
-;;   (bt:make-thread
-;;    (lambda ()
-;;      (sleep 1)
-;;      (incf *counter*)))
-;;   *counter*)
-
-
 (defun bit-array-list->concat-bit-vector (l)
   (apply #'concatenate-bit-arrays l))
 
@@ -804,7 +753,8 @@
 
 										;container+reference combinations
 
-(defun mpdu-monad (frame-alist symbol-table &key (packet-extractor #'extract-space-packets))
+(defun mpdu-monad (frame-alist symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+																	(extract-space-packets data first-header-pointer symbol-table alist #*))))
   (let* ((frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
 		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
 		 (mpdu (decode frame-data-field container symbol-table '() 0))
@@ -833,12 +783,12 @@
 	 ,@body))
 
 
-(defun generate-services (service symbol-table &optional (service-table (make-hash-table)))
-										; VCID -> Service
+(defun generate-service (service symbol-table &optional (service-table (make-hash-table)))
+  ;; VCID -> Service
   (with-slots (name reference-set short-description ancillary-data-set) service
 	(let* ((reference-container (first  reference-set))
 		   (reference (dereference reference-container symbol-table))
-		   (vcid (xtce::value (gethash 'VCID ancillary-data-set))))
+		   (vcid (xtce::value (gethash 'VCID (xtce::items ancillary-data-set)))))
 	  (assert reference-container)
 	  (assert vcid)
 	  (case (name reference)
@@ -850,17 +800,153 @@
   service-table
   ))
 
+(defun generate-services (service-list symbol-table &optional (service-table (make-hash-table)))
+  (dolist (service service-list)
+	(generate-service service symbol-table service-table))
+  service-table)
+
+;; (with-test-table
+;;   (generate-services (list (make-service "STC.CCSDS.MPDU.Container.MPDU"
+;; 										 (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
+;; 										 :short-description "Test MPDU Service"
+;; 										 :ancillary-data-set (xtce::make-ancillary-data-set (make-ancillary-data 'VCID 0))))
+;; 					 test-table
+;; 					 ))
+
+(defparameter q
+  (with-test-table
+	(list (make-service "STC.CCSDS.MPDU.Container.MPDU"
+						(list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
+						:short-description "Test MPDU Service"
+						:ancillary-data-set (xtce::make-ancillary-data-set (xtce::make-ancillary-data 'VCID 43))))
+	))
+
+;; (log:info
+;;  (dump-xml
+;;   (xtce::make-ancillary-data-set (make-ancillary-data 'VCID 4))))
+
+
+;(setf lparallel:*kernel* (lparallel:make-kernel 10))
+
+(defun vcid-dispatch-service (service-list symbol-table service-queue output-queue)
+  (log:info "UP")
+  (let ((services (generate-services service-list symbol-table)))
+	(loop
+	  (let* ((frame-alist (pop-queue service-queue))
+			 (vcid (cdr (assoc stc::'|STC.CCSDS.AOS.Header.Virtual-Channel-ID| frame-alist)))
+			 (monad-pair (gethash vcid services))
+			 (monad (first monad-pair))
+			 (service (second monad-pair)))
+		(multiple-value-bind (packet-list next-monad) (funcall monad frame-alist symbol-table)
+		  (log:info packet-list)
+		  (setf (gethash vcid services) (list next-monad service))
+		  (push-queue packet-list output-queue)
+		  (log:info vcid)
+		  )))))
+
+(defparameter service-queue (make-queue))
+(defparameter output-queue (make-queue))
+
 (with-test-table
-  (generate-services (make-service "STC.CCSDS.MPDU.Container.MPDU"
-								   (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
-								   :short-description "Test MPDU Service"
-								   :ancillary-data-set (make-ancillary-data-set (make-ancillary-data 'VCID 0)))
-					 test-table
-					 ))
+  (log:info "Going up!")
+  (bt:make-thread (vcid-dispatch-service q test-table service-queue output-queue) :name "Test1")
+										;(log:info "Down")
+  )
+
+(with-test-table
+  (with-aos-header
+	(with-space-packet
+	  (with-idle-packet
+		(with-pack-fragment-idle-frame
+		  (let ((frame-1 (decode frame-1 (gethash "STC.CCSDS.AOS.Container.Frame" test-table) test-table '() 0)))
+										;(log:info frame-1)
+			(push-queue frame-1 service-queue)
+			;(push-queue frame-2 service-queue)
+			(log:info (pop-queue output-queue))
+			)
+		  
+		  )))))
+
+(push-queue nil service-queue)
+
+;; (push-queue   service-queue )
+(defmacro with-aos-header (&body body)
+  `(let* ((header-result (list (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Data-Length| 3)
+							   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Version-Number| 0)
+							   (cons STC::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| #*00000000001)
+							   (cons STC::'|STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag| 0)
+							   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Type| 0)
+							   (cons STC::'|STC.CCSDS.Space-Packet.Header.Packet-Sequence-Count| 666)
+							   (cons STC::'|STC.CCSDS.Space-Packet.Header.Sequence-Flags| #*11)
+							   (cons STC::'|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field| #*10111010110111000000110111101101)))
+		  
+		  (aos-header (alist->bit-vector
+					   (list (cons 'transfer-frame-version-number #*01)
+							 (cons 'spacecraft-id #*01100011) ;0x63
+							 (cons 'virtual-channel-id #*101011) ;43
+							 (cons 'virtual-channel-frame-count #*100101110000100010101011); 9898155
+							 (cons 'replay-flag #*0)
+							 (cons 'virtual-channel-frame-count-usage-flag #*1)
+							 (cons 'reserved-space #*00)
+							 (cons 'vc-frame-count-cycle #*1010)))))
+	 ,@body))
+
+(defmacro with-space-packet (&body body)
+  `(let ((space-packet (alist->bit-vector
+						(list (cons 'packet-version-number  #*000)
+							  (cons 'packet-type #*0)
+							  (cons 'sec-hdr-flag #*0)
+							  (cons 'apid #*00000000001)
+							  (cons 'sequence-flags #*11)
+							  (cons 'sequence-count #*00001010011010)
+							  (cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xBADC0DED)) 8) 1) 16))
+							  (cons 'data (uint->bit-vector #xBADC0DED))))))
+	 ,@body))
 
 
-(log:info
- (dump-xml
-  (xtce::make-ancillary-data-set (make-ancillary-data 'VCID 4))))
 
+(defmacro with-idle-packet (&body body)
+  `(let ((idle-packet (alist->bit-vector
+					   (list (cons 'packet-version-number  #*000)
+							 (cons 'packet-type #*0)
+							 (cons 'sec-hdr-flag #*0)
+							 (cons 'appid #*11111111111)
+							 (cons 'sequence-flags #*11)
+							 (cons 'sequence-count #*00001010011010)
+							 (cons 'data-len (uint->bit-vector (- (/ (length (uint->bit-vector #xFFFFFFFF)) 8) 1) 16))
+							 (cons 'data (uint->bit-vector #xFFFFFFFF))))))
+	 ,@body))
 
+(defmacro with-test-table (&body body)
+  `(let ((test-table (xtce::register-keys-in-sequence
+					  (stc::with-ccsds.space-packet.parameters
+						  (stc::with-ccsds.space-packet.types
+							  (stc::with-ccsds.space-packet.containers
+								  (stc::with-ccsds.mpdu.containers
+									  (stc::with-ccsds.mpdu.types
+										  (stc::with-ccsds.mpdu.parameters
+											  (stc::with-ccsds.aos.containers
+												  (stc::with-ccsds.aos.header.parameters
+													  (stc::with-ccsds.aos.header.types '())))))))))
+					  (filesystem-hash-table:make-filesystem-hash-table) 'Test)))
+	 ,@body))
+
+(defmacro with-pack-fragment-idle-frame (&body body)
+  `(let* ((payload-1 (nconc (make-list 30 :initial-element space-packet) (make-list 2 :initial-element idle-packet)))
+		  (payload-2 nil)
+		  (mpdu-1 (make-mpdu-header 0 4096))
+		  (mpdu-2 nil)
+		  (frame-1 nil)
+		  (frame-2 nil)
+		  (lead-frag nil)
+		  (rear-frag nil))
+	 (multiple-value-bind (frame padding-required) (apply #'pack-arrays-with-padding idle-packet 8192 AOS-HEADER mpdu-1 payload-1)
+	   (multiple-value-bind (next-mpdu-header lead-frag_ rear-frag_) 
+		   (fragment-packet idle-packet padding-required 1024)
+		 (setf lead-frag lead-frag_)
+		 (setf rear-frag rear-frag_)
+		 (setf frame-1 (concatenate-bit-arrays frame lead-frag))
+		 (setf mpdu-2 next-mpdu-header)
+		 (setf frame-2 (pad-bit-vector (pack-arrays-with-padding idle-packet 8192 AOS-HEADER next-mpdu-header rear-frag) 8192 :position :right))
+		 ))
+	 ,@body))
