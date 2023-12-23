@@ -284,8 +284,8 @@
 ; -> Publish on AOS Service -> AOS Service Publishes by VCID
 
 ; Abstract Depacketization: AOS-Frame w/ VCID + container ref accepted by Depacketization Service -> Call for Specialized Depacketization Algorithm based on Container-Ref or Ancillary Data -> Use Container Set containing (Packet -> Packet Contents) to create concrete packets.
-(defun make-space-packet-container (name
-									apid
+(defun make-space-packet-container (apid
+									name
 									entry-list
 									&key
 									  abstract
@@ -293,13 +293,14 @@
 									  short-description
 									  long-description
 									  alias-set
-									  ancillary-data-set
+									  (ancillary-data-set (xtce::make-ancillary-data-set))
 									  rate-in-stream-set
 									  default-rate-in-stream
 									  binary-encoding
 									  base-container)
   (declare (ignore base-container))
-  (let ((apid-data (list (make-ancillary-data '|apid| apid))))
+  (with-slots (xtce::data-set) ancillary-data-set
+	 (setf (gethash :apid xtce::data-set) (xtce::make-ancillary-data :apid apid))
 	(make-sequence-container name
 							 entry-list
 							 :abstract abstract
@@ -307,7 +308,7 @@
 							 :short-description short-description
 							 :long-description long-description
 							 :alias-set alias-set
-							 :ancillary-data-set (append ancillary-data-set apid-data)
+							 :ancillary-data-set ancillary-data-set
 							 :rate-in-stream-set rate-in-stream-set
 							 :default-rate-in-stream default-rate-in-stream
 							 :binary-encoding binary-encoding

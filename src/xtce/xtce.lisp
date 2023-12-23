@@ -2571,7 +2571,7 @@
 		(optional-xml-attribute "bitLocationFromStartOfContainer" bit-location-from-start))))
 
 (defclass ancillary-data-set ()
-  ((data-set :initarg :data-set :initform (make-hash-table) :reader items)))
+  ((data-set :initarg :data-set :initform (make-hash-table) :accessor items)))
 
 (defun make-ancillary-data-set (&rest ancillary-data)
   (let ((table (make-hash-table)))

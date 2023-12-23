@@ -13,9 +13,6 @@
 	:stream-set
 	(stc:with-ccsds.aos.stream 1024 (list))
 
-	:container-set
-	(stc::with-ccsds.aos.containers ())
-	
 	:parameter-type-set
 	(stc::with-ccsds.aos.header.types
 		(stc::with-ccsds.mpdu.types
@@ -614,11 +611,557 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|WPRESULTS| '|WPRESULTS-Type| :short-description "Packed watchpoint results data, 2 bits per watchpoint.")
 				 (make-parameter '|WPSINUSE| '|/U16-Type| :short-description "How many watchpoints are currently in effect.")))))
 
+	:container-set
 	
-	)))
+	(stc::with-ccsds.aos.containers
+		(list
+		 (make-space-packet-container
+		  0
+		  'CFE_ES_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(|COMMANDCOUNTER|
+											   |ERRCOUNTER|
+											   |CFECORECHECKSUM|
+											   |CFEMAJORVERSION|
+											   |CFEMINORVERSION|
+											   |CFEREVISION|
+											   |CFEMISSIONREVISION|
+											   |OSALMAJORVERSION|
+											   |OSALMINORVERSION|
+											   |OSALREVISION|
+											   |OSALMISSIONREVISION|
+											   |SYSLOGBYTESUSED|
+											   |SYSLOGSIZE|
+											   |SYSLOGENTRIES|
+											   |SYSLOGMODE|
+											   |ERLOGINDEX|
+											   |ERLOGENTRIES|
+											   |REGISTEREDCOREAPPS|
+											   |REGISTEREDEXTERNALAPPS|
+											   |REGISTEREDTASKS|
+											   |REGISTEREDLIBS|
+											   |RESETTYPE|
+											   |RESETSUBTYPE|
+											   |PROCESSORRESETS|
+											   |MAXPROCESSORRESETS|
+											   |BOOTSOURCE|
+											   |PERFSTATE|
+											   |PERFMODE|
+											   |PERFTRIGGERCOUNT|
+											   |PERFFILTERMASK|
+											   |PERFTRIGGERMASK|
+											   |PERFDATASTART|
+											   |PERFDATAEND|
+											   |PERFDATACOUNT|
+											   |PERFDATATOWRITE|
+											   |HEAPBYTESFREE|
+											   |HEAPBLOCKSFREE|
+											   |HEAPMAXBLOCKSIZE|)))
 
 
-(log:info (dump-xml NASA-cFS))
+		 (make-space-packet-container
+		  8
+		  'CFE_EVS
+		  (mapcar #'make-parameter-ref-entry '(|PACKETID_APPNAME|
+											   |PACKETID_EVENTID|
+											   |PACKETID_EVENTTYPE|
+											   |PACKETID_SPACECRAFTID|
+											   |PACKETID_PROCESSORID|
+											   |MESSAGE|
+											   |SPARE1|
+											   |SPARE2|)))
 
-										;TODO: There is an electronic data sheet that can be used to interpret the AMPCS xml
-; Route VCID -> Space System
+		 (make-space-packet-container
+		  1
+		  'CFE_EVS_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(|COMMANDCOUNTER|
+											   |COMMANDERRCOUNTER|
+											   |MESSAGEFORMATMODE|
+											   |MESSAGETRUNCCOUNTER|
+											   |UNREGISTEREDAPPCOUNTER|
+											   |OUTPUTPORT|
+											   |LOGFULLFLAG|
+											   |LOGMODE|
+											   |MESSAGESENDCOUNTER|
+											   |LOGOVERFLOWCOUNTER|
+											   |LOGENABLED|
+											   |SPARE1|
+											   |SPARE2|
+											   |SPARE3|
+											   |APPDATA|)))
+
+		 
+
+		 (make-space-packet-container
+		  3
+		  'CFE_SB_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(|COMMANDCOUNTER|
+											   |ERRCOUNTER|
+											   |CMDERRCNT|
+											   |NOSUBSCRIBERSCNT|
+											   |MSGSENDERRCNT|
+											   |MSGRECEIVEERRCNT|
+											   |INTERNALERRCNT|
+											   |CREATEPIPEERRCNT|
+											   |SUBSCRIBEERRCNT|
+											   |SPARE|
+											   |DUPSUBSCRIPTIONSCNT|
+											   |SPARE2ALIGN|
+											   |PIPEOVERFLOWERRCNT|
+											   |MSGLIMERRCNT|
+											   |MEMPOOLHANDLE|
+											   |MEMINUSE|
+											   |UNMARKEDMEM|)))
+
+		 
+		 (make-space-packet-container
+		  4
+		  'CFE_TBL_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(|CMDCOUNTER|
+											   |ERRCOUNTER|
+											   |NUMTABLES|
+											   |NUMLOADPENDING|
+											   |VALIDATIONCTR|
+											   |LASTVALCRC|
+											   |LASTVALSTATUS|
+											   |ACTIVEBUFFER|
+											   |LASTVALTABLENAME|
+											   |SUCCESSVALCTR|
+											   |FAILEDVALCTR|
+											   |NUMVALREQUESTS|
+											   |NUMFREESHAREDBUFS|
+											   |BYTEALIGNPAD1|
+											   |MEMPOOLHANDLE|
+											   |LASTUPDATETIME_SECONDS|
+											   |LASTUPDATETIME_SUBSECONDS|
+											   |LASTUPDATEDTBL|
+											   |LASTFILELOADED|
+											   |LASTFILEDUMPED|
+											   |LASTTABLELOADED|)))
+
+		 (make-space-packet-container
+		  5
+		  'CFE_TIME_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(|CMDCOUNTER|
+											   |ERRCOUNTER|
+											   |CLOCKSTATEFLAGS|
+											   |CLOCKSTATEAPI|
+											   |LEAPSECONDS|
+											   |SECONDSMET|
+											   |SUBSECSMET|
+											   |SECONDSSTCF|
+											   |SUBSECSSTCF|
+											   |SECONDS1HZADJ|
+											   |SUBSECS1HZADJ|)))
+
+		 
+		 (make-space-packet-container
+		  176
+		  'CF_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(|CMDCOUNTER|
+											   |ERRCOUNTER|
+											   |APP_WAKEUPFORFILEPROC|
+											   APP_ENGINECYCLECOUNT
+											   APP_MEMINUSE
+											   APP_PEAKMEMINUSE
+											   APP_LOWMEMORYMARK
+											   APP_MAXMEMNEEDED
+											   APP_MEMALLOCATED
+											   APP_BUFFERPOOLHANDLE
+											   APP_QNODESALLOCATED
+											   APP_QNODESDEALLOCATED
+											   APP_PDUSRECEIVED
+											   APP_PDUSREJECTED
+											   APP_TOTALINPROGTRANS
+											   APP_TOTALFAILEDTRANS
+											   APP_TOTALABANDONTRANS
+											   APP_TOTALSUCCESSTRANS
+											   APP_TOTALCOMPLETEDTRANS
+											   APP_LASTFAILEDTRANS
+											   AUTOSUSPEND_ENFLAG
+											   AUTOSUSPEND_LOWFREEMARK
+											   COND_POSACKNUM
+											   COND_FILESTOREREJNUM
+											   COND_FILECHECKSUMNUM
+											   COND_FILESIZENUM
+											   COND_NAKLIMITNUM
+											   COND_INACTIVENUM
+											   COND_SUSPENDNUM
+											   COND_CANCELNUM
+											   ENG_FLIGHTENGINEENTITYID
+											   ENG_FLAGS
+											   ENG_MACHINESALLOCATED
+											   ENG_MACHINESDEALLOCATED
+											   ENG_SPARE
+											   UP_METACOUNT
+											   UP_UPLINKACTIVEQFILECNT
+											   UP_SUCCESSCOUNTER
+											   UP_FAILEDCOUNTER
+											   UP_LASTFILEUPLINKED)))
+
+		 (make-space-packet-container
+		  177
+		  'ENG_TRANSVAL
+		  (mapcar #'make-parameter-ref-entry '(|ENG_TRANSLEN|
+											   |ENG_TRANSVAL|
+											   |ENG_NAKS|
+											   |ENG_PARTLEN|
+											   |ENG_PARTVAL|
+											   |ENG_PHASE|
+											   |ENG_SPARE1|
+											   |ENG_SPARE2|
+											   |ENG_FLAGS|
+											   |ENG_TRANSNUM|
+											   |ENG_ATTEMPTS|
+											   |ENG_CONDCODE|
+											   |ENG_DELICODE|
+											   |ENG_FDOFFSET|
+											   |ENG_FDLENGTH|
+											   |ENG_CHECKSUM|
+											   |ENG_FINALSTAT|
+											   |ENG_FILESIZE|
+											   |ENG_RCVDFILESIZE|
+											   |ENG_ROLE|
+											   |ENG_STATE|
+											   |ENG_STARTTIME|
+											   |ENG_SRCFILE|
+											   |ENG_DSTFILE|
+											   |ENG_TMPFILE|
+											   |APP_STATUS|
+											   |APP_CONDCODE|
+											   |APP_PRIORITY|
+											   |APP_CLASS|
+											   |APP_CHANNUM|
+											   |APP_SOURCE|
+											   |APP_NODETYPE|
+											   |APP_TRANSNUM|
+											   |APP_SRCENTITYID|
+											   |APP_SRCFILE|
+											   |APP_DSTFILE|)))
+
+		 (make-space-packet-container
+		  4608
+		  'CI_ACKPKT
+		  (mapcar #'make-parameter-ref-entry '()))
+
+		 (make-space-packet-container
+		  164
+		  'CS_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(CMDCOUNTER
+											   CMDERRCOUNTER
+											   CHECKSUMSTATE
+											   EEPROMCSSTATE
+											   MEMORYCSSTATE
+											   APPCSSTATE
+											   TABLESCSSTATE
+											   OSCSSTATE
+											   CFECORECSSTATE
+											   CHILDTASKINUSE
+											   ONESHOTTASKINUSE
+											   FILLER8
+											   EEPROMCSERRCOUNTER
+											   MEMORYCSERRCOUNTER
+											   APPCSERRCOUNTER
+											   TABLESCSERRCOUNTER
+											   CFECORECSERRCOUNTER
+											   OSCSERRCOUNTER
+											   CURRENTCSTABLE
+											   CURRENTENTRYINTABLE
+											   EEPROMBASELINE
+											   OSBASELINE
+											   CFECOREBASELINE
+											   LASTONESHOTADDRESS
+											   LASTONESHOTSIZE
+											   LASTONESHOTCHECKSUM
+											   PASSCOUNTER)))
+
+		 (make-space-packet-container
+		  184
+		  'DS_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(CMDACCEPTEDCOUNTER
+											   CMDREJECTEDCOUNTER
+											   DESTTBLLOADCOUNTER
+											   DESTTBLERRCOUNTER
+											   FILTERTBLLOADCOUNTER
+											   FILTERTBLERRCOUNTER
+											   APPENABLESTATE
+											   SPARE
+											   FILEWRITECOUNTER
+											   FILEWRITEERRCOUNTER
+											   FILEUPDATECOUNTER
+											   FILEUPDATEERRCOUNTER
+											   DISABLEDPKTCOUNTER
+											   IGNOREDPKTCOUNTER
+											   FILTEREDPKTCOUNTER
+											   PASSEDPKTCOUNTER)))
+
+		 (make-space-packet-container
+		  21
+		  'MGSS_Heater-Status
+		  (mapcar #'make-parameter-ref-entry '(HEATER_STATUS)))
+
+		 (make-space-packet-container
+		  22
+		  'MGSS_SIM_ON_ORBIT_MODE_TLM_MID
+		  (mapcar #'make-parameter-ref-entry '(ON_ORBIT_ENUM)))
+
+		 (make-space-packet-container
+		  23
+		  'MGSS_SIM_BT_VOLTAGE_TLM_MID
+		  (mapcar #'make-parameter-ref-entry '(BAT_VOLTAGE)))
+
+		 (make-space-packet-container
+		  24
+		  'MGSS_SIM_MGSS_CMD_CTR_TLM_MID
+		  (mapcar #'make-parameter-ref-entry '(CMD_COUNTER
+											   ERR_COUNTER)))
+
+		 (make-space-packet-container
+		  140
+		  'FM_DIRLISTPKT
+		  (mapcar #'make-parameter-ref-entry '(DIRNAME
+											   TOTALFILES
+											   PACKETFILES
+											   FIRSTFILE)))
+
+		 (make-space-packet-container
+		  139
+		  'FM_FILEINFOPKT
+		  (mapcar #'make-parameter-ref-entry '(FILESTATUS
+											   SPARE
+											   CRC
+											   FILESIZE
+											   LASTMODIFIEDTIME
+											   FILENAME)))
+
+		 (make-space-packet-container
+		  138
+		  'FM_HOUSEKEEPINGPKT
+		  (mapcar #'make-parameter-ref-entry '(COMMANDCOUNTER
+											   COMMANDERRCOUNTER
+											   SPARE
+											   NUMOPENFILES-8
+											   CHILDCMDCOUNTER
+											   CHILDCMDERRCOUNTER
+											   CHILDCMDWARNCOUNTER
+											   CHILDQUEUECOUNT
+											   CHILDCURRENTCC
+											   CHILDPREVIOUSCC)))
+
+		 (make-space-packet-container
+		  141
+		  'FM_OPENFILESPKT
+		  (mapcar #'make-parameter-ref-entry '(NUMOPENFILES)))
+
+		 (make-space-packet-container
+		  80
+		  'CFE_EVS_SPARE_2
+		  (mapcar #'make-parameter-ref-entry '(SPARE)))
+
+		 (make-space-packet-container
+		  155
+		  'HK_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(CMDCOUNTER
+											   ERRCOUNTER
+											   PADDING
+											   COMBINEDPACKETSSENT
+											   MISSINGDATACTR
+											   MEMPOOLHANDLE)))
+		 (make-space-packet-container
+		  156
+		  'CFE_HK_COMBINED_PKT1
+		  (mapcar #'make-parameter-ref-entry '(COMMANDCOUNTER
+											   COMMANDERRCOUNTER
+											   MESSAGEFORMATMODE
+											   MESSAGETRUNCCOUNTER
+											   TIME_CMDCOUNTER
+											   TIME_ERRCOUNTER
+											   CLOCKSTATEFLAGS
+											   SB_COMMANDCNT
+											   SB_CMDERRCNT
+											   NOSUBSCRIBERSCNT
+											   MSGSENDERRCNT
+											   ES_CMDCOUNTER
+											   ES_ERRCOUNTER
+											   CFECORECHECKSUM
+											   TBL_CMDCOUNTER
+											   TBL_ERRCOUNTER
+											   NUMTABLES)))
+
+		 (make-space-packet-container
+		  173 
+		  'HS_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(CMDCOUNT
+											   CMDERRCOUNT
+											   CURRENTAPPMONSTATE
+											   CURRENTEVENTMONSTATE
+											   CURRENTALIVENESSSTATE
+											   CURRENTCPUHOGSTATE
+											   STATUSFLAGS
+											   SPAREBYTES
+											   RESETSPERFORMED
+											   MAXRESETS
+											   EVENTSMONITOREDCOUNT
+											   INVALIDEVENTMONCOUNT
+											   APPMONENABLES
+											   MSGACTEXEC
+											   UTILCPUAVG
+											   UTILCPUPEAK)))
+
+		 (make-space-packet-container
+		  167
+		  'LC_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(CMDCOUNT
+											   CMDERRCOUNT
+											   CURRENTLCSTATE
+											   PAD8
+											   WPRESULTS
+											   APRESULTS
+											   PASSIVERTSEXECCOUNT
+											   WPSINUSE
+											   ACTIVEAPS
+											   PAD16
+											   APSAMPLECOUNT
+											   MONITOREDMSGCOUNT
+											   RTSEXECCOUNT)))
+		 
+		 (make-space-packet-container
+		  145
+		  'MD_DWELLPKT
+		  (mapcar #'make-parameter-ref-entry '(TABLEID
+											   ADDRCOUNT
+											   BYTECOUNT
+											   RATE
+											   DATA)))
+
+
+		 (make-space-packet-container
+		  144
+		  'MD_HKTLM
+		  (mapcar #'make-parameter-ref-entry '(INVALIDCMDCNTR
+											   VALIDCMDCNTR
+											   DWELLENABLEDMASK
+											   DWELLTBLADDRCOUNT
+											   NUMWAITSPERPKT
+											   BYTECOUNT
+											   DWELLPKTOFFSET
+											   DWELLTBLENTRY
+											   COUNTDOWN)))
+
+		 (make-space-packet-container
+		  135
+		  'MM_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(CMDCOUNTER
+											   ERRCOUNTER
+											   LASTACTION
+											   MEMTYPE
+											   ADDRESS
+											   DATAVALUE
+											   BYTESPROCESSED
+											   FILENAME)))
+
+		 (make-space-packet-container
+		  153
+		  'SCH_DIAGPACKET
+		  (mapcar #'make-parameter-ref-entry '(ENTRYSTATES
+											   MSGIDS)))
+
+		 (make-space-packet-container
+		  151
+		  'SCH_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(CMDCOUNTER
+											   ERRCOUNTER
+											   SYNCTOMET
+											   MAJORFRAMESOURCE
+											   SCHEDULEACTIVITYSUCCESSCOUNT
+											   SCHEDULEACTIVITYFAILURECOUNT
+											   SLOTSPROCESSEDCOUNT
+											   SKIPPEDSLOTSCOUNT
+											   MULTIPLESLOTSCOUNT
+											   SAMESLOTCOUNT
+											   BADTABLEDATACOUNT
+											   TABLEVERIFYSUCCESSCOUNT
+											   TABLEVERIFYFAILURECOUNT
+											   TABLEPASSCOUNT
+											   VALIDMAJORFRAMECOUNT
+											   MISSEDMAJORFRAMECOUNT
+											   UNEXPECTEDMAJORFRAMECOUNT
+											   MINORFRAMESSINCETONE
+											   NEXTSLOTNUMBER
+											   LASTSYNCMETSLOT
+											   IGNOREMAJORFRAME
+											   UNEXPECTEDMAJORFRAME)))
+
+		 (make-space-packet-container
+		  170
+		  'SC_HKTLM
+		  (mapcar #'make-parameter-ref-entry '(ATSNUMBER
+											   ATPSTATE
+											   CONTINUEATSONFAILUREFLAG
+											   CMDERRCTR
+											   CMDCTR
+											   PADDING8
+											   SWITCHPENDFLAG
+											   NUMRTSACTIVE
+											   RTSNUMBER
+											   RTSACTIVECTR
+											   RTSACTIVEERRCTR
+											   ATSCMDCTR
+											   ATSCMDERRCTR
+											   RTSCMDCTR
+											   RTSCMDERRCTR
+											   LASTATSERRSEQ
+											   LASTATSERRCMD
+											   LASTRTSERRSEQ
+											   LASTRTSERRCMD
+											   APPENDCMDARG
+											   APPENDENTRYCOUNT
+											   APPENDBYTECOUNT
+											   APPENDLOADCOUNT
+											   ATPCMDNUMBER
+											   ATPFREEBYTES
+											   NEXTRTSTIME
+											   NEXTATSTIME
+											   RTSEXECUTINGSTATUS
+											   RTSDISABLEDSTATUS)))
+
+
+		 (make-space-packet-container
+		  128
+		  'TO_HKPACKET
+		  (mapcar #'make-parameter-ref-entry '(TO_COMMAND_COUNT
+											   TO_COMMAND_ERROR_COUNT
+											   TO_MESSAGE_SUB_COUNT
+											   TO_MESSAGE_SUB_ERROR_COUNT
+											   TO_TABLE_UPDATE_COUNT
+											   TO_TABLE_UPDATE_ERROR_COUNT
+											   TO_CONFIG_ROUTES
+											   TO_ENABLED_ROUTES)))
+
+		 (make-space-packet-container
+		  129
+		  'TO_OUT_DATA_MID
+		  (mapcar #'make-parameter-ref-entry '()))
+
+		 (make-space-packet-container
+		  130
+		  'TO_DATA_TYPE_PACKET
+		  (mapcar #'make-parameter-ref-entry '(SYNCH
+											   TO_BITS
+											   TO_BL_1
+											   TO_BL_2
+											   TO_B_1
+											   TO_B_2
+											   TO_B_3
+											   TO_B_4
+											   TO_W_1
+											   TO_W_2
+											   TO_DW_1
+											   TO_DW_2
+											   TO_F_1
+											   TO_F_2
+											   TO_DF_1
+											   TO_DF_2
+											   TO_STR))))))))
+
+
+		(log:info (dump-xml NASA-cFS))
