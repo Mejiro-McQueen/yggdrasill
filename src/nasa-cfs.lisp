@@ -244,6 +244,13 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				  :size-in-bits 32)
 
 				 (make-integer-parameter-type
+				  '|U24-Type|
+				  :short-description
+				  "Unsigned 24 bit integer."
+				  :signed nil
+				  :size-in-bits 24)
+
+				 (make-integer-parameter-type
 				  '|U64-Type|
 				  :short-description
 				  "Unsigned 64 bit integer."
@@ -316,7 +323,7 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|ATSCMDERRCTR| '|/U16-Type| :short-description "Total ATS cmd Error ctr command errors in the ATS.")
 				 (make-parameter '|ATSNUMBER| '|ATSNUMBER-Type| :short-description "current ATS number 1 = ATS A, 2 = ATS B")
 				 (make-parameter '|AUTOSUSPEND_ENFLAG| '|/U32-Type| :short-description "")
-				 (make-parameter '|AUTOSUSPEND_LOWFREEMAR| '|/U32-Type| :short-description "")
+				 (make-parameter '|AUTOSUSPEND_LOWFREEMARK| '|/U32-Type| :short-description "")
 				 (make-parameter '|BADTABLEDATACOUNT| '|/U16-Type| :short-description "'# of times corrupted table entries were processed'")
 				 (make-parameter '|BAT_VOLTAGE| '|Battery-Voltage-Type| :short-description "Battery Voltage (Sine Wave)")
 				 (make-parameter '|BOOTSOURCE| '|/U32-Type| :short-description "Boot source ( as provided from BSP ).")
@@ -345,6 +352,7 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|CMDERRCTR| '|/U8-Type| :short-description "Counts Request Errors.")
 				 (make-parameter '|COMBINEDPACKETSSENT| '|/U16-Type| :short-description "Count of combined tlm pkts sent.")
 				 (make-parameter '|COMMANDCOUNTER| '|U8-Type| :short-description "EVS Command Counter.")
+				 (make-parameter '|Command-Counter-16| '|U16-Type| :short-description "Command Counter.")
 				 (make-parameter '|COND_CANCELNUM| '|/U8-Type| :short-description "")
 				 (make-parameter '|COND_FILECHECKSUMNUM| '|/U8-Type| :short-description "")
 				 (make-parameter '|COND_FILESIZENUM| '|/U8-Type| :short-description "")
@@ -365,6 +373,7 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|CURRENTLCSTATE| '|/U8-Type| :short-description "Current LC application operating state.")
 				 (make-parameter '|Command-Counter-8| '|/U8-Type| :short-description "EVS Command Counter.")
 				 (make-parameter '|Command-Error-Counter-8| '|/U8-Type| :short-description "EVS Command Error Counter.")
+				 (make-parameter '|Command-Error-Counter-16| '|/U16-Type| :short-description "EVS Command Error Counter.")
 				 (make-parameter '|DATAVALUE| '|/U32-Type| :short-description "Last command data value -- may be fill pattern or peek/poke value.")
 				 (make-parameter '|DATA| '|DATA-Type| :short-description "Dwell data ( number of bytes varies up to MD_DWELL_TABLE_SIZE *4).")
 				 (make-parameter '|DESTTBLERRCOUNTER| '|/U8-Type| :short-description "Count of failed attempts to get table data pointer.")
@@ -404,7 +413,7 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|ENG_TMPFILE| '|/ASCII-String-Type| :short-description "")
 				 (make-parameter '|ENG_TRANSLEN| '|/U8-Type| :short-description "")
 				 (make-parameter '|ENG_TRANSNUM| '|/U32-Type| :short-description "")
-				 (make-parameter '|ENG_TRANSVAL| '|/U8-Type| :short-description "")
+				 (make-parameter '|ENG_TRANSVAL_T| '|/U8-Type| :short-description "")
 				 (make-parameter '|ENTRYSTATES| '|ENTRYSTATES-Type| :short-description "States of each Schedule Entry.")
 				 (make-parameter '|ERLOGENTRIES| '|/U32-Type| :short-description "Number of entries made in the ER Log since the power on.")
 				 (make-parameter '|ERLOGINDEX| '|/U32-Type| :short-description "Current index of the ER Log (wraps around).")
@@ -427,7 +436,7 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|HEAPBLOCKSFREE| '|/U32-Type| :short-description "Number of free blocks remaining in the OS heap.")
 				 (make-parameter '|HEAPBYTESFREE| '|/U32-Type| :short-description "Number of free bytes remaining in the OS heap.")
 				 (make-parameter '|HEAPMAXBLOCKSIZE| '|/U32-Type| :short-description "Number of bytes in the largest free block.")
-				 (make-parameter '|HEATERSTATUS| '|/on-off-enum-type| :short-description "1 = ON, 0 = OFF")
+				 (make-parameter '|HEATER_STATUS| '|/on-off-enum-type| :short-description "1 = ON, 0 = OFF")
 				 (make-parameter '|IGNOREDPKTCOUNTER| '|/U32-Type| :short-description "Count of packets discarded. Incoming packets will be discarded when:.")
 				 (make-parameter '|IGNOREMAJORFRAME| '|/U8-Type| :short-description "Major Frame too noisy to trust.")
 				 (make-parameter '|INTERNALERRCNT| '|/U8-Type| :short-description "Count of queue read or write errors.")
@@ -450,6 +459,7 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|LASTUPDATETIME_SECONDS| '|/U32-Type| :short-description "")
 				 (make-parameter '|LASTUPDATETIME_SUBSECONDS| '|/U32-Type| :short-description "")
 				 (make-parameter '|LASTVALCRC| '|/32-Bit-Checksum-Type| :short-description "Data Integrity Value computed for last table validated.")
+				 (make-parameter '|CRC| '|/32-Bit-Checksum-Type| :short-description "Data Integrity Value computed for last table validated.")
 				 (make-parameter '|LASTVALSTATUS| '|/U8-Type| :short-description "Returned status from validation function for last table validated.")
 				 (make-parameter '|LASTVALTABLENAME| '|/ASCII-String-Type| :short-description "Name of last table validated.")
 				 (make-parameter '|LEAPSECONDS| '|/U16-Type| :short-description "Current Leaps Seconds.")
@@ -547,7 +557,10 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|SECONDSSTCF| '|/U32-Type| :short-description "Current STCF (seconds).")
 				 (make-parameter '|SKIPPEDSLOTSCOUNT| '|/U16-Type| :short-description "Number of times that slots were skipped.")
 				 (make-parameter '|SLOTSPROCESSEDCOUNT| '|/U32-Type| :short-description "'Total # of Schedule Slots (Minor Frames) Processed.'")
-				 (make-parameter '|SPARE| '|/U8-Type| :short-description "Structure padding.")
+				 (make-parameter '|SPARE_8| '|/U8-Type| :short-description "Structure padding.")
+				 (make-parameter '|SPARE_16| '|/U16-Type| :short-description "Structure padding.")
+				 (make-parameter '|SPARE_24| '|/U24-Type| :short-description "Structure padding.")
+				 (make-parameter '|SPARE_32| '|/U32-Type| :short-description "Structure padding.")
 				 (make-parameter '|STATUSFLAGS| '|/U8-Type| :short-description "Internal HS Error States.")
 				 (make-parameter '|SUBSCRIBEERRCNT| '|/U8-Type| :short-description "Count of errors in subscribe API.")
 				 (make-parameter '|SUBSECS1HZADJ| '|/U32-Type| :short-description "Current 1 Hz SCTF adjustment (sub-seconds).")
@@ -612,7 +625,6 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 				 (make-parameter '|WPSINUSE| '|/U16-Type| :short-description "How many watchpoints are currently in effect.")))))
 
 	:container-set
-	
 	(stc::with-ccsds.aos.containers
 		(list
 		 (make-space-packet-container
@@ -655,7 +667,8 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   |PERFDATATOWRITE|
 											   |HEAPBYTESFREE|
 											   |HEAPBLOCKSFREE|
-											   |HEAPMAXBLOCKSIZE|)))
+											   |HEAPMAXBLOCKSIZE|))
+		  :short-description "Executive Services Housekeeping Packet")
 
 
 		 (make-space-packet-container
@@ -667,14 +680,14 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   |PACKETID_SPACECRAFTID|
 											   |PACKETID_PROCESSORID|
 											   |MESSAGE|
-											   |SPARE1|
-											   |SPARE2|)))
+											   |SPARE_16|))
+		  :short-description "Event Message Telemetry Packet")
 
 		 (make-space-packet-container
 		  1
 		  'CFE_EVS_HKPACKET
 		  (mapcar #'make-parameter-ref-entry '(|COMMANDCOUNTER|
-											   |COMMANDERRCOUNTER|
+											   |Command-Error-Counter-8|
 											   |MESSAGEFORMATMODE|
 											   |MESSAGETRUNCCOUNTER|
 											   |UNREGISTEREDAPPCOUNTER|
@@ -684,10 +697,9 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   |MESSAGESENDCOUNTER|
 											   |LOGOVERFLOWCOUNTER|
 											   |LOGENABLED|
-											   |SPARE1|
-											   |SPARE2|
-											   |SPARE3|
-											   |APPDATA|)))
+											   |SPARE_24|
+											   |APPDATA|))
+		  :short-description "Event Services Housekeeping Telemetry Packet")
 
 		 
 
@@ -696,27 +708,28 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 		  'CFE_SB_HKPACKET
 		  (mapcar #'make-parameter-ref-entry '(|COMMANDCOUNTER|
 											   |ERRCOUNTER|
-											   |CMDERRCNT|
+											   |Command-Error-Counter-8|
 											   |NOSUBSCRIBERSCNT|
 											   |MSGSENDERRCNT|
 											   |MSGRECEIVEERRCNT|
 											   |INTERNALERRCNT|
 											   |CREATEPIPEERRCNT|
 											   |SUBSCRIBEERRCNT|
-											   |SPARE|
+											   |SPARE_8|
 											   |DUPSUBSCRIPTIONSCNT|
-											   |SPARE2ALIGN|
+											   |SPARE_16|
 											   |PIPEOVERFLOWERRCNT|
 											   |MSGLIMERRCNT|
 											   |MEMPOOLHANDLE|
 											   |MEMINUSE|
-											   |UNMARKEDMEM|)))
+											   |UNMARKEDMEM|))
+		  :short-description "Software Bus task housekeeping Packet")
 
 		 
 		 (make-space-packet-container
 		  4
 		  'CFE_TBL_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(|CMDCOUNTER|
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
 											   |ERRCOUNTER|
 											   |NUMTABLES|
 											   |NUMLOADPENDING|
@@ -729,19 +742,20 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   |FAILEDVALCTR|
 											   |NUMVALREQUESTS|
 											   |NUMFREESHAREDBUFS|
-											   |BYTEALIGNPAD1|
+											   |SPARE_8|
 											   |MEMPOOLHANDLE|
 											   |LASTUPDATETIME_SECONDS|
 											   |LASTUPDATETIME_SUBSECONDS|
 											   |LASTUPDATEDTBL|
 											   |LASTFILELOADED|
 											   |LASTFILEDUMPED|
-											   |LASTTABLELOADED|)))
+											   |LASTTABLELOADED|))
+		  :short-description "Table Services Housekeeping Packet")
 
 		 (make-space-packet-container
 		  5
 		  'CFE_TIME_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(|CMDCOUNTER|
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
 											   |ERRCOUNTER|
 											   |CLOCKSTATEFLAGS|
 											   |CLOCKSTATEAPI|
@@ -751,13 +765,14 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   |SECONDSSTCF|
 											   |SUBSECSSTCF|
 											   |SECONDS1HZADJ|
-											   |SUBSECS1HZADJ|)))
+											   |SUBSECS1HZADJ|))
+		  :short-description "Time Services Housekeeping Packet")
 
 		 
 		 (make-space-packet-container
 		  176
 		  'CF_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(|CMDCOUNTER|
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-16|
 											   |ERRCOUNTER|
 											   |APP_WAKEUPFORFILEPROC|
 											   APP_ENGINECYCLECOUNT
@@ -791,24 +806,24 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   ENG_FLAGS
 											   ENG_MACHINESALLOCATED
 											   ENG_MACHINESDEALLOCATED
-											   ENG_SPARE
+											   |SPARE_24|
 											   UP_METACOUNT
 											   UP_UPLINKACTIVEQFILECNT
 											   UP_SUCCESSCOUNTER
 											   UP_FAILEDCOUNTER
-											   UP_LASTFILEUPLINKED)))
+											   UP_LASTFILEUPLINKED))
+		  :short-description "Unknown")
 
 		 (make-space-packet-container
 		  177
 		  'ENG_TRANSVAL
 		  (mapcar #'make-parameter-ref-entry '(|ENG_TRANSLEN|
-											   |ENG_TRANSVAL|
+											   |ENG_TRANSVAL_T|
 											   |ENG_NAKS|
 											   |ENG_PARTLEN|
 											   |ENG_PARTVAL|
 											   |ENG_PHASE|
-											   |ENG_SPARE1|
-											   |ENG_SPARE2|
+											   |SPARE_16|
 											   |ENG_FLAGS|
 											   |ENG_TRANSNUM|
 											   |ENG_ATTEMPTS|
@@ -836,18 +851,20 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   |APP_TRANSNUM|
 											   |APP_SRCENTITYID|
 											   |APP_SRCFILE|
-											   |APP_DSTFILE|)))
+											   |APP_DSTFILE|))
+		  :short-description "CF Application Single Transaction Status Packet")
 
 		 (make-space-packet-container
 		  4608
 		  'CI_ACKPKT
-		  (mapcar #'make-parameter-ref-entry '()))
+		  (mapcar #'make-parameter-ref-entry '())
+		  :short-description "CI HKPACKET")
 
 		 (make-space-packet-container
 		  164
 		  'CS_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(CMDCOUNTER
-											   CMDERRCOUNTER
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
 											   CHECKSUMSTATE
 											   EEPROMCSSTATE
 											   MEMORYCSSTATE
@@ -857,7 +874,7 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   CFECORECSSTATE
 											   CHILDTASKINUSE
 											   ONESHOTTASKINUSE
-											   FILLER8
+											   |SPARE_8|
 											   EEPROMCSERRCOUNTER
 											   MEMORYCSERRCOUNTER
 											   APPCSERRCOUNTER
@@ -872,19 +889,20 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   LASTONESHOTADDRESS
 											   LASTONESHOTSIZE
 											   LASTONESHOTCHECKSUM
-											   PASSCOUNTER)))
+											   PASSCOUNTER))
+		  :short-description "Housekeeping Packet Structure")
 
 		 (make-space-packet-container
 		  184
 		  'DS_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(CMDACCEPTEDCOUNTER
-											   CMDREJECTEDCOUNTER
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
 											   DESTTBLLOADCOUNTER
 											   DESTTBLERRCOUNTER
 											   FILTERTBLLOADCOUNTER
 											   FILTERTBLERRCOUNTER
 											   APPENABLESTATE
-											   SPARE
+											   SPARE_8
 											   FILEWRITECOUNTER
 											   FILEWRITEERRCOUNTER
 											   FILEUPDATECOUNTER
@@ -892,28 +910,33 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   DISABLEDPKTCOUNTER
 											   IGNOREDPKTCOUNTER
 											   FILTEREDPKTCOUNTER
-											   PASSEDPKTCOUNTER)))
+											   PASSEDPKTCOUNTER))
+		  :short-description "DS application housekeeping packet")
 
 		 (make-space-packet-container
 		  21
 		  'MGSS_Heater-Status
-		  (mapcar #'make-parameter-ref-entry '(HEATER_STATUS)))
+		  (mapcar #'make-parameter-ref-entry '(HEATER_STATUS))
+		  :short-description "MGSS Heater Status Data Packet")
 
 		 (make-space-packet-container
 		  22
 		  'MGSS_SIM_ON_ORBIT_MODE_TLM_MID
-		  (mapcar #'make-parameter-ref-entry '(ON_ORBIT_ENUM)))
+		  (mapcar #'make-parameter-ref-entry '(ON_ORBIT_ENUM))
+		  :short-description "MGSS On-Orbit Operating Mode Data Packet")
 
 		 (make-space-packet-container
 		  23
 		  'MGSS_SIM_BT_VOLTAGE_TLM_MID
-		  (mapcar #'make-parameter-ref-entry '(BAT_VOLTAGE)))
+		  (mapcar #'make-parameter-ref-entry '(BAT_VOLTAGE))
+		  :short-description "MGSS Battery Voltage Data Packet")
 
 		 (make-space-packet-container
 		  24
 		  'MGSS_SIM_MGSS_CMD_CTR_TLM_MID
-		  (mapcar #'make-parameter-ref-entry '(CMD_COUNTER
-											   ERR_COUNTER)))
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-16|
+											   |Command-Error-Counter-16|))
+		  :short-description "MGSS App Command Counter")
 
 		 (make-space-packet-container
 		  140
@@ -921,56 +944,63 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 		  (mapcar #'make-parameter-ref-entry '(DIRNAME
 											   TOTALFILES
 											   PACKETFILES
-											   FIRSTFILE)))
+											   FIRSTFILE))
+		  :short-description "Get Directory Listing telemetry packet")
 
 		 (make-space-packet-container
 		  139
 		  'FM_FILEINFOPKT
 		  (mapcar #'make-parameter-ref-entry '(FILESTATUS
-											   SPARE
+											   SPARE_8
 											   CRC
 											   FILESIZE
 											   LASTMODIFIEDTIME
-											   FILENAME)))
+											   FILENAME))
+		  :short-description "Get File Info telemetry packet")
 
 		 (make-space-packet-container
 		  138
 		  'FM_HOUSEKEEPINGPKT
-		  (mapcar #'make-parameter-ref-entry '(COMMANDCOUNTER
-											   COMMANDERRCOUNTER
-											   SPARE
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
+											   SPARE_8
 											   NUMOPENFILES-8
 											   CHILDCMDCOUNTER
 											   CHILDCMDERRCOUNTER
 											   CHILDCMDWARNCOUNTER
 											   CHILDQUEUECOUNT
 											   CHILDCURRENTCC
-											   CHILDPREVIOUSCC)))
+											   CHILDPREVIOUSCC))
+		  :short-description "Housekeeping telemetry packet")
 
 		 (make-space-packet-container
 		  141
 		  'FM_OPENFILESPKT
-		  (mapcar #'make-parameter-ref-entry '(NUMOPENFILES)))
+		  (mapcar #'make-parameter-ref-entry '(NUMOPENFILES-32))
+		  :short-description "Get Open Files telemetry packet")
 
 		 (make-space-packet-container
 		  80
 		  'CFE_EVS_SPARE_2
-		  (mapcar #'make-parameter-ref-entry '(SPARE)))
+		  (mapcar #'make-parameter-ref-entry '(SPARE_8))
+		  :short-description "Structure Padding")
 
 		 (make-space-packet-container
 		  155
 		  'HK_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(CMDCOUNTER
-											   ERRCOUNTER
-											   PADDING
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
+											   |SPARE_16|
 											   COMBINEDPACKETSSENT
 											   MISSINGDATACTR
-											   MEMPOOLHANDLE)))
+											   MEMPOOLHANDLE))
+		  :short-description "HK Application housekeeping Packet")
+		 
 		 (make-space-packet-container
 		  156
 		  'CFE_HK_COMBINED_PKT1
-		  (mapcar #'make-parameter-ref-entry '(COMMANDCOUNTER
-											   COMMANDERRCOUNTER
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
 											   MESSAGEFORMATMODE
 											   MESSAGETRUNCCOUNTER
 											   TIME_CMDCOUNTER
@@ -985,19 +1015,20 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   CFECORECHECKSUM
 											   TBL_CMDCOUNTER
 											   TBL_ERRCOUNTER
-											   NUMTABLES)))
+											   NUMTABLES))
+		  :short-description "Housekeeping Combined Packet 1")
 
 		 (make-space-packet-container
 		  173 
 		  'HS_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(CMDCOUNT
-											   CMDERRCOUNT
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
 											   CURRENTAPPMONSTATE
 											   CURRENTEVENTMONSTATE
 											   CURRENTALIVENESSSTATE
 											   CURRENTCPUHOGSTATE
 											   STATUSFLAGS
-											   SPAREBYTES
+											   |SPARE_8|
 											   RESETSPERFORMED
 											   MAXRESETS
 											   EVENTSMONITOREDCOUNT
@@ -1005,24 +1036,26 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   APPMONENABLES
 											   MSGACTEXEC
 											   UTILCPUAVG
-											   UTILCPUPEAK)))
+											   UTILCPUPEAK))
+		  :short-description "Housekeeping Packet Structure")
 
 		 (make-space-packet-container
 		  167
 		  'LC_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(CMDCOUNT
-											   CMDERRCOUNT
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
 											   CURRENTLCSTATE
-											   PAD8
+											   |SPARE_8|
 											   WPRESULTS
 											   APRESULTS
 											   PASSIVERTSEXECCOUNT
 											   WPSINUSE
 											   ACTIVEAPS
-											   PAD16
+											   |SPARE_16|
 											   APSAMPLECOUNT
 											   MONITOREDMSGCOUNT
-											   RTSEXECCOUNT)))
+											   RTSEXECCOUNT))
+		  :short-description "Housekeeping Packet Structure")
 		 
 		 (make-space-packet-container
 		  145
@@ -1031,45 +1064,49 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   ADDRCOUNT
 											   BYTECOUNT
 											   RATE
-											   DATA)))
+											   DATA))
+		  :short-description "Memory Dwell Telemetry Packet format")
 
 
 		 (make-space-packet-container
 		  144
 		  'MD_HKTLM
-		  (mapcar #'make-parameter-ref-entry '(INVALIDCMDCNTR
-											   VALIDCMDCNTR
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
 											   DWELLENABLEDMASK
 											   DWELLTBLADDRCOUNT
 											   NUMWAITSPERPKT
 											   BYTECOUNT
 											   DWELLPKTOFFSET
 											   DWELLTBLENTRY
-											   COUNTDOWN)))
+											   COUNTDOWN))
+		  :short-description "Memory Dwell HK Telemetry format")
 
 		 (make-space-packet-container
 		  135
 		  'MM_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(CMDCOUNTER
-											   ERRCOUNTER
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
 											   LASTACTION
 											   MEMTYPE
 											   ADDRESS
 											   DATAVALUE
 											   BYTESPROCESSED
-											   FILENAME)))
+											   FILENAME))
+		  :short-description "Housekeeping Packet Structure")
 
 		 (make-space-packet-container
-		  153
+		  152
 		  'SCH_DIAGPACKET
 		  (mapcar #'make-parameter-ref-entry '(ENTRYSTATES
-											   MSGIDS)))
+											   MSGIDS))
+		  :short-description "Scheduler Diagnostic Telemetry format")
 
 		 (make-space-packet-container
 		  151
 		  'SCH_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(CMDCOUNTER
-											   ERRCOUNTER
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-8|
+											   |Command-Error-Counter-8|
 											   SYNCTOMET
 											   MAJORFRAMESOURCE
 											   SCHEDULEACTIVITYSUCCESSCOUNT
@@ -1089,7 +1126,8 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   NEXTSLOTNUMBER
 											   LASTSYNCMETSLOT
 											   IGNOREMAJORFRAME
-											   UNEXPECTEDMAJORFRAME)))
+											   UNEXPECTEDMAJORFRAME))
+		  :short-description "Scheduler HK Telemetry format")
 
 		 (make-space-packet-container
 		  170
@@ -1099,7 +1137,7 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   CONTINUEATSONFAILUREFLAG
 											   CMDERRCTR
 											   CMDCTR
-											   PADDING8
+											   |SPARE_8|
 											   SWITCHPENDFLAG
 											   NUMRTSACTIVE
 											   RTSNUMBER
@@ -1122,25 +1160,28 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   NEXTRTSTIME
 											   NEXTATSTIME
 											   RTSEXECUTINGSTATUS
-											   RTSDISABLEDSTATUS)))
+											   RTSDISABLEDSTATUS))
+		  :short-description "Housekeeping Packet Structure")
 
 
 		 (make-space-packet-container
 		  128
 		  'TO_HKPACKET
-		  (mapcar #'make-parameter-ref-entry '(TO_COMMAND_COUNT
-											   TO_COMMAND_ERROR_COUNT
+		  (mapcar #'make-parameter-ref-entry '(|Command-Counter-16|
+											   |Command-Error-Counter-16|
 											   TO_MESSAGE_SUB_COUNT
 											   TO_MESSAGE_SUB_ERROR_COUNT
 											   TO_TABLE_UPDATE_COUNT
 											   TO_TABLE_UPDATE_ERROR_COUNT
 											   TO_CONFIG_ROUTES
-											   TO_ENABLED_ROUTES)))
+											   TO_ENABLED_ROUTES))
+		  :short-description "Telemetry Output Housekeeping Packet")
 
 		 (make-space-packet-container
 		  129
 		  'TO_OUT_DATA_MID
-		  (mapcar #'make-parameter-ref-entry '()))
+		  (mapcar #'make-parameter-ref-entry '())
+		  :short-description "Telemetry Output Out Data Packet")
 
 		 (make-space-packet-container
 		  130
@@ -1161,7 +1202,8 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 											   TO_F_2
 											   TO_DF_1
 											   TO_DF_2
-											   TO_STR))))))))
+											   TO_STR))
+		  :short-description "Telemetry Output Data Types Packet"))))))
 
 
 		(log:info (dump-xml NASA-cFS))

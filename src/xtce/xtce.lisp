@@ -2671,15 +2671,25 @@
   (:report (lambda (condition stream)
      (format stream "~A was dereferenced from ~A and is an incompatible reference. Check the reference holder.~&" (dereferenced-obj condition) (reference-holder condition)))))
 
+(define-condition reference-not-found (error)
+  ((reference-holder :initarg :reference-holder :accessor reference-holder)
+   (dereferenced-obj :initarg :dereferenced-obj :accessor dereferenced-obj))
+  (:report (lambda (condition stream)
+     (format stream "~A was dereferenced from ~A. The reference could not be found. Check the reference holder.~&" (dereferenced-obj condition) (reference-holder condition)))))
+
 (defgeneric check-dereference-mismatch (reference-holder dereferenced-object))
+
 (defmethod check-dereference-mismatch ((reference-holder parameter-ref-entry) dereferenced-object)
   (unless (typep dereferenced-object 'parameter)
-	(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)))
-
+	(if dereferenced-object
+		(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)
+		(error 'reference-not-found :reference-holder reference-holder :dereferenced-obj dereferenced-object))))
+  
 (defmethod check-dereference-mismatch ((reference-holder container-ref-entry) dereferenced-object)
   (unless (typep dereferenced-object 'sequence-container)
-	(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)))
-
+	(if dereferenced-object
+		(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)
+		(error 'reference-not-found :reference-holder reference-holder :dereferenced-obj dereferenced-object))))
 
 (defgeneric dereference (object-with-reference symbol-table))
 
