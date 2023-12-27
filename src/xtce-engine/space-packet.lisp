@@ -319,3 +319,72 @@
 	(if (equal xtce::idle-pattern apid)
 		t
 		nil)))
+
+(defun extract-space-packets (data first-header-pointer symbol-table alist previous-packet-segment)
+  (log:info "Attempting to extract space packets...")
+  
+  (when (stc::stc.ccsds.mpdu.is-idle-pattern first-header-pointer)
+	(log:info "Found idle pattern.")
+	(return-from extract-space-packets nil))
+  
+  (let ((container stc::CCSDS.Space-Packet.Container.Space-Packet)
+		(packet-list nil)
+		(data-length (length data)))
+
+	(when (stc::stc.ccsds.mpdu.is-spanning-pattern first-header-pointer)
+	  (log:info "Attempting to reconstruct spanning packet.")
+	  (if (eq previous-packet-segment #*)
+		  (progn
+			(log:info "Found spanning packet but we do not have a previous fragmented packet.")
+			(return-from extract-space-packets
+			  (values nil
+					  (lambda (next-data first-header-pointer symbol-table alist)
+						(extract-space-packets next-data first-header-pointer symbol-table alist nil)))))		  
+		  (progn
+			(log:info "Packet still fragmented.")
+			(return-from extract-space-packets
+			  (values packet-list
+					  (lambda (next-data first-header-pointer symbol-table alist)
+						(extract-space-packets next-data first-header-pointer symbol-table alist (concatenate-bit-arrays previous-packet-segment data))))))))
+	
+	(let* ((rear-fragment (subseq data 0 (* 8 first-header-pointer)))
+		   (lead-fragment nil))
+	  (unless (equal first-header-pointer 0)
+		(log:info "Attempting to reconstruct fragmented packet.")
+		(log:info previous-packet-segment)
+		(if (equal previous-packet-segment #*)
+		  (log:info "Found fragmented packet at the front of the MPDU but we did not see it's lead fragment in the last MPDU.")
+		  (progn
+			(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment rear-fragment))
+				   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
+			  (log:info reconstructed-packet)
+			  (if (stc::stc.ccsds.space-packet.is-idle-pattern
+				   (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| decoded-packet)))
+				  (log:info "Idle packet restored; Discarding.")
+				  (progn 
+					(log:info "Restored packet!")
+					(push decoded-packet packet-list)))))))
+	  
+	  (let ((next-pointer (* 8 first-header-pointer)))
+		(log:debug "Attempting to extract packets starting from zero pointer.")
+		(loop while (< next-pointer data-length)
+			  do
+				 (handler-case 
+					 (multiple-value-bind (res-list bits-consumed) (decode data container symbol-table alist next-pointer)					   
+					   (setf next-pointer bits-consumed)
+					   (log:debug "Extracted ~A of ~A bytes" bits-consumed data-length)
+					   (if (stc::stc.ccsds.space-packet.is-idle-pattern
+							(cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
+						   (log:debug "Found idle Packet!")
+						   (push res-list packet-list)))
+				   (fragmented-packet-error ()
+					 ;; We hit this whenever the packet length tells us to subseq beyond the data frame
+					 ;; This is fine, we just take the rest of the frame as a leading fragment
+					 (log:info "Fragmented Packet!")
+					 (setf lead-fragment (subseq data next-pointer))
+					 (return))))
+		(log:info "Extracted ~A packets." (length packet-list))
+		(log:info (- data-length next-pointer))
+		(log:info (length (subseq data next-pointer) ))
+		(values packet-list (lambda (next-data first-header-pointer symbol-table alist)
+							  (extract-space-packets next-data first-header-pointer symbol-table alist lead-fragment)))))))

@@ -1,0 +1,30 @@
+(in-package :xtce-engine)
+(defun pack-arrays-with-padding (padding-vector max-size &rest arrays)
+  (declare (optimize (speed 3) (safety 0)))
+  (let* ((v (apply #'concatenate-bit-arrays arrays))
+		 (size-to-go (- max-size (length v)))
+		 (pack-quantity (floor (/ size-to-go (length padding-vector))))
+		 (padding-items ())
+		 (padded-array #*))
+	(declare (bit-vector padding-vector v)
+			 (integer max-size pack-quantity))
+	(dotimes (i pack-quantity)
+	  (push padding-vector padding-items))
+	(setf padded-array (apply #'concatenate-bit-arrays v padding-items))
+	(values padded-array (- max-size (length padded-array)))))
+
+(defun fragment-packet (packet-to-frag lead-fragment-size-bits maxmimum-packet-size)
+  (assert (equal 0 (mod lead-fragment-size-bits 8))(lead-fragment-size-bits) "number of bits must be equivalent to an integral number of bytes")
+  (when (equal 0 lead-fragment-size-bits)
+	(return-from fragment-packet (values (make-mpdu-header 0 0) packet-to-frag #*)))
+
+  (when (< (length packet-to-frag) lead-fragment-size-bits)
+	(return-from fragment-packet (values
+								  (make-mpdu-header (length packet-to-frag) maxmimum-packet-size)
+								  packet-to-frag
+								  #*)))
+  
+  (let* ((lead-fragment (subseq packet-to-frag 0 lead-fragment-size-bits))
+		 (rear-fragment (subseq packet-to-frag lead-fragment-size-bits))
+		 (mpdu-header (make-mpdu-header (length rear-fragment) maxmimum-packet-size)))
+	(values mpdu-header lead-fragment rear-fragment)))

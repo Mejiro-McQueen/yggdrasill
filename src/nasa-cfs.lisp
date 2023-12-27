@@ -5,13 +5,18 @@
   (make-space-system
    '|NASA-cFS|
    :root t
+
    :short-description
    "Root system for the NASA-cFS"
 
+   :ancillary-data-set
+   (list (make-ancillary-data "test" "1"))
+
    :telemetry-metadata
    (make-telemetry-metadata
+	
 	:stream-set
-	(stc:with-ccsds.aos.stream 1024 (list))
+	(stc:with-ccsds.aos.stream 1024 8081)
 
 	:parameter-type-set
 	(stc::with-ccsds.aos.header.types
@@ -1206,4 +1211,4 @@ Note: array index numbers and bit numbers use base zero indexing, but RTS number
 		  :short-description "Telemetry Output Data Types Packet"))))))
 
 
-		(log:info (dump-xml NASA-cFS))
+(log:info (dump-xml NASA-cFS))

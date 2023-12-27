@@ -17,7 +17,13 @@
 							 (:file "standard-template-constructs")
 							 (:file "aos")
 							 (:file "space-packet")
-							 (:file "mpdu"))))
+							 (:file "mpdu")
+							 (:file "binops")
+							 (:file "decoding")
+							 (:file "encoding")
+							 (:file "frame-service")
+							 (:file "dev")
+							 )))
   :description ""
   :in-order-to ((test-op (test-op "bifrost-integral/tests"))))
 

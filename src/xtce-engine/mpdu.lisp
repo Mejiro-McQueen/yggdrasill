@@ -93,3 +93,44 @@
   (if (eq first-header-pointer #b11111111110) ;equiv to (- #b11111111111 1)
 		t
 		nil))
+
+;;Might be nicer to build an alist we can concatenate at the end
+(defun make-mpdu-header (packet-header-in-bits maxmimum-packet-size)
+  (let ((first-header-pointer-in-bytes
+		  (if (<= packet-header-in-bits maxmimum-packet-size)
+			  (uint->bit-vector (/ packet-header-in-bits 8) 11)
+			  #*11111111111)))
+	;(log:info packet-header-in-bits)
+	(alist->bit-vector
+	 (list (cons 'spare #*00000)
+		   (cons 'first-header-pointer first-header-pointer-in-bytes)))))
+
+(defun monad (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+						   (extract-space-packets data first-header-pointer symbol-table alist #*))))
+  (log:info "STARTING CYCLE")
+  (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
+		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
+		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
+		 (mpdu (decode frame-data-field container symbol-table '() 0))
+		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+
+	(log:info first-header-pointer)
+	(multiple-value-bind (alist next-extractor)
+		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
+	  (values alist (lambda (frame symbol-table) (monad frame symbol-table :packet-extractor next-extractor))))))
+
+
+
+(defun decode-mpdu (frame-alist symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+																	(extract-space-packets data first-header-pointer symbol-table alist #*))))
+  (let* ((frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
+		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
+		 (mpdu (xtce-engine::decode frame-data-field container symbol-table '() 0))
+		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+
+	(log:info first-header-pointer)
+	(multiple-value-bind (alist next-extractor)
+		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
+	  (values alist (lambda (frame-alist symbol-table) (decode-mpdu frame-alist symbol-table :packet-extractor next-extractor))))))

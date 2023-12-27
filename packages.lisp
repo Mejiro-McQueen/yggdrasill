@@ -132,6 +132,9 @@
    #:get-size
    ;;#:decode
    #:container-ref
+   #:make-ancillary-data-set
+   #:make-service
+   #:reference-set
    ))
 
 (defpackage :standard-template-constructs

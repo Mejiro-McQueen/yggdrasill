@@ -2726,3 +2726,40 @@
 	  (if (member item visited)
 		  (error 'circular-reference-found :visited visited :reference-holder item)
 		  (dereference-with-cycle-detection dereference symbol-table (push item visited))))))
+
+
+(defclass service ()
+  ((name :initarg :name :type symbol :reader name)
+   (short-description :initarg :short-description :type string)
+   (long-description :initarg :long-description :type long-description)
+   (alias-set :initarg :alias-set :type alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set)
+   (reference-set :initarg :reference-set :reader reference-set)))
+
+(defmethod print-object ((obj service) stream)
+  (print-unreadable-object (obj stream :type t)
+	(with-slots (name short-description) obj
+	  (format stream "Service => name: ~a, short-desc: ~A" name short-description))))
+
+(defun make-service (name reference-set &key short-description long-description alias-set ancillary-data-set)
+  (check-type name symbol)
+  (make-instance 'service :name name
+						  :reference-set reference-set
+						  :short-description short-description
+						  :long-description long-description
+						  :ancillary-data-set ancillary-data-set
+						  :alias-set alias-set))
+
+(deftype service-set ()
+  `(satisfies service-set-p))
+
+(defun service-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'service)) l)))
+
+(deftype container-ref-set ()
+  `(satisfies container-set-p))
+
+(defun container-ref-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'container-ref)) l)))

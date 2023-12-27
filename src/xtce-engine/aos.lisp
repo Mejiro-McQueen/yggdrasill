@@ -277,16 +277,37 @@ static throughout a Mission Phase.")
 	(when (or use-AOS.Frame-Error-Control-Field use-AOS.Operational-Control-Field)
 	  (list CCSDS.AOS.Container.Transfer-Frame-Trailer))))
 
-(defun with-ccsds.aos.stream (frame-length-in-bits stream-list)
-  (append
-   stream-list
-   (list
-	(make-fixed-frame-stream
-	 '|STC.CCSDS.AOS.Stream|
-	 frame-length-in-bits
-	 (make-container-ref '|STC.CCSDS.AOS.Container.Frame|)
-	 (make-sync-strategy (make-sync-pattern))
-	 :short-description "CCSDS AOS Stream"))))
+(defun with-ccsds.aos.stream (frame-length-in-bits port &optional (stream-list nil) )
+  (let ((metadata (make-ancillary-data-set
+				   (make-ancillary-data :port port))))
+	(append
+	 stream-list
+	 (list
+	  (make-fixed-frame-stream
+	   '|STC.CCSDS.AOS.Stream|
+	   frame-length-in-bits
+	   (make-container-ref '|STC.CCSDS.AOS.Container.Frame|)
+	   (make-sync-strategy (make-sync-pattern))
+	   :ancillary-data-set metadata
+	   :short-description (format nil "CCSDS AOS Stream: Listening for ~A bit frames on port ~A" frame-length-in-bits port))))))
+
+
+(defun monad (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+						   (extract-space-packets data first-header-pointer symbol-table alist #*))))
+  (log:info "STARTING CYCLE")
+  (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
+		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
+		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
+		 (mpdu (decode frame-data-field container symbol-table '() 0))
+		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+
+	(log:info first-header-pointer)
+	(multiple-value-bind (alist next-extractor)
+		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
+	  (values alist (lambda (frame symbol-table) (monad frame symbol-table :packet-extractor next-extractor))))))
+
+
 
 
 ;; ;Good pathatlogical cycle:
