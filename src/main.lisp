@@ -1,9 +1,6 @@
-;(ql:quickload "lparallel")
-;(ql:quickload "filesystem-hash-table")
-;(ql:quickload "log4cl")
-;(ql:quickload :log4cl.log4sly)
-;(log4cl.log4sly:install)
-(ql:quickload '(clack websocket-driver))
+(ql:quickload '(:clack :websocket-driver))
+(ql:quickload :websocket-driver-client)
+
 
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar debug-mode t)
@@ -24,35 +21,6 @@
 
 
 
-
-;; (defun a (space-system frame)
-;;   (with-state space-system
-;; 	(multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
-;; 	  (incf frame-counter)
-;; 	  (setf frame-stream-processor-continuation next-continuation)
-;; 	  ;; (print frame-counter)
-;; 	  ;; (print frame)
-;; 	  ;; (print state)
-;; 	  ;; (print next-ref)
-;; 										;(print next)
-;; 										;(print (type-of next))
-;; 	  (decode frame next symbol-table '() 0)
-;; 	  )
-;; 	))
-
-										;TODO: Typecheck when dereferencing
-
-
-;; I think you only need 2 threads: 1 for uplink and 1 for downlink, I think the overhead from multiple threads would exceed just finishing off the computation
-
-;; (defparameter frame-queue (lparallel.queue:make-queue))
-;; (defparameter test (bt:make-thread (lambda () (monad nasa-cfs::NASA-cFS frame-queue)) :name "monad"))
-
-;; (lparallel.queue:push-queue qq frame-queue)
-;; (lparallel.queue:push-queue nil frame-queue)
-
-
-
 ;; (print-hex (second (process-fixed-frame 0 1 'SEARCH (make-sync-strategy) (make-sync-pattern) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)))
 
 ;; (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (make-sync-strategy) (make-sync-pattern) frame :aperture aperture))
@@ -61,150 +29,192 @@
 ;; (time (process-fixed-frame-stream (make-fixed-frame-stream (make-sync-strategy) 1024) qq))
 
 
+;; (defparameter qq #x1acffc1eFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+
+;; (setf qq #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+
 
 ;;; Services
 ;;; A service is identified exclusively by its name
 
-(defparameter *service-threads* (make-hash-table))
+(defparameter *service-states* (make-hash-table))
 
-(defun generate-services (service-list symbol-table &optional (service-table (make-hash-table)))
+(defun generate-service-states (service-list)
   "Generate all services"
   (dolist (service service-list)
-	(case (name service)
-	  ('|STC.CCSDS.MPDU.Container.MPDU|
-	   (setf (gethash service service-table) (generate-mpdu-decoding-service service symbol-table)))
-	  (t
-	   (error (format nil "No service generator found for ~A" service) ))))
-  service-table)
+	(with-slots (name ancillary-data-set) service
+	  (let ((f (gethash 'Service-Function (xtce::items ancillary-data-set))))
+		(if (typep f xtce::'ancillary-data)
+			(setf (gethash name *service-states*) (symbol-function (xtce::value f))))
+		(log:info "Generated service state for ~A using ~A" name (symbol-function (xtce::value f)))))))
 
-(defun generate-mpdu-decoding-service (service symbol-table)
-  (with-slots (name reference-set short-description ancillary-data-set) service
-	(let* ((reference-container (first reference-set))
-		   (reference (dereference reference-container symbol-table))
-		   (vcid (xtce::value (gethash 'VCID (xtce::items ancillary-data-set)))))
-	  (assert reference-container)
-	  (assert vcid)
-	  (assert (equal (name reference) stc::'|STC.CCSDS.MPDU.Container.MPDU|) (reference) "Could not find a service for reference ~A" reference)
-	  (log:info "Generated MPDU Service for VCID ~A!" vcid)
-	  (list #'decode-mpdu service))))
 
-(defparameter test-service-list
-  (list (make-service '|STC.CCSDS.MPDU.Container.MPDU|
+;; (generate-service-states test-service-list)
+
+(defparameter test-services-list
+  (list (make-service '|Service.CCSDS.MPDU|
 					  (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
-					  :short-description "Test MPDU Service"
+					  :short-description "Test MPDU Service for VCID 43"
 					  :ancillary-data-set
 					  (xtce::make-ancillary-data-set
-					   (xtce::make-ancillary-data 'VCID 43)))))
+					   (xtce::make-ancillary-data 'Service-Function 'stc::decode-mpdu)
+					   (xtce::make-ancillary-data 'VCID 43)
+					   (xtce::make-ancillary-data 'Next-Service '|Service.CCSDS.Space-Packet|)))
+		
+		(make-service '|Service.CCSDS.AOS.Frame|
+					  (list (make-container-ref '|STC.CCSDS.AOS.Container.Frame|))
+					  :short-description "Test AOS Frame Decoding"
+					  :ancillary-data-set
+					  (xtce::make-ancillary-data-set
+					   (xtce::make-ancillary-data 'Service-Function stc::'ccsds.aos.frame.decode)
+					   (xtce::make-ancillary-data 'Next-Service '|Service.CCSDS.MPDU|)))
 
-(with-test-table
-  (defparameter test-table test-table)
-  )
+		(make-service '|Service.CCSDS.Space-Packet|
+					  (list (make-container-ref '|STC.CCSDS.Space-Packet|))
+					  :short-description "CCSDS Space Packet Decoding"
+					  :ancillary-data-set
+					  (xtce::make-ancillary-data-set
+					   (xtce::make-ancillary-data 'Service-Function 'identity)))))
 
-(generate-services test-service-list test-table)
+(defparameter Test-System
+  (make-space-system
+   '|Test-System|
+   :root t
 
-;;; Service Loops
-;;; Targets for threads to execute
-(defun deframing-service-loop ())
+   :short-description
+   "Root system for the Test System"
 
-(defun frame-decoding-service-loop (service-list symbol-table service-queue output-queue)
-  (log:info "UP")
-  (let ((services (generate-services service-list symbol-table)))
-	(loop
-	  (let* ((frame-alist (pop-queue service-queue))
-			 (vcid (cdr (assoc stc::'|STC.CCSDS.AOS.Header.Virtual-Channel-ID| frame-alist)))
-			 (monad-pair (gethash vcid services))
-			 (monad (first monad-pair))
-			 (service (second monad-pair)))
-		(multiple-value-bind (packet-list next-monad) (funcall monad frame-alist symbol-table)
-		  (log:info packet-list)
-		  (setf (gethash vcid services) (list next-monad service))
-		  (push-queue packet-list output-queue)
-		  (log:info vcid)
-		  )))))
+   :ancillary-data-set
+   (list (make-ancillary-data "test" "1"))
 
-;;; Startup
+   :telemetry-metadata
+   (make-telemetry-metadata
+	
+	:parameter-type-set
+	(stc::with-ccsds.aos.header.types
+		(stc::with-ccsds.mpdu.types
+			(stc:with-ccsds.space-packet.header.types nil)))
 
+	:parameter-set
+	(stc::with-ccsds.mpdu.parameters
+		(stc::with-ccsds.aos.header.parameters
+			(stc::with-ccsds.space-packet.header.parameters nil)))
+
+	:container-set
+	(stc::with-ccsds.aos.containers nil)
+	
+	:stream-set
+	(stc:with-ccsds.aos.stream 1024 8081))
+   
+   :service-set test-services-list))
+
+
+;; (lparallel.queue:push-queue #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF input-queue)
+
+;; (lparallel.queue:push-queue nil input-queue)
+
+(defparameter *ws->state* (make-hash-table))
+
+(defparameter *port->state* (make-hash-table))
+
+;;; Web Service Side
 (defun create-frame-listener (env)
-  (let ((ws (websocket-driver:make-server env)))
-	(websocket-driver:on ws :open
-						 (lambda () (handle-new-listener ws)))
+  (let ((ws (wsd:make-server env)))
+	(wsd:on :open ws
+			(lambda ()
+			  (handle-open ws env)))
 
-	(websocket-driver:on :message ws
-						 (lambda (message)
-						   (handle-message ws)))
+	(wsd:on :message ws
+			(lambda (message)
+			  (handle-message ws message)))
 
-	(websocket-driver:on :close ws
-						 (lambda (&key code reason)
-						   (handle-error ws code reason)))))
+	(wsd:on :error ws
+			(lambda (error)
+			  (format t "Got an error: ~S~%" error)))
+
+	(wsd:on :close ws
+			(lambda (&key code reason)
+			  (format t "Closed because '~A' (Code=~A)~%" reason code)))
+
+	(lambda (responder)
+        (declare (ignore responder))
+        (wsd:start-connection ws))
+	))
 
 (defun handle-error (ws code reason))
 
-(defun handle-new-listener (ws))
+(defun handle-open (ws env)
+  (log:info "Connected.~%")
+  (let* ((server-port (getf env :SERVER-PORT))
+		 (stream (second (gethash server-port *port->state*)))
+		 (f (lambda (frame) (frame-sync frame stream))))
+	(setf (gethash ws *ws->state*) f)))
+	
+(defun handle-close (ws)
+  (log:info "Connection closed: ~A" ws))
 
-(defun handle-close (ws))
-
-
-(defun start-command-processors (space-system))
-
-(defun start-telemetry-processors (space-system))
-
-(defparameter *frame-listeners* (make-hash-table))
-
-(defun start-frame-listeners (stream-list)
-  (check-type stream-list xtce::stream-set)
-  (dolist (stream stream-list)
-	(with-slots (ancillary-data-set) stream
+(defun handle-message (ws message)
+  (let ((frame-sync-func (gethash ws *ws->state*))
+		(message (byte-array-to-uint message)))
+	(multiple-value-bind (frame-result state next-continuation) (funcall frame-sync-func message)
+	  (setf (gethash ws *ws->state*) next-continuation)
+										;(log:info frame-result)
+	  (log:info state)
+	  (wsd:send-text ws (format nil "~A" state))
+	  )
+	))
+ 
+;;; Server Side
+(defun start-frame-listener (stream)
+  (with-slots (ancillary-data-set) stream
 	  (let* ((port (xtce::value (gethash :port (xtce::items ancillary-data-set))))
 			 (listener (progn
 						 (assert port (port) "No key :port found for ~A in ancillary data" stream)
 						 (clack:clackup #'create-frame-listener :port port))))
 		(log:info "Started frame listener on port ~A" port)
-		(setf (gethash stream *frame-listeners*) listener)))))
+		(values listener port))))
+
+(defun start-frame-listeners (stream-list)
+  (check-type stream-list xtce::stream-set)
+  (dolist (stream stream-list)
+	(multiple-value-bind (listener port) (start-frame-listener stream)
+	  (setf (gethash port *port->state*) (list listener stream)))))
 
 (defun stop-frame-listeners ()
+  (log:info "Shutting down frame listeners.")
   (maphash #'stop-frame-listener
-		   *frame-listeners*))
+		   *port->state*))
 
-(defun stop-frame-listener (stream listener)
-  (clack:stop listener)
-  (log:info "Shutdown frame listener ~A" stream))
+(defun stop-frame-listener (port stream-info)
+  (let* ((listener (first stream-info))
+		 (stream (second stream-info))
+		 (stopped (clack:stop listener)))
+	(remhash port *port->state*)
+	(log:info stopped)
+	(log:info "Shutdown frame listener ~A" stream)))
 
 (defun bifrost.start (space-system)
-  (start-telemetry-processors)
-  (start-command-processors)
-  )
-
-
-(bifrost.start nasa-cfs::NASA-cFS)
-
-
-(start-frame-listeners
- (stc:with-ccsds.aos.stream 1024 8081))
-
+  (with-slots (telemetry-metadata) space-system
+	(start-frame-listeners (xtce::stream-set telemetry-metadata))))
+ 
+(bifrost.start Test-System)
 (stop-frame-listeners)
 
+(defparameter *client* (wsd:make-client "ws://localhost:8081"))
 
+(wsd:start-connection *client*)
+;; (wsd:on :message *client*
+;;         (lambda (message)
+;;           (format t "~&Got: ~A~%" message)))
+;; (wsd:send *client* "Hi")
+(wsd:send-binary *client* tt)
+(wsd:close-connection *client*)
 
-(with-test-table
-  (log:info "Going up!")
-  (bt:make-thread (vcid-services-start q test-table service-queue output-queue) :name "Test1")
-										;(log:info "Down")
-  )
+(U8-Array->Hex tt)
 
+(U8-Array->uint tt)
 
+(defparameter tt
+  (hex-string-to-byte-array "1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
 
-;; (defparameter q
-;;   (with-test-table
-;; 	(list (make-service "STC.CCSDS.MPDU.Container.MPDU"
-;; 						(list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
-;; 						:short-description "Test MPDU Service"
-;; 						:ancillary-data-set (xtce::make-ancillary-data-set (xtce::make-ancillary-data 'VCID 43))))
-;; 	))
-
-
-;; (with-test-table
-;;   (generate-services (list (make-service "STC.CCSDS.MPDU.Container.MPDU"
-;; 										 (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
-;; 										 :short-description "Test MPDU Service"
-;; 										 :ancillary-data-set (xtce::make-ancillary-data-set (make-ancillary-data 'VCID 0))))
-;; 					 test-table))
+(xtce-engine::byte-array-to-uint tt)

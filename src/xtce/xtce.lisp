@@ -9,21 +9,21 @@
 	(cxml:attribute qname value)))
 
 (defclass space-system ()
-  ((header :initarg :header :reader :header)
-   (name :initarg :name :type symbol :reader :name)
-   (operational-status :initarg :operational-status :reader :operational-status)
-   (long-description :initarg :long-description :type long-description :reader :long-description)
-   (alias-set :initarg :alias-set :type alias-set :reader :alias-set)
-   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set :reader :ancillary-data-set)
-   (telemetry-metadata :initarg :telemetry-metadata :type telemetry-metadata :reader :telemetry-metadata)
-   (command-metadata :initarg :command-metadata :type command-metadata :reader :command-metadata)
+  ((header :initarg :header :reader header)
+   (name :initarg :name :type symbol :reader name)
+   (operational-status :initarg :operational-status :reader operational-status)
+   (long-description :initarg :long-description :type long-description :reader long-description)
+   (alias-set :initarg :alias-set :type alias-set :reader alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set :reader ancillary-data-set)
+   (telemetry-metadata :initarg :telemetry-metadata :type telemetry-metadata :reader telemetry-metadata)
+   (command-metadata :initarg :command-metadata :type command-metadata :reader command-metadata)
    (xml-base :initarg :xml-base :reader xml-base)
-   (service-set :initarg :service-set :type service-set :reader :service-set)
-   (space-system-list :initarg :space-system-list :type space-system-list :reader :space-system-list)
-   (parent-system :initarg :parent-system :accessor :parent-system :type space-system)
-   (symbol-table :initarg :symbol-table :type hash-table :reader :symbol-table)
-   (short-description :initarg :short-description :reader :short-description)
-   (root :initarg :root :type boole :reader :root)))
+   (service-set :initarg :service-set :type service-set :reader service-set)
+   (space-system-list :initarg :space-system-list :type space-system-list :reader space-system-list)
+   (parent-system :initarg :parent-system :type space-system :reader parent-system)
+   (symbol-table :initarg :symbol-table :type hash-table :reader symbol-table)
+   (short-description :initarg :short-description :reader short-description)
+   (root :initarg :root :type boole :reader root)))
 
 (deftype space-system-list ()
   "Not an actual XTCE construct, but very convenient for us."
@@ -245,7 +245,7 @@
 (defclass telemetry-metadata ()
   ((parameter-type-set :initarg :parameter-type-set
                        :type parameter-type-set
-					   :reader :parameter-type-set)
+					   :reader parameter-type-set)
    (parameter-set :initarg :parameter-set
                   :type :parameter-set
 				  :reader parameter-set)
@@ -254,13 +254,13 @@
 				  :reader container-set)
    (message-set :initarg :message-set
                 :type message-set
-				:reader :message-set)
+				:reader message-set)
    (stream-set :initarg :stream-set
                :type stream-set
-			   :reader :stream-set)
+			   :reader stream-set)
    (algorithm-set :initarg :algorithm-set
                   :type algorithm-set
-				  :reader :algorithm-set)))
+				  :reader algorithm-set)))
 
 (defun make-telemetry-metadata (&key parameter-type-set
                                      parameter-set
@@ -602,7 +602,18 @@
 	(cxml:with-element* ("xtce" "ContainerRef") 
 	  (cxml:attribute "containerRef" container-ref))))
 
-(defclass service-ref () ())
+(defclass ref () ())
+
+(defclass service-ref (ref) ((service-reference :initarg :service-reference :type ref :reader ref)))
+
+(defun make-service-ref (service-reference)
+  (make-instance 'service-ref :service-reference service-reference))
+
+
+(defmethod marshall ((obj service-ref))
+  (with-slots (service-ref) obj
+	(cxml:with-element* ("xtce" "ServiceRef") 
+	  (cxml:attribute "serviceRef" service-ref))))
 
 (defclass stream-ref () ())
 
@@ -2710,6 +2721,12 @@
   ))
 
 (defmethod dereference ((obj xtce::parameter-ref-entry) symbol-table)
+  (let* ((reference (xtce::ref obj))
+		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+	res))
+
+
+(defmethod dereference ((obj xtce::service-ref) symbol-table)
   (let* ((reference (xtce::ref obj))
 		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
 	res))

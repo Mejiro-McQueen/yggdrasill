@@ -286,7 +286,7 @@ static throughout a Mission Phase.")
 	  (make-fixed-frame-stream
 	   '|STC.CCSDS.AOS.Stream|
 	   frame-length-in-bits
-	   (make-container-ref '|STC.CCSDS.AOS.Container.Frame|)
+	   (make-service-ref '|STC.CCSDS.AOS.Service.Frame|)
 	   (make-sync-strategy (make-sync-pattern))
 	   :ancillary-data-set metadata
 	   :short-description (format nil "CCSDS AOS Stream: Listening for ~A bit frames on port ~A" frame-length-in-bits port))))))
@@ -308,7 +308,11 @@ static throughout a Mission Phase.")
 	  (values alist (lambda (frame symbol-table) (monad frame symbol-table :packet-extractor next-extractor))))))
 
 
-
+(defun ccsds.aos.frame.decode (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+						   (extract-space-packets data first-header-pointer symbol-table alist #*))))
+  (log:info "STARTING CYCLE")
+  (let* ((frame-alist (xtce-engine:decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0)))
+	frame-alist))
 
 ;; ;Good pathatlogical cycle:
 ;; (defvar CCSDS.AOS.Header.Replay-Flag

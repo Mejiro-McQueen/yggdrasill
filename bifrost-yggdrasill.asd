@@ -22,8 +22,7 @@
 							 (:file "decoding")
 							 (:file "encoding")
 							 (:file "frame-service")
-							 (:file "dev")
-							 )))
+							 (:file "dev"))))
   :description ""
   :in-order-to ((test-op (test-op "bifrost-integral/tests"))))
 

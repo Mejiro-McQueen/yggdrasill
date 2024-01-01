@@ -211,7 +211,8 @@
 		:xtce
 		:standard-template-constructs
 		:lparallel
-		:lparallel.queue)
+		:lparallel.queue
+		)
   (:documentation "XTCE-Engine")
   (:export
    #:alist->bit-vector

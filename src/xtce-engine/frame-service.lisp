@@ -40,7 +40,7 @@
 	  
 	  (labels ((reset-verify-counter () (setf verify-counter 0))
 			   (reset-state-check-counter () (setf state-check-counter 0)))
-		
+		(log:debug "Check-Counter: ~A, Verify Counter:~A, State: ~A" state-check-counter verify-counter state-symbol)
 		(case state-symbol
 		  (LOCK
 		   (reset-state-check-counter)
@@ -86,10 +86,6 @@
 		   (unless sync-result
 			 (reset-verify-counter)
 			 (setf state-result 'SEARCH))))
-
-		;; (print state-result)
-		;; (print state-check-counter)
-		;; (print verify-counter)
 		
 		(values state-result sync-result (lambda (frame aperture)
 										   (process-fixed-frame
@@ -100,29 +96,9 @@
 											frame
 											:aperture aperture)))))))
 
-;TODO: Check counters
-;(process-fixed-frame 0 0 'VERIFY (make-sync-strategy (make-sync-pattern)) #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
-(defun emit! (message)
-  (format t "~A" message))
-
-(defgeneric get-frame-processor-initial-state (frame-type))
-
-(defmethod get-frame-processor-initial-state ((frame-type fixed-frame-stream))
-  (with-slots (sync-strategy) frame-type
-	(lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH sync-strategy frame :aperture aperture))))
-
-(defmethod get-frame-processor-initial-state ((frame-type variable-frame-stream)))
-
-;(defmethod get-frame-processor-initial-state ((frame-type custom-frame-stream)))
-
-(defun get-fixed-frame-stream-initial-state (fixed-frame-stream-type)
-  (let ((fixed-frame-processor-continuation (get-frame-processor-initial-state fixed-frame-stream-type)))
-	(lambda (frame) (process-fixed-frame-stream fixed-frame-stream-type fixed-frame-processor-continuation frame))))
-
 (defun process-fixed-frame-stream
 	(fixed-frame-stream-type
-	 fixed-frame-processor-continuation
+	 &key (fixed-frame-processor-continuation (lambda (frame aperture) (process-fixed-frame 0 0 'SEARCH (sync-strategy fixed-frame-stream-type) frame :aperture aperture)))
 	 frame)
 
   (labels ((aperture-values (n)
@@ -139,69 +115,55 @@
 
 	(with-slots (sync-aperture-in-bits frame-length-in-bits sync-strategy) fixed-frame-stream-type
 	  (destructuring-bind (aperture state frame next-continuation) (find-marker-with-aperture sync-aperture-in-bits)
-		;;(print state)
-		;; (print aperture)
-		;; (print (print-hex frame))
+		(log:debug "State: ~A" state)
+		(log:debug "Aperture: ~A" aperture)
+		(log:debug "Frame: ~A" (print-hex frame))
 		(unless aperture
-		  (emit! (list "Aperture greater than zero:" aperture)))		
-		(return-from process-fixed-frame-stream (values frame state (lambda (frame) (process-fixed-frame-stream fixed-frame-stream-type next-continuation frame))))))))
+		  (log:warn "Aperture greater than zero: ~A" aperture))
+		(unless frame
+		  (log:info "Could not synchronize frame"))
+		(return-from process-fixed-frame-stream (values frame state (lambda (frame) (process-fixed-frame-stream
+																				fixed-frame-stream-type
+																				:fixed-frame-processor-continuation next-continuation
+																				:frame frame))))))))
 
-(defun get-frame-processor (stream-type)
+(defun get-frame-processor-function (stream-type)
   (typecase stream-type
 	(fixed-frame-stream
-	 'process-fixed-frame-stream)
-	(variable-frame-stream)
-	(custom-stream)))
-
-(defparameter qq #x1acffc1eFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-
-(setf qq #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+	 (log:info "Found Fixed Frame Stream!")
+	 (lambda (frame) (process-fixed-frame-stream stream-type :frame frame)))
+	(variable-frame-stream
+	 (log:info "Found Variable Frame Stream!"))
+	(custom-stream
+	 (log:info "Found Custom Frame Stream!"))))
 
 (defun process-frame-result (frame state next-ref symbol-table)
-  (declare (ignore frame)
-		   (ignore next-ref)
-		   (ignore symbol-table)
-		   )
   (case state
 	(LOCK
-										;(accept-frame frame)
-	 (emit! state))
-	
-	(VERIFY
-	 (emit! state)
+	 (log:info "Frame Locked and Accepted")
+	 (log:info "Next stage: ~A" next-ref)
 	 )
 	
-	(SEARCH
-	 (emit! (list "Could not find synchronization marker!")))
+	(VERIFY
+	 (log:info "Frame discarded due to VERIFY state."))
 	
-	(CHECK))
-  )
+	(SEARCH
+	 (log:warn "Could not find synchronization marker!"))
+	
+	(CHECK
+	 (log:info "Frame discarded due to CHECK state."))))
 
-;; (defun monad (space-system frame-queue)
-;;   (with-state
-;; 	(loop
-;; 	  for frame = (lparallel.queue:pop-queue frame-queue)
-;; 	  when (null frame)
-;; 		return :exit
-;; 	  do
-;; 		 (print "Got Frame")
-;; 		 (multiple-value-bind (frame state next-continuation) (funcall frame-stream-processor-continuation frame)
-;; 		   (incf frame-counter)
-;; 		   (setf frame-stream-processor-continuation next-continuation)
-;; 		   (print frame-counter)
-;; 		   (print frame)
-;; 		   (print state)
-;; 		   (print (slot-value stream-type 'next-ref))
-;; 		   )
-;; 	)))
-
-(defmacro with-state (space-system &body body)
-  `(let* ((telemetry-metadata (slot-value ,space-system 'telemetry-metadata))
-		  (stream-type (when telemetry-metadata (first (slot-value telemetry-metadata 'stream-set))))
-		  (frame-stream-processor-continuation (get-fixed-frame-stream-initial-state stream-type))
-		  (symbol-table (slot-value space-system 'symbol-table))
-		  (next-ref (slot-value stream-type 'next-ref))
-		  (next (dereference next-ref symbol-table))
-		  (frame-counter 0))
-	 ,@body
-	 ))
+(defun frame-sync (frame stream-type
+				   &key
+					 (this-continuation (get-frame-processor-function stream-type))
+					 (frame-counter 0))
+  (log:info "Starting Frame Sync Service for ~A" stream-type)
+  (multiple-value-bind (frame-result state next-continuation) (funcall this-continuation frame)
+	(incf frame-counter)
+	(log:info "Total Frames Synchronized: ~A" frame-counter)
+	(log:info "Current Synchronization State: ~A" state)
+	(values frame-result state (lambda (next-frame) (frame-sync
+												next-frame
+												stream-type
+												:this-continuation next-continuation
+												:frame-counter frame-counter)))))
