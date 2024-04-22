@@ -1,7 +1,6 @@
 (ql:quickload '(:clack :websocket-driver))
 (ql:quickload :websocket-driver-client)
 
-
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar debug-mode t)
 ;(setf lparallel:*kernel* (lparallel:make-kernel 10))
@@ -197,24 +196,24 @@
   (with-slots (telemetry-metadata) space-system
 	(start-frame-listeners (xtce::stream-set telemetry-metadata))))
  
-(bifrost.start Test-System)
-(stop-frame-listeners)
+;; (bifrost.start Test-System)
+;; (stop-frame-listeners)
 
-(defparameter *client* (wsd:make-client "ws://localhost:8081"))
+;; (defparameter *client* (wsd:make-client "ws://localhost:8081"))
 
-(wsd:start-connection *client*)
-;; (wsd:on :message *client*
-;;         (lambda (message)
-;;           (format t "~&Got: ~A~%" message)))
-;; (wsd:send *client* "Hi")
-(wsd:send-binary *client* tt)
-(wsd:close-connection *client*)
+;; (wsd:start-connection *client*)
+;; ;; (wsd:on :message *client*
+;; ;;         (lambda (message)
+;; ;;           (format t "~&Got: ~A~%" message)))
+;; ;; (wsd:send *client* "Hi")
+;; (wsd:send-binary *client* tt)
+;; (wsd:close-connection *client*)
 
-(U8-Array->Hex tt)
+;; (U8-Array->Hex tt)
 
-(U8-Array->uint tt)
+;; (U8-Array->uint tt)
 
-(defparameter tt
-  (hex-string-to-byte-array "1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
+;; (defparameter tt
+;;   (hex-string-to-byte-array "1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
 
-(xtce-engine::byte-array-to-uint tt)
+;; (xtce-engine::byte-array-to-uint tt)

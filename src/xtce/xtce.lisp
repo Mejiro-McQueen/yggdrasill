@@ -611,9 +611,9 @@
 
 
 (defmethod marshall ((obj service-ref))
-  (with-slots (service-ref) obj
+  (with-slots (service-reference) obj
 	(cxml:with-element* ("xtce" "ServiceRef") 
-	  (cxml:attribute "serviceRef" service-ref))))
+	  (cxml:attribute "serviceRef" service-reference))))
 
 (defclass stream-ref () ())
 
