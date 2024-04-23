@@ -1452,7 +1452,7 @@
                                       base-type
                                       initial-value
                                       size-in-bits
-                                      (signed 'NOTHING)
+                                      (signed t)
                                       long-description
                                       alias-set
                                       ancillary-data-set
@@ -1467,10 +1467,10 @@
   (if base-type nil)
   (if initial-value nil)
   (check-optional-type size-in-bits positive-integer)
-  (if (eq signed 'NOTHING)
-	  (progn
-		(setf signed nil)
-		(check-type signed boolean)))
+  ;; (if (eq signed 'NOTHING)
+  ;; 	  (progn
+  ;; 		(setf signed nil)
+  ;; 		(check-type signed boolean)))
   (check-optional-type long-description long-description)
   (check-optional-type alias-set alias-set)
   (check-optional-type ancillary-data-set ancillary-data-set)
