@@ -1,7 +1,7 @@
 (in-package :standard-template-constructs)
 (use-package :xtce)
 
-;TODO: Deal with secondary headSTC.CCSDS.Space-Packet.Container.Packet-Sequence-Controler
+;TODO: Deal with secondary header STC.CCSDS.Space-Packet.Container.Packet-Sequence-Controler
 
 (defparameter Space-Packet.Header.Sequence-or-Name 'sequence)
 
@@ -86,6 +86,8 @@
    :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 11)))))
 
 (defparameter CCSDS.Space-Packet.Header.Packet-Identification-Type
+  "We use binary-parameter-type because we need to check if this parameter matches a given idle-pattern.
+  We could treat it as an UINT or string, but it could get goofy fast."
   (make-binary-parameter-type
    '|STC.CCSDS.Space-Packet.Header.Packet-Identification-Type|
    :short-description "CCSDS Space Packet Header element."
@@ -388,3 +390,25 @@
 		(log:info (length (subseq data next-pointer) ))
 		(values packet-list (lambda (next-data first-header-pointer symbol-table alist)
 							  (extract-space-packets next-data first-header-pointer symbol-table alist lead-fragment)))))))
+
+
+(defun decode-ccsds (data spec bit-offset)
+  "Given 'data as a binary vector (e.g. #*0001000), decode data using 'spec, where spec may be a CCSDS container, parameter, or parameter-type.
+   This function is intended as a utility for inspecting frame fragments.
+   You may specify 'bit-offset in order to skip bits, which is useful when the binary was derived from an integral number of octets, but the 'spec is not (e.g In the CCSDS Space Packet Primary Header, The packet version number is 3 bits but the Packet Identification is 13 bits. We can set bit-offset to 3 and decode #*0000100010000000 derived from #x0880, which begins decoding as if were #*0100010000000).
+  (decode-ccsds #*0000100010000000 CCSDS.Space-Packet.Container.Header.Packet-Identification 3)"
+  (let ((test-table (xtce::register-keys-in-sequence
+					 (funcall 
+					 (alexandria:compose #'with-ccsds.space-packet.parameters
+										 #'with-ccsds.space-packet.types
+										 #'with-ccsds.space-packet.containers
+										 #'with-ccsds.mpdu.containers
+										 #'with-ccsds.mpdu.types
+										 #'with-ccsds.mpdu.parameters
+										 #'with-ccsds.aos.containers
+										 #'with-ccsds.aos.header.parameters
+										 #'with-ccsds.aos.header.types) nil)
+					 (filesystem-hash-table:make-filesystem-hash-table)
+					 'Test)))
+  data
+  (xtce-engine::decode data spec test-table '() bit-offset)))

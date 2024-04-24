@@ -34,9 +34,23 @@
 						 (make-parameter '|Table_Update_Counter| '|/UINT_16_Type|)
 						 (make-parameter '|Table_Error_Counter| '|/UINT_16_Type|)
 						 (make-parameter '|Configured_Routes| '|/UINT_16_Type|)
-						 (make-parameter '|Enabled_Routes| '|/UINT_16_Type|)))))
+						 (make-parameter '|Enabled_Routes| '|/UINT_16_Type|))
+	:container-set
+	(list
+	 (make-space-packet-container 1 'House_Keeping_Packet
+								  (mapcar #'make-parameter-ref-entry '('|Command_Counter|
+																	   '|Error_Counter|
+																	   '|Message_Sub_Counter|
+																	   '|Table_Update_Counter|
+																	   '|Table_Error_Counter|
+																	   '|Config_Routes|
+																	   '|Enabled_Routes|))
+								  :short-description "Housekeeping Packet Structure"))
+	)))
 
 
 
 
 (log:info (dump-xml NASA-cFS))
+
+(stc::decode-ccsds #*0000100010000000 stc::CCSDS.Space-Packet.Container.Header.Packet-Identification 3)

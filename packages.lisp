@@ -200,6 +200,7 @@
    #:with-ccsds.aos.header.types
    #:with-ccsds.aos.stream
    #:with-ccsds.mpdu.header.parameters
+   #:with-ccsds.space-packet.parameters
    #:with-ccsds.space-packet.header.parameters
    #:with-ccsds.space-packet.header.types
    #:with-ccsds.space-packet.types

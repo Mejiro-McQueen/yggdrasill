@@ -55,7 +55,9 @@
 	))
 
 (defun uint->bit-vector (n &optional (pad (integer-length n))) 
-  "~43 HAYAI!"
+  "~43 HAYAI!. Hex strings are represented as UINT in CL, so #x29A0 = 666 = #*1010011010
+   Where n is an integer or a CL hex value
+"
   ;;(declare (optimize (speed 3) (safety 0)))
   (let ((pos (- pad 1))
 		(res (make-sequence 'bit-vector pad :initial-element 0)))

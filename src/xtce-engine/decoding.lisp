@@ -159,3 +159,15 @@
 		   (log:debug "Extracted: " data-segment)
 		   )))
 	  (values res next-bit-offset))))
+
+
+;TODO: Handle case where lookups in symbol table return none.
+;(xtce-engine::decode #*01100011 CCSDS.Space-Packet.Container.Header.Packet-Identification (make-hash-table) '() 0)
+
+
+;Recall:
+;CL drops leading zeroes in binary numbers e.g. #b001 = 1.
+;Throughout bifrost we must use bit-vectors to preserve the leading zeroes because they are meaningful values to us.
+;This occurs with hexadecimal numbers e.g. #x000F since they are treated as unsigned integers.
+;There are utilities in binops.lisp to convert various formats into bit-vectors.
+;Data should be converted into bit-vectors as soon as possible.
