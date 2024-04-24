@@ -1,13 +1,17 @@
 (in-package :standard-template-constructs)
 (use-package :xtce)
 
-;TODO: Deal with secondary header STC.CCSDS.Space-Packet.Container.Packet-Sequence-Controler
-
+;;OPTIONS
 (defparameter Space-Packet.Header.Sequence-or-Name 'sequence)
+(defparameter Space-Packet.Secondary-Header-Length 0)
 
-(defparameter Space-Packet.Secondary-Header nil)
-
-(defparameter Space-Packet.Secondary-Header-Type nil)
+;;
+(defparameter Space-Packet.Secondary-Header-Type
+  (make-binary-parameter-type
+   '|STC.CCSDS.Space-Packet.Header.Packet-Identification-Type|
+   :short-description "CCSDS Space Secondary Packet Header element."
+   :data-encoding
+   (make-binary-data-encoding (make-size-in-bits (make-fixed-value Space-Packet.Secondary-Header)))))
 
 (defparameter Space-Packet.Header.Packet-Name '|STC.CCSDS.Space-Packet.Header.Packet-Name|)
 
@@ -37,11 +41,8 @@
 	(name
 	 Space-Packet.Header.Packet-Name)))
 
-(defun set-CCSDS.Space-Packet.Secondary-Header (parameter)
-  (setf Space-Packet.Secondary-Header parameter))
-
-(defun set-CCSDS.Space-Packet.Secondary-Header-Type (parameter-type)
-  (setf Space-Packet.Secondary-Header-Type parameter-type))
+(defun set-CCSDS.Space-Packet.Secondary-Header-Length (n)
+  (setf Space-Packet.Secondary-Header-Length n))
 
 (defun get-CCSDS.Space-Packet.Header.Sequence-or-Name ()
   (assert (member Space-Packet.Header.Sequence-or-Name '(sequence name)) (Space-Packet.Header.Sequence-or-Name)
@@ -85,9 +86,10 @@
    :short-description "CCSDS Space Packet Header element."
    :data-encoding (make-binary-data-encoding (make-size-in-bits (make-fixed-value 11)))))
 
+
 (defparameter CCSDS.Space-Packet.Header.Packet-Identification-Type
-  "We use binary-parameter-type because we need to check if this parameter matches a given idle-pattern.
-  We could treat it as an UINT or string, but it could get goofy fast."
+  ;;We use binary-parameter-type because we need to check if this parameter matches a given idle-pattern.
+  ;;We could treat it as an UINT or string, but it could get goofy fast.
   (make-binary-parameter-type
    '|STC.CCSDS.Space-Packet.Header.Packet-Identification-Type|
    :short-description "CCSDS Space Packet Header element."
@@ -238,9 +240,8 @@
 	(make-parameter-ref-entry (get-CCSDS.Space-Packet.Header.Sequence-or-Name-Ref)))))
 
 (defparameter CCSDS.Space-Packet.Container.Packet-Data-Field
-										;TODO: Consider feature flag for secondary header?
   (let ((seq '()))
-	(when Space-Packet.Secondary-Header
+	(when (not (equal Space-Packet.Secondary-Header-Length 0))
 	  (push (make-container-ref-entry '|STC.CCSDS.Space-Packet.Packet-Data-Field.Container.Secondary-Header|)
 			seq))
 	(push (make-parameter-ref-entry '|STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field|)
@@ -261,7 +262,6 @@
   (let ((entry-list
 		  (append
 		   (list (make-container-ref-entry '|STC.CCSDS.Space-Packet.Container.Packet-Primary-Header|))
-		   (when Space-Packet.Secondary-Header nil) ;TODO: UGH, also we should check SANA
 		   (list (make-container-ref-entry '|STC.CCSDS.Space-Packet.Container.Packet-Data-Field|)))))
 	(make-sequence-container
 	 '|STC.CCSDS.Space-Packet.Container.Space-Packet|
@@ -279,7 +279,7 @@
 	CCSDS.Space-Packet.Container.Header.Packet-Sequence-Control
 	CCSDS.Space-Packet.Container.Packet-Primary-Header
 	)
-  (when Space-Packet.Secondary-Header
+  (when (not (equal Space-Packet.Secondary-Header-Length 0))
 	CCSDS.Space-Packet.Container.Secondary-Header)))
 
 ; Concrete Deframing: Stream + Frame Container -> Frames + Packet Container Ref
