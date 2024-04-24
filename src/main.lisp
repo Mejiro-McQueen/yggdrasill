@@ -53,7 +53,7 @@
 (defparameter test-services-list
   (list (make-service '|Service.CCSDS.MPDU|
 					  (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
-					  :short-description "Test MPDU Service for VCID 43"
+					  :short-description "MPDU Decoding for VCID 43"
 					  :ancillary-data-set
 					  (xtce::make-ancillary-data-set
 					   (xtce::make-ancillary-data 'Service-Function 'stc::decode-mpdu)
@@ -218,3 +218,17 @@
 
 ;; (xtce-engine::byte-array-to-uint tt)
 
+;;TODO:
+;; What should we define as a space system?
+;; Maybe a space system should correspond to a single onboard computer with its subsystems pointing to services
+;; This would help flatten a large root space system.
+
+;; TODO:
+;; We're going to use streams for setting up bifrost services.
+;; We'll traverse into the root system's telemetry node and pick up what we need from the ancillary data, mainly the port.
+;; We'll pick up the next stage by looking at the container/service/stream ref
+;; If container then we decode, if stream-ref we place into the stream queue, we don't know what to use services for.
+;; All stream outputs will be published via the websocket.
+;; The receiving end will be a small adaptor routing input from DSN/SIM/Radio and routing output from ygdrassil to the GDS network (i.e. RabbitMQ)
+;; We could also write more adaptors to read telemetry from files (command loader), s3, binary dump, etc...
+;; I think this approach, relying on websockets and adaptors, would provide the most flexibility for fulfilling mission needs.
