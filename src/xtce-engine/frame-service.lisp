@@ -126,18 +126,6 @@
 																				fixed-frame-stream-type
 																				:fixed-frame-processor-continuation next-continuation
 																				:frame frame))))))))
-
-;TODO: Use generic method
-(defun get-frame-processor-function (stream-type)
-  (typecase stream-type
-	(fixed-frame-stream
-	 (log:info "Found Fixed Frame Stream!")
-	 (lambda (frame) (process-fixed-frame-stream stream-type :frame frame)))
-	(variable-frame-stream
-	 (log:info "Found Variable Frame Stream!"))
-	(custom-stream
-	 (log:info "Found Custom Frame Stream!"))))
-
 (defun process-frame-result (frame state next-ref symbol-table)
   (case state
 	(LOCK
@@ -154,9 +142,10 @@
 	(CHECK
 	 (log:info "Frame discarded due to CHECK state."))))
 
-(defun frame-sync (frame stream-type
+(defgeneric frame-sync (frame stream-type &key this-continuation frame-counter))
+(defmethod frame-sync (frame (stream-type fixed-frame-stream)
 				   &key
-					 (this-continuation (get-frame-processor-function stream-type))
+					 (this-continuation (lambda (frame) (process-fixed-frame-stream stream-type :frame frame)))
 					 (frame-counter 0))
   (log:info "Starting Frame Sync Service for ~A" stream-type)
   (multiple-value-bind (frame-result state next-continuation) (funcall this-continuation frame)
@@ -168,3 +157,16 @@
 															stream-type
 															:this-continuation next-continuation
 															:frame-counter frame-counter)))))
+(defmethod frame-sync (frame (stream-type variable-frame-stream)
+				   &key
+					 (this-continuation (get-frame-processor-function stream-type))
+					 (frame-counter 0))
+  (log:error "Not implemented Frame Sync Service for ~A" stream-type))
+
+
+(defmethod frame-sync (frame (stream-type custom-stream)
+				   &key
+					 (this-continuation (get-frame-processor-function stream-type))
+					 (frame-counter 0))
+  (log:error "Not implemented Frame Sync Service for ~A" stream-type))
+  
