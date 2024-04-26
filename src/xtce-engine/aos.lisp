@@ -277,43 +277,74 @@ static throughout a Mission Phase.")
 	(when (or use-AOS.Frame-Error-Control-Field use-AOS.Operational-Control-Field)
 	  (list CCSDS.AOS.Container.Transfer-Frame-Trailer))))
 
-(defun with-ccsds.aos.stream (frame-length-in-bits port &optional (stream-list nil) )
-  (let ((metadata (make-ancillary-data-set
-				   (make-ancillary-data :port port))))
-	(append
-	 stream-list
-	 (list
-	  (make-fixed-frame-stream
-	   '|STC.CCSDS.AOS.Stream|
-	   frame-length-in-bits
-	   (make-service-ref '|STC.CCSDS.AOS.Service.Frame|)
-	   (make-sync-strategy (make-sync-pattern))
-	   :ancillary-data-set metadata
-	   :short-description (format nil "CCSDS AOS Stream: Listening for ~A bit frames on port ~A" frame-length-in-bits port))))))
+(defun with-ccsds.aos.stream (frame-length-in-bits port virtual-channel-id &optional (stream-list nil) )
+  (let* ((stream-name (intern (format nil "STC.CCSDS.AOS.Stream.~A" virtual-channel-id)))
+		 (next-stream-ref (make-stream-ref (format nil "STC.CCSDS.MPDU.Stream.~A" virtual-channel-id)))
+		 (sync-strategy (make-sync-strategy (make-sync-pattern)))
+		 (container-ref (make-container-ref '|CCSDS.AOS.Container.Frame|))
+		 (aos-stream (make-networked-fixed-frame-stream stream-name
+														frame-length-in-bits
+														container-ref
+														sync-strategy
+														port
+														:stream-ref next-stream-ref
+														))) 
+	(push aos-stream 
+		  stream-list)))
+
+;; (defun monad (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+;; 						   (extract-space-packets data first-header-pointer symbol-table alist #*))))
+;;   (log:info "STARTING CYCLE")
+;;   (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
+;; 		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
+;; 		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
+;; 		 (mpdu (decode frame-data-field container symbol-table '() 0))
+;; 		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
+;; 		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+
+;; 	(log:info first-header-pointer)
+;; 	(multiple-value-bind (alist next-extractor)
+;; 		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
+;; 	  (values alist (lambda (frame symbol-table) (monad frame symbol-table :packet-extractor next-extractor))))))
 
 
-(defun monad (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
-						   (extract-space-packets data first-header-pointer symbol-table alist #*))))
-  (log:info "STARTING CYCLE")
-  (let* ((frame-alist (decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0))
-		 (frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
-		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
-		 (mpdu (decode frame-data-field container symbol-table '() 0))
-		 (packet-zone (cdr (assoc stc::'|STC.CCSDS.MPDU.Packet-Zone| mpdu)))
-		 (first-header-pointer (cdr (assoc stc::'|STC.CCSDS.MPDU.Header.First-Header-Pointer| mpdu))))
+;; (defun ccsds.aos.frame.decode (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+;; 						   (extract-space-packets data first-header-pointer symbol-table alist #*))))
+;;   (log:info "STARTING CYCLE")
+;;   (let* ((frame-alist (xtce-engine:decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0)))
+;; 	frame-alist))
 
-	(log:info first-header-pointer)
-	(multiple-value-bind (alist next-extractor)
-		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
-	  (values alist (lambda (frame symbol-table) (monad frame symbol-table :packet-extractor next-extractor))))))
-
-
-(defun ccsds.aos.frame.decode (frame symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
-						   (extract-space-packets data first-header-pointer symbol-table alist #*))))
-  (log:info "STARTING CYCLE")
-  (let* ((frame-alist (xtce-engine:decode frame (gethash "STC.CCSDS.AOS.Container.Frame" symbol-table) symbol-table '() 0)))
-	frame-alist))
-
-;; ;Good pathatlogical cycle:
+;; ;Good pathalogical cycle:
 ;; (defvar CCSDS.AOS.Header.Replay-Flag
 ;;   (make-parameter '|STC.CCSDS.AOS.Header.Replay-Flag| '|STC.CCSDS.AOS.Header.Replay-Flag|))
+
+
+(defun make-networked-fixed-frame-stream (name
+										  frame-length-in-bits
+										  ref
+										  sync-strategy
+										  port
+										  &key
+											bit-rate-in-bps
+											(pcm-type 'NRZL)
+											inverted
+											(sync-aperture-in-bits 0)
+											long-description
+											alias-set
+											(ancillary-data-set (make-ancillary-data-set))
+											stream-ref)
+  (let ((port (make-ancillary-data :port port)))
+	(make-fixed-frame-stream
+	 name
+	 frame-length-in-bits
+	 ref
+	 sync-strategy
+	 :bit-rate-in-bps bit-rate-in-bps
+	 :pcm-type pcm-type
+	 :inverted inverted
+	 :sync-aperture-in-bits sync-aperture-in-bits
+	 :long-description long-description
+	 :alias-set alias-set
+	 :ancillary-data-set (push-ancillary-data port ancillary-data-set)
+	 :stream-ref stream-ref
+	 :short-description (format nil "~A Listening for ~A bit fixed frames on port ~A" name frame-length-in-bits (xtce::value port)))))

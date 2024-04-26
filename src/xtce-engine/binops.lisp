@@ -1,3 +1,26 @@
+(in-package :xtce-engine)
+
+(defun byte-array-to-uint (a)
+  (parse-integer (byte-array-to-hex-string a) :radix 16))
+
+(defun byte-array-to-hex-string (a)
+  (ironclad:byte-array-to-hex-string a))
+
+(defun ascii-string-to-byte-array (s)
+  (ironclad::ascii-string-to-byte-array s))
+
+;; (defun byte-array->hex-string (a)
+;;   (ironclad:byte-array-to-hex-string
+;;    (make-array (length a)
+;; 			   :element-type '(unsigned-byte 8)
+;; 			   :initial-contents a)))
+
+(defun hex-string-to-byte-array (s)
+  (ironclad::hex-string-to-byte-array s))
+
+(defun U8-Array->bit-vector (a)
+  (xtce-engine::bit-array-list->concat-bit-vector
+   (map 'list xtce-engine::'uint->bit-vector a)))
 
 (defun bit-array-list->concat-bit-vector (l)
   (apply #'concatenate-bit-arrays l))
@@ -30,7 +53,9 @@
 	))
 
 (defun uint->bit-vector (n &optional (pad (integer-length n))) 
-  "~43 HAYAI!"
+  "~43 HAYAI!. Hex strings are represented as UINT in CL, so #x29A0 = 666 = #*1010011010
+   Where n is an integer or a CL hex value
+"
   ;;(declare (optimize (speed 3) (safety 0)))
   (let ((pos (- pad 1))
 		(res (make-sequence 'bit-vector pad :initial-element 0)))

@@ -11,7 +11,7 @@
    '|STC.CCSDS.Space-Packet.Header.Packet-Identification-Type|
    :short-description "CCSDS Space Secondary Packet Header element."
    :data-encoding
-   (make-binary-data-encoding (make-size-in-bits (make-fixed-value Space-Packet.Secondary-Header)))))
+   (make-binary-data-encoding (make-size-in-bits (make-fixed-value Space-Packet.Secondary-Header-Length)))))
 
 (defparameter Space-Packet.Header.Packet-Name '|STC.CCSDS.Space-Packet.Header.Packet-Name|)
 

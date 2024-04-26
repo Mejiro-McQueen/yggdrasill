@@ -127,6 +127,7 @@
 																				:fixed-frame-processor-continuation next-continuation
 																				:frame frame))))))))
 
+;TODO: Use generic method
 (defun get-frame-processor-function (stream-type)
   (typecase stream-type
 	(fixed-frame-stream
@@ -162,8 +163,8 @@
 	(incf frame-counter)
 	(log:info "Total Frames Synchronized: ~A" frame-counter)
 	(log:info "Current Synchronization State: ~A" state)
-	(values frame-result state (lambda (next-frame) (frame-sync
-												next-frame
-												stream-type
-												:this-continuation next-continuation
-												:frame-counter frame-counter)))))
+	(values frame-result state (lambda (next-frame stream-type) (frame-sync
+															next-frame
+															stream-type
+															:this-continuation next-continuation
+															:frame-counter frame-counter)))))

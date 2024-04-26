@@ -148,23 +148,24 @@
   (:report (lambda (condition stream)
      (format stream "Could not find container-ref entry: ~a, for container: ~a.~&" (entry condition) (container condition)))))
 
-(define-condition stream-next-ref-not-found (error)
+(define-condition stream-ref-not-found (error)
   ((stream :initarg :_stream :accessor _stream)
-   (next-ref :initarg :next-ref :accessor next-ref))
+   (ref :initarg :ref :accessor ref))
   (:report (lambda (condition stream)
-     (format stream "Could not find next-ref entry: ~a, for stream: ~a.~&" (next-ref condition) (_stream condition)))))
+     (format stream "Could not find nref entry: ~a, for stream: ~a.~&" (ref condition) (_stream condition)))))
 
 (defun check-stream-set-refs (space-system)
   (let* ((telemetry-metadata (slot-value space-system 'telemetry-metadata))
 		 (symbol-table (slot-value space-system 'symbol-table))
 		 (stream-set (if telemetry-metadata (slot-value telemetry-metadata 'stream-set))))
 	(dolist (stream stream-set)
-	  (with-slots (next-ref) stream
-		(typecase next-ref
-		  (stream-ref)
+	  (with-slots (stream-ref) stream
+		(typecase stream-ref
+		  (stream-ref
+		   (log:error "Unimplemented"))
 		  (container-ref 
-		   (unless (find-key-by-path (format nil "~A" (slot-value next-ref 'container-ref)) symbol-table)
-			 (error `stream-next-ref-not-found :_stream stream :next-ref next-ref))))))))
+		   (unless (find-key-by-path (format nil "~A" (slot-value stream-ref 'container-ref)) symbol-table)
+			 (error `stream-next-ref-not-found :stream stream :stream-ref stream-ref))))))))
 
 ;TODO: Use dereference from xtce-engine (i.e. move it here)
 (defun check-container-set-refs (space-system)
@@ -615,7 +616,15 @@
 	(cxml:with-element* ("xtce" "ServiceRef") 
 	  (cxml:attribute "serviceRef" service-reference))))
 
-(defclass stream-ref () ())
+(defclass stream-ref (ref) ((stream-reference :initarg :stream-reference :reader ref)))
+
+(defun make-stream-ref (stream-reference)
+  (make-instance 'stream-ref :stream-reference stream-reference))
+
+(defmethod marshal ((obj stream-ref))
+  (with-slots (stream-reference) obj
+	(cxml:with-element* ("xtce" "StreamRef") 
+	  (cxml:attribute "streamRef" stream-reference))))
 
 (defun make-container-ref-entry (container-ref
 								 &key
@@ -2448,11 +2457,14 @@
    (inverted :initarg :inverted :type boole :reader inverted)
    (sync-aperture-in-bits :initarg :sync-aperture-in-bits :type sync-aperture-in-bits :reader sync-aperture-in-bits)
    (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer :reader frame-length-in-bits)
-   (next-ref :initarg :next-ref :type symbol :reader next-ref)
+   (ref :initarg :ref :type symbol :reader ref)
    (sync-strategy :initarg :sync-strategy :type sync-strategy :reader sync-strategy)
    (stream-ref :initarg :stream-ref :type stream-ref :reader stream-ref)))
 
-(defun make-fixed-frame-stream (name frame-length-in-bits next-ref sync-strategy
+(defun make-fixed-frame-stream (name
+								frame-length-in-bits
+								ref
+								sync-strategy
 								&key
 								  short-description
 								  bit-rate-in-bps
@@ -2464,11 +2476,11 @@
 								  ancillary-data-set
 								  stream-ref)
   "For streams that contain a series of frames with a fixed frame length where the frames are found by looking for a marker in the data. This marker is sometimes called the frame sync pattern and sometimes the Asynchronous Sync Marker (ASM). This marker need not be contiguous although it usually is."
-  (check-type next-ref (or container-ref service-ref))
+  (check-type ref (or container-ref service-ref))
   (make-instance 'fixed-frame-stream
 			:name name
 			:frame-length-in-bits frame-length-in-bits
-			:next-ref next-ref
+			:ref ref
 			:sync-strategy sync-strategy
 			:short-description short-description
 			:bit-rate-in-bips bit-rate-in-bps
@@ -2497,7 +2509,7 @@
   (and (typep ref 'container-ref) (typep ref 'service-ref)))
 
 (defmethod marshall((obj fixed-frame-stream))
-  (with-slots (name short-description long-description alias-set ancillary-data-set bit-rate-in-bps pcm-type inverted sync-aperture-in-bits frame-length-in-bits next-ref sync-strategy stream-ref) obj
+  (with-slots (name short-description long-description alias-set ancillary-data-set bit-rate-in-bps pcm-type inverted sync-aperture-in-bits frame-length-in-bits ref sync-strategy stream-ref) obj
 	(cxml:with-element* ("xtce" "FixedFrameStream")
 	  (cxml:attribute "name" name)
 	  (cxml:attribute "frameLengthInBits" frame-length-in-bits)
@@ -2508,7 +2520,7 @@
 	  (optional-xml-attribute "syncApertureInBits" sync-aperture-in-bits)
 	  (marshall long-description)
 	  (marshall alias-set)
-	  (marshall next-ref)
+	  (marshall ref)
 	  (marshall stream-ref)
 	  (marshall sync-strategy))))
 
@@ -2587,9 +2599,13 @@
 (defun make-ancillary-data-set (&rest ancillary-data)
   (let ((table (make-hash-table)))
 	(dolist (i ancillary-data)
-	  (with-slots (name) i
-		(setf (gethash name table) i)))
+	  (push-ancillary-data i table))
 	(make-instance 'ancillary-data-set :data-set table)))
+
+(defun push-ancillary-data (ancillary-data ancillary-data-set)
+  (with-slots (name) ancillary-data
+  (setf (gethash name (items ancillary-data-set)) ancillary-data))
+  ancillary-data-set)
 
 (defclass ancillary-data () ((name :initarg :name :reader name :type symbol)
 							 (value :initarg :value :reader value)

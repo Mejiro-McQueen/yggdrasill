@@ -1,6 +1,3 @@
-(ql:quickload '(:clack :websocket-driver))
-(ql:quickload :websocket-driver-client)
-
 (declaim (optimize (speed 0) (space 0) (debug 3)))
 (defvar debug-mode t)
 ;(setf lparallel:*kernel* (lparallel:make-kernel 10))
@@ -33,47 +30,37 @@
 ;; (setf qq #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
 
-;;; Services
-;;; A service is identified exclusively by its name
+;;; Streams
 
-(defparameter *service-states* (make-hash-table))
+(defparameter *port->state* (make-hash-table))
+(defstruct stream-state sync-closure container-closure stream-def server)
 
-(defun generate-service-states (service-list)
-  "Generate all services"
-  (dolist (service service-list)
-	(with-slots (name ancillary-data-set) service
-	  (let ((f (gethash 'Service-Function (xtce::items ancillary-data-set))))
-		(if (typep f xtce::'ancillary-data)
-			(setf (gethash name *service-states*) (symbol-function (xtce::value f))))
-		(log:info "Generated service state for ~A using ~A" name (symbol-function (xtce::value f)))))))
+(defgeneric initialize-stream-state (port xtce-stream server))
 
+(defmethod initialize-stream-state ((port integer) (stream fixed-frame-stream) (server t))
+  (with-slots (name ancillary-data-set) stream
+	(let ((stream-state (make-stream-state :sync-closure #'frame-sync :container-closure nil :stream-def stream :server server)))
+	  (log:info "Initialized state for ~A" (name stream))
+	  (setf (gethash port *port->state*) stream-state))))
 
-;; (generate-service-states test-service-list)
-
-(defparameter test-services-list
-  (list (make-service '|Service.CCSDS.MPDU|
-					  (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
-					  :short-description "MPDU Decoding for VCID 43"
-					  :ancillary-data-set
-					  (xtce::make-ancillary-data-set
-					   (xtce::make-ancillary-data 'Service-Function 'stc::decode-mpdu)
-					   (xtce::make-ancillary-data 'VCID 43)
-					   (xtce::make-ancillary-data 'Next-Service '|Service.CCSDS.Space-Packet|)))
+   ;; (make-service '|Service.CCSDS.MPDU|
+		;; 			  (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
+		;; 			  :short-description "MPDU Decoding for VCID 43"
+		;; 			  :ancillary-data-set
+		;; 			  (xtce::make-ancillary-data-set
+		;; 			   (xtce::make-ancillary-data 'Service-Function 'stc::decode-mpdu)
+		;; 			   (xtce::make-ancillary-data 'VCID 43)
+		;; 			   (xtce::make-ancillary-data 'Next-Service '|Service.CCSDS.Space-Packet|)))
 		
-		(make-service '|Service.CCSDS.AOS.Frame|
-					  (list (make-container-ref '|STC.CCSDS.AOS.Container.Frame|))
-					  :short-description "Test AOS Frame Decoding"
-					  :ancillary-data-set
-					  (xtce::make-ancillary-data-set
-					   (xtce::make-ancillary-data 'Service-Function stc::'ccsds.aos.frame.decode)
-					   (xtce::make-ancillary-data 'Next-Service '|Service.CCSDS.MPDU|)))
 
-		(make-service '|Service.CCSDS.Space-Packet|
-					  (list (make-container-ref '|STC.CCSDS.Space-Packet|))
-					  :short-description "CCSDS Space Packet Decoding"
-					  :ancillary-data-set
-					  (xtce::make-ancillary-data-set
-					   (xtce::make-ancillary-data 'Service-Function 'identity)))))
+		;; (make-service '|Service.CCSDS.Space-Packet|
+		;; 			  (list (make-container-ref '|STC.CCSDS.Space-Packet|))
+		;; 			  :short-description "CCSDS Space Packet Decoding"
+		;; 			  :ancillary-data-set
+		;; 			  (xtce::make-ancillary-data-set
+		;; 			   (xtce::make-ancillary-data 'Service-Function 'identity)))
+; stc::'ccsds.aos.frame.decode
+
 
 (defparameter Test-System
   (make-space-system
@@ -103,21 +90,15 @@
 	(stc::with-ccsds.aos.containers nil)
 	
 	:stream-set
-	(stc:with-ccsds.aos.stream 1024 8081))
-   
-   :service-set test-services-list))
+	(stc:with-ccsds.aos.stream 1024 8888 15))))
 
 
 ;; (lparallel.queue:push-queue #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF input-queue)
 
 ;; (lparallel.queue:push-queue nil input-queue)
 
-(defparameter *ws->state* (make-hash-table))
-
-(defparameter *port->state* (make-hash-table))
-
 ;;; Web Service Side
-(defun create-frame-listener (env)
+(defun create-stream-listener (env)
   (let ((ws (wsd:make-server env)))
 	(wsd:on :open ws
 			(lambda ()
@@ -125,7 +106,7 @@
 
 	(wsd:on :message ws
 			(lambda (message)
-			  (handle-message ws message)))
+			  (handle-message ws message env)))
 
 	(wsd:on :error ws
 			(lambda (error)
@@ -145,78 +126,80 @@
 (defun handle-open (ws env)
   (log:info "Connected.~%")
   (let* ((server-port (getf env :SERVER-PORT))
-		 (stream (second (gethash server-port *port->state*)))
-		 (f (lambda (frame) (frame-sync frame stream))))
-	(setf (gethash ws *ws->state*) f)))
+		 (port-state (gethash server-port *port->state*)))
+	port-state))
+		 
 	
 (defun handle-close (ws)
   (log:info "Connection closed: ~A" ws))
 
-(defun handle-message (ws message)
-  (let ((frame-sync-func (gethash ws *ws->state*))
-		(message (byte-array-to-uint message)))
-	(multiple-value-bind (frame-result state next-continuation) (funcall frame-sync-func message)
-	  (setf (gethash ws *ws->state*) next-continuation)
-										;(log:info frame-result)
+(defun handle-message (ws message env)
+  (let* ((port (getf env :SERVER-PORT))
+		 (stream-state (gethash port *port->state*))
+		 (message (byte-array-to-uint message)))
+	(multiple-value-bind (stream-result state next-continuation) (funcall (stream-state-sync-closure stream-state)
+																		  message (stream-state-stream-def stream-state))
+	  (setf (stream-state-sync-closure stream-state) next-continuation)
+	  (setf (gethash port *port->state*) stream-state)
+	  (log:info next-continuation)
+	  (log:info stream-result)
 	  (log:info state)
 	  (wsd:send-text ws (format nil "~A" state))
 	  )
-	))
+	)
+  )
  
 ;;; Server Side
-(defun start-frame-listener (stream)
+(defun start-stream-listener (stream)
   (with-slots (ancillary-data-set) stream
 	  (let* ((port (xtce::value (gethash :port (xtce::items ancillary-data-set))))
 			 (listener (progn
-						 (assert port (port) "No key :port found for ~A in ancillary data" stream)
-						 (clack:clackup #'create-frame-listener :port port))))
-		(log:info "Started frame listener on port ~A" port)
-		(values listener port))))
+						 (clack:clackup #'create-stream-listener :port port))))
+		(log:info "Started stream listener on port ~A" port)
+		(initialize-stream-state port stream listener))))
 
-(defun start-frame-listeners (stream-list)
+(defun start-stream-listeners (stream-list)
   (check-type stream-list xtce::stream-set)
   (dolist (stream stream-list)
-	(multiple-value-bind (listener port) (start-frame-listener stream)
-	  (setf (gethash port *port->state*) (list listener stream)))))
-
-(defun stop-frame-listeners ()
-  (log:info "Shutting down frame listeners.")
-  (maphash #'stop-frame-listener
+	(start-stream-listener stream)))
+  
+(defun stop-stream-listeners ()
+  (log:info "Shutting down stream listeners.")
+  (maphash #'stop-stream-listener
 		   *port->state*))
 
-(defun stop-frame-listener (port stream-info)
-  (let* ((listener (first stream-info))
-		 (stream (second stream-info))
+(defun stop-stream-listener (port stream-state)
+  (let* ((listener (stream-state-server stream-state))
 		 (stopped (clack:stop listener)))
+	(declare (ignore stopped))
 	(remhash port *port->state*)
-	(log:info stopped)
-	(log:info "Shutdown frame listener ~A" stream)))
+	(log:info "Shutdown stream listener ~A" (name (stream-state-stream-def stream-state)))))
 
 (defun bifrost.start (space-system)
   (with-slots (telemetry-metadata) space-system
-	(start-frame-listeners (xtce::stream-set telemetry-metadata))))
+	(start-stream-listeners (xtce::stream-set telemetry-metadata))))
  
-;; (bifrost.start Test-System)
-;; (stop-frame-listeners)
+(bifrost.start Test-System)
 
-;; (defparameter *client* (wsd:make-client "ws://localhost:8081"))
+(defparameter tt
+  (hex-string-to-byte-array "1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
 
-;; (wsd:start-connection *client*)
+(defparameter *client* (wsd:make-client "ws://127.0.0.1:8888"))
+
+(sleep 2)
+(wsd:start-connection *client*)
 ;; ;; (wsd:on :message *client*
 ;; ;;         (lambda (message)
 ;; ;;           (format t "~&Got: ~A~%" message)))
 ;; ;; (wsd:send *client* "Hi")
-;; (wsd:send-binary *client* tt)
-;; (wsd:close-connection *client*)
-
-;; (U8-Array->Hex tt)
-
-;; (U8-Array->uint tt)
-
-;; (defparameter tt
-;;   (hex-string-to-byte-array "1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
-
-;; (xtce-engine::byte-array-to-uint tt)
+(wsd:send-binary *client* tt)
+(wsd:send-binary *client* tt)
+(wsd:send-binary *client* tt)
+(wsd:send-binary *client* tt)
+(wsd:send-binary *client* tt)
+(wsd:send-binary *client* tt)
+(wsd:close-connection *client*)
+(stop-stream-listeners)
 
 ;;TODO:
 ;; What should we define as a space system?

@@ -4,24 +4,53 @@
 		:filesystem-hash-table)
   (:documentation "XTCE")
   (:export
+   #:algorithm-set
+   #:alias-set
+   #:alias-set
+   #:ancillary-data-set
+   #:ancillary-data-set
+   #:bit-location-from-start
+   #:bit-rate-in-bips
+   #:check-to-lock-good-frames
+   #:command-metadata
+   #:container-ref
+   #:container-set
+   #:custom-stream
+   #:data-encoding
+   #:dereference
+   #:dump-xml
+   #:entry-list
+   #:fixed-frame-stream
    #:format-bool
    #:format-number
    #:format-symbol
+   #:frame-length-in-bits
+   #:get-size
    #:hamming-distance
+   #:header
    #:hex-length-in-bits
+   #:instantiate-parameter
+   #:inverted
    #:ldb-left
+   #:long-description
+   #:long-description
    #:make-absolute-time-parameter
+   #:make-ancillary-data
+   #:make-ancillary-data-set
    #:make-argument-instance-ref
    #:make-array-parameter-ref-entry
    #:make-array-parameter-type
    #:make-base-container
    #:make-binary-data-encoding
    #:make-binary-parameter-type
+   #:make-boolean-parameter-type
    #:make-comparison
+   #:make-container-ref
    #:make-container-ref-entry
    #:make-container-segment-ref-entry
    #:make-count
    #:make-default-rate-in-stream
+   #:make-dimension
    #:make-dynamic-value
    #:make-encoding
    #:make-ending-index
@@ -29,7 +58,7 @@
    #:make-enumeration
    #:make-enumeration-alarm
    #:make-epoch
-   #:make-parameter-properties
+   #:make-fixed
    #:make-fixed-frame-stream
    #:make-fixed-value
    #:make-float-data-encoding
@@ -43,10 +72,11 @@
    #:make-location-in-container-in-bits
    #:make-long-description
    #:make-next-container
-   #:make-offset-from
    #:make-offset
+   #:make-offset-from
    #:make-parameter
    #:make-parameter-instance-ref
+   #:make-parameter-properties
    #:make-parameter-ref-entry
    #:make-parameter-segment-ref-entry
    #:make-polynomial-calibrator
@@ -55,86 +85,57 @@
    #:make-repeat-entry
    #:make-restriction-criteria
    #:make-sequence-container
+   #:make-service
+   #:make-service-ref
    #:make-size-in-bits
    #:make-size-range-in-characters
+   #:make-space-system
    #:make-spline-point
    #:make-starting-index
+   #:make-stream-ref
    #:make-stream-segment-entry
    #:make-string-data-encoding
    #:make-string-parameter-type
    #:make-sync-pattern
    #:make-sync-strategy
+   #:make-telemetry-metadata
    #:make-term
    #:make-termination-char
-   #:make-container-ref
-   #:make-stream-ref
-   #:make-service-ref
    #:make-unit
-   #:make-boolean-parameter-type
+   #:mask
+   #:max-bit-errors-in-sync-pattern
+   #:message-set
+   #:name
+   #:next-ref
+   #:operational-status
+   #:parameter-type-set
+   #:parent-system
+   #:pattern
+   #:pattern-length-in-bits
+   #:pcm-type
    #:print-bin
    #:print-hex
    #:prompt-new-value
-   #:truncate-from-left
-   #:truncate-from-left-to-size
-   #:make-telemetry-metadata
-   #:make-space-system
-   #:make-dimension
-   #:dump-xml
-   #:instantiate-parameter
-   #:mask
-   #:pattern
-   #:pattern-length-in-bits
-   #:bit-location-from-start
-   #:short-description
-   #:long-description
-   #:alias-set
-   #:ancillary-data-set
-   #:bit-rate-in-bips
-   #:pcm-type
-   #:inverted
-   #:sync-aperture-in-bits
-   #:frame-length-in-bits
-   #:next-ref
-   #:sync-strategy
-   #:header
-   #:name
-   #:operational-status
-   #:long-description
-   #:alias-set
-   #:ancillary-data-set
-   #:telemetry-metadata
-   #:command-metadata
-   #:xml-base
-   #:service-set
-   #:space-system-list
-   #:parent-system
-   #:symbol-table
-   #:short-description
+   #:push-ancillary-data
+   #:reference-set
    #:root
-   #:parameter-type-set
-   #:container-set
-   #:message-set
+   #:service-set
+   #:short-description
+   #:short-description
+   #:space-system-list
    #:stream-set
-   #:algorithm-set
-   #:make-ancillary-data
-   #:fixed-frame-stream
-   #:custom-stream
-   #:variable-frame-stream
+   #:symbol-table
+   #:sync-aperture-in-bits
    #:sync-pattern
    #:sync-strategy
+   #:sync-strategy
+   #:telemetry-metadata
+   #:truncate-from-left
+   #:truncate-from-left-to-size
+   #:variable-frame-stream
    #:verify-to-lock-good-frames
-   #:check-to-lock-good-frames
-   #:max-bit-errors-in-sync-pattern
-   #:make-fixed
-   #:entry-list
-   #:data-encoding
-   #:dereference
-   #:get-size
+   #:xml-base
    ;;#:decode
-   #:container-ref
-   #:make-ancillary-data-set
-   #:make-service
-   #:reference-set
    ))
 
 (defpackage :standard-template-constructs
@@ -217,15 +218,17 @@
   (:documentation "XTCE-Engine")
   (:export
    #:alist->bit-vector
-   #:uint->bit-vector
    #:concatenate-bit-arrays
-   #:pad-bit-vector
    #:decode
    #:extract-space-packets
+   #:fragment-packet
+   #:hex-string-to-byte-array
+   #:make-mpdu-header
+   #:make-networked-fix-frame-stream
    #:monad
    #:pack-arrays-with-padding
-   #:fragment-packet
-   #:make-mpdu-header
+   #:pad-bit-vector
+   #:uint->bit-vector
    ))
 
 (defpackage :nasa-cfs
