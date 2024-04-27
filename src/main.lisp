@@ -33,13 +33,17 @@
 ;;; Streams
 
 (defparameter *port->state* (make-hash-table))
-(defstruct stream-state sync-closure container-closure stream-def server)
+(defstruct stream-state sync-closure container-closure stream-def server symbol-table)
 
-(defgeneric initialize-stream-state (port xtce-stream server))
+(defgeneric initialize-stream-state (port xtce-stream server symbol-table))
 
-(defmethod initialize-stream-state ((port integer) (stream fixed-frame-stream) (server t))
+(defmethod initialize-stream-state ((port integer) (stream fixed-frame-stream) (server t) (symbol-table t))
   (with-slots (name ancillary-data-set) stream
-	(let ((stream-state (make-stream-state :sync-closure #'frame-sync :container-closure nil :stream-def stream :server server)))
+	(let ((stream-state (make-stream-state :sync-closure #'frame-sync
+										   :container-closure nil
+										   :stream-def stream
+										   :server server
+										   :symbol-table symbol-table)))
 	  (log:info "Initialized state for ~A" (name stream))
 	  (setf (gethash port *port->state*) stream-state))))
 
@@ -138,7 +142,9 @@
 		 (stream-state (gethash port *port->state*))
 		 (message (byte-array-to-uint message)))
 	(multiple-value-bind (stream-result state next-continuation) (funcall (stream-state-sync-closure stream-state)
-																		  message (stream-state-stream-def stream-state))
+																		  message
+																		  (stream-state-stream-def stream-state)
+																		  (stream-state-symbol-table stream-state))
 	  (setf (stream-state-sync-closure stream-state) next-continuation)
 	  (setf (gethash port *port->state*) stream-state)
 	  (log:info next-continuation)
@@ -153,15 +159,15 @@
 (defun start-stream-listener (stream)
   (with-slots (ancillary-data-set) stream
 	  (let* ((port (xtce::value (gethash :port (xtce::items ancillary-data-set))))
-			 (listener (progn
-						 (clack:clackup #'create-stream-listener :port port))))
+			 (listener (clack:clackup #'create-stream-listener :port port)))
 		(log:info "Started stream listener on port ~A" port)
-		(initialize-stream-state port stream listener))))
+		(list port listener))))
 
-(defun start-stream-listeners (stream-list)
+(defun start-stream-listeners (stream-list symbol-table)
   (check-type stream-list xtce::stream-set)
   (dolist (stream stream-list)
-	(start-stream-listener stream)))
+	(destructuring-bind (port listener) (start-stream-listener stream)
+	(initialize-stream-state port stream listener symbol-table))))
   
 (defun stop-stream-listeners ()
   (log:info "Shutting down stream listeners.")
@@ -177,7 +183,8 @@
 
 (defun bifrost.start (space-system)
   (with-slots (telemetry-metadata) space-system
-	(start-stream-listeners (xtce::stream-set telemetry-metadata))))
+	(start-stream-listeners (xtce::stream-set telemetry-metadata) (symbol-table space-system))))
+
  
 (bifrost.start Test-System)
 

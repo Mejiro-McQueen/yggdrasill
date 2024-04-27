@@ -127,6 +127,8 @@
 																				:fixed-frame-processor-continuation next-continuation
 																				:frame frame))))))))
 (defun process-frame-result (frame state next-ref symbol-table)
+  (log:error symbol-table)
+  (log:error next-ref)
   (case state
 	(LOCK
 	 (log:info "Frame Locked and Accepted")
@@ -142,8 +144,8 @@
 	(CHECK
 	 (log:info "Frame discarded due to CHECK state."))))
 
-(defgeneric frame-sync (frame stream-type &key this-continuation frame-counter))
-(defmethod frame-sync (frame (stream-type fixed-frame-stream)
+(defgeneric frame-sync (frame stream-type symbol-table &key this-continuation frame-counter))
+(defmethod frame-sync (frame (stream-type fixed-frame-stream) symbol-table
 				   &key
 					 (this-continuation (lambda (frame) (process-fixed-frame-stream stream-type :frame frame)))
 					 (frame-counter 0))
@@ -152,21 +154,27 @@
 	(incf frame-counter)
 	(log:info "Total Frames Synchronized: ~A" frame-counter)
 	(log:info "Current Synchronization State: ~A" state)
-	(values frame-result state (lambda (next-frame stream-type) (frame-sync
-															next-frame
-															stream-type
-															:this-continuation next-continuation
-															:frame-counter frame-counter)))))
-(defmethod frame-sync (frame (stream-type variable-frame-stream)
-				   &key
-					 (this-continuation (get-frame-processor-function stream-type))
-					 (frame-counter 0))
-  (log:error "Not implemented Frame Sync Service for ~A" stream-type))
+	(let ((res (process-frame-result frame-result state (xtce::ref stream-type) symbol-table)))
+	  (values res state (lambda (next-frame stream-type symbol-table) (frame-sync
+																  next-frame
+																  stream-type
+																  symbol-table
+																  :this-continuation next-continuation
+																  :frame-counter frame-counter))))))
+;; (defmethod frame-sync (frame (stream-type variable-frame-stream)
+;; 				   &key
+;; 					 (this-continuation (get-frame-processor-function stream-type))
+;; 					 (frame-counter 0))
+;;   (log:error "Not implemented Frame Sync Service for ~A" stream-type))
 
 
-(defmethod frame-sync (frame (stream-type custom-stream)
-				   &key
-					 (this-continuation (get-frame-processor-function stream-type))
-					 (frame-counter 0))
-  (log:error "Not implemented Frame Sync Service for ~A" stream-type))
-  
+;; (defmethod frame-sync (frame (stream-type custom-stream)
+;; 				   &key
+;; 					 (this-continuation (get-frame-processor-function stream-type))
+;; 					 (frame-counter 0))
+;;   (log:error "Not implemented Frame Sync Service for ~A" stream-type))
+
+
+;; (frame-sync 18828336199429801156648552013508144182012514821973559160702289297511120971662290594260501819590494654490051816847667710640417415297314085581983899864651526208966978638647803315176772478555677603831721718618445925971784302694756508652907583850879874593132025327973325395061214364289979416854521388303185346559
+;;  			(make-fixed-frame-stream 'lol 1024 (make-container-ref 'lol) (make-sync-strategy (make-sync-pattern))) (make-hash-table))
+ 
