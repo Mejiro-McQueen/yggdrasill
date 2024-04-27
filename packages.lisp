@@ -124,6 +124,7 @@
    #:short-description
    #:space-system-list
    #:stream-set
+   #:stream-ref
    #:symbol-table
    #:sync-aperture-in-bits
    #:sync-pattern
