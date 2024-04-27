@@ -281,7 +281,7 @@ static throughout a Mission Phase.")
   (let* ((stream-name (intern (format nil "STC.CCSDS.AOS.Stream.~A" virtual-channel-id)))
 		 (next-stream-ref (make-stream-ref (format nil "STC.CCSDS.MPDU.Stream.~A" virtual-channel-id)))
 		 (sync-strategy (make-sync-strategy (make-sync-pattern)))
-		 (container-ref (make-container-ref '|CCSDS.AOS.Container.Frame|))
+		 (container-ref (make-container-ref '|STC.CCSDS.AOS.Container.Frame|))
 		 (aos-stream (make-networked-fixed-frame-stream stream-name
 														frame-length-in-bits
 														container-ref

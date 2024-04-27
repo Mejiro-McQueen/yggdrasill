@@ -1,5 +1,4 @@
 (ql:quickload "fiveam")
-(ql:quickload "bifrost-yggdrasill")
 (in-package :cl-user)
 (defpackage bifrost-yggdrasill-test 
   (:use :cl

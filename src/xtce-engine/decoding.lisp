@@ -161,6 +161,19 @@
 	  (values res next-bit-offset))))
 
 
+;Decode container-ref
+(defmethod decode (data (ref xtce::container-ref) symbol-table alist bit-offset)
+  (log:debug ref)
+  (let ((container (xtce::dereference ref symbol-table)))
+	(if container
+		(decode data container symbol-table alist bit-offset)
+		(error "Could not dereference container-ref ~A" ref))))
+
+
+;Decode stream-ref
+(defmethod decode (data (ref xtce::stream-ref) symbol-table alist bit-offset)
+  (let ((container (xtce::dereference ref symbol-table)))
+	(error "Not implemented")))
 ;TODO: Handle case where lookups in symbol table return none.
 ;(xtce-engine::decode #*01100011 CCSDS.Space-Packet.Container.Header.Packet-Identification (make-hash-table) '() 0)
 

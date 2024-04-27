@@ -133,6 +133,7 @@
 	(LOCK
 	 (log:info "Frame Locked and Accepted")
 	 (log:info "Next stage: ~A" next-ref)
+	 (decode (uint->bit-vector frame) next-ref symbol-table '() 0)
 	 )
 	
 	(VERIFY
@@ -154,7 +155,7 @@
 	(incf frame-counter)
 	(log:info "Total Frames Synchronized: ~A" frame-counter)
 	(log:info "Current Synchronization State: ~A" state)
-	(let ((res (process-frame-result frame-result state (xtce::ref stream-type) symbol-table)))
+	(let ((res (process-frame-result frame state (xtce::ref stream-type) symbol-table)))
 	  (values res state (lambda (next-frame stream-type symbol-table) (frame-sync
 																  next-frame
 																  stream-type
@@ -177,4 +178,27 @@
 
 ;; (frame-sync 18828336199429801156648552013508144182012514821973559160702289297511120971662290594260501819590494654490051816847667710640417415297314085581983899864651526208966978638647803315176772478555677603831721718618445925971784302694756508652907583850879874593132025327973325395061214364289979416854521388303185346559
 ;;  			(make-fixed-frame-stream 'lol 1024 (make-container-ref 'lol) (make-sync-strategy (make-sync-pattern))) (make-hash-table))
- 
+
+;; (decode (uint->bit-vector #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF) (make-container-ref '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header|) test-1 '() 0)
+
+
+;; (defparameter test-1 (xtce::register-keys-in-sequence
+;; 					  (funcall 
+;; 					   (alexandria:compose #'stc::with-ccsds.space-packet.parameters
+;; 										   #'stc::with-ccsds.space-packet.types
+;; 										   #'stc::with-ccsds.space-packet.containers
+;; 										   #'stc::with-ccsds.mpdu.containers
+;; 										   #'stc::with-ccsds.mpdu.types
+;; 										   #'stc::with-ccsds.mpdu.parameters
+;; 										   #'stc::with-ccsds.aos.containers
+;; 										   #'stc::with-ccsds.aos.header.parameters
+;; 										   #'stc::with-ccsds.aos.header.types) nil)
+;; 					  (filesystem-hash-table:make-filesystem-hash-table)
+;; 					  'Test))
+
+
+
+;; (dereference (make-container-ref "CCSDS.AOS.Container.Frame") test-1)
+
+
+;; (filesystem-hash-table:find-key-by-path "STC.CCSDS.AOS.Container.Frame" test-1)

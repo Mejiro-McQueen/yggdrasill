@@ -2718,9 +2718,9 @@
 		(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)
 		(error 'reference-not-found :reference-holder reference-holder :dereferenced-obj dereferenced-object))))
 
-(defgeneric dereference (object-with-reference symbol-table))
+(defgeneric dereference (reference-symbol symbol-table))
 
-(defmethod dereference ((obj container-ref) symbol-table)
+(defmethod dereference ((obj xtce::container-ref) symbol-table)
   (let* ((reference (container-ref obj))
 		 (res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
 	res))
