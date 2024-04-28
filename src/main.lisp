@@ -238,7 +238,68 @@
 
 ;; (decode (uint->bit-vector #x1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF) (make-container-ref '|STC.CCSDS.AOS.Container.Transfer-Frame-Primary-Header|) (symbol-table Test-System) '() 0)
 
+;(32°F − 32) × 5/9 = 0°C
 
 
+;; We can define the algorithm as a regular lisp function
+;; This lets us use and test it in the typical fashion.
+;; By making a call to function-lambda-expression we can embed it into the algorithm text
+;; Functions that are evaluated in a compiled program are themselves compiled.
+;; The input-set should compose an ordered set of constants and input-parameter-instance-ref
+;; Whenever input-parameter-instance-ref defines input-name, parameter-ref will be mapped to the key input-name in the algorithm function definition
+;; Whenever consant defines constant-name, the constant value will be mapped to the key constant-name in the algorithm function definition
+;; Otherwise the input-parameter-instance-ref and constant name will be passed in as regular positional arguments
+;; You may choose to define an algorithm function with no, some, or all keys.
+;; You may use default arguments
+;; Your function must return an alist of parameters to values
+;; If output-set is available the prameter-ref values will be copied to to algorithm's output under the output-name if it is set.
+(defun f->c (&key degrees-fahrenheit  calibration-offset (useless-offset 0))
+						   (+ useless-offset calibration-offset (/ (- degrees-fahrenheit 32) (/ 9 5) )))
 
+(defparameter test1
+  (make-decoding-algorithm 'Test
+						   :algorithm-text (make-algorithm-text (function-lambda-expression #'f->c))
+						   :input-set (list (make-input-parameter-instance-ref
+											 'deg-f
+											 :input-name 'degrees-fahrenheit)
+											(make-constant 100 :constant-name 'calibration-offset)
+											)))
 
+;;; Otherwise, we can simply quote the function definition
+;; (defparameter f->c
+;; 	(make-algorithm-text '(defun f->c (&key degrees-fahrenheit  calibration-offset)
+;; 						   (+ calibration-offset (/ (- degrees-fahrenheit 32) (/ 9 5) )))))
+
+;; (defparameter test1
+;;   (make-decoding-algorithm 'Test
+;; 						   :algorithm-text f->c
+;; 						   :input-set (list (make-input-parameter-instance-ref
+;; 											 'deg-f
+;; 											 :input-name 'degrees-fahrenheit)
+;; 											(make-constant 100 :constant-name 'calibration-offset)
+;; 											)))
+
+(defparameter alist '((deg-f . 100)))
+
+(defun eval-algorithm (decoding-algorithm parameter-alist)
+  (let ((algorithm (eval (xtce::algorithm-text (xtce::algorithm-text decoding-algorithm))))
+		(input-set (xtce::input-set decoding-algorithm))
+		(arg-list nil))
+	(dolist (argument input-set)
+	  (print argument)
+	  (typecase argument
+		(xtce::input-parameter-instance-ref
+		 (when (xtce::input-name argument)
+		   (push (alexandria:make-keyword (xtce::input-name argument)) arg-list ))
+		 (log:info "Searching for ~A in ~A" (xtce::parameter-ref argument) parameter-alist)
+		 (push (cdr (assoc (xtce::parameter-ref argument) parameter-alist)) arg-list))
+		(xtce::constant
+		 (when (xtce::constant-name argument)
+		   (push (alexandria:make-keyword (xtce::constant-name argument)) arg-list))
+		 (push (xtce::value argument) arg-list))))
+	(setf arg-list (nreverse arg-list))
+	(log:info "Applying ~A with ~S" algorithm arg-list)
+	(describe algorithm)
+	(apply algorithm arg-list)))
+
+(eval-algorithm test1 alist)

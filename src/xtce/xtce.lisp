@@ -944,7 +944,8 @@
 (defmethod cxml-marshal ((obj restriction-criteria))
   (with-slots (restriction-criteria next-container) obj
 	(cxml:with-element* ("xtce" "RestrictionCriteria")
-	  (marshall restriction-criteria next-container))))
+	  (marshall restriction-criteria)
+	  (marshall next-container))))
 
 (defclass next-container () ((container-ref :initarg :container-ref)))
 
@@ -2431,7 +2432,15 @@
         (with-slots (name short-description) obj
           (format stream "name: ~a, description: ~a " name short-description))))
 
-(defclass data-stream () ())
+(defclass data-stream ()
+  ((name :initarg :name :type symbol :reader name)
+   (short-description :initarg :short-description :type short-description :reader short-description)
+   (long-description :initarg :long-description :type string :reader long-description)
+   (bit-rate-in-bps :initarg :bit-rate-in-bips :reader bit-rate-in-bps)
+   (pcm-type :initarg :pcm-type :reader pcm-type)
+   (inverted :initarg :inverted :type boole :reader inverted)
+   (alias-set :initarg :alias-set :type alias-set :reader alias-set)
+   (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set :reader ancillary-data-set)))
 
 (deftype stream-set ()
   `(satisfies stream-set-p))
@@ -2442,20 +2451,177 @@
    (listp l)
    (every #'(lambda (i) (typep i '(or fixed-frame-stream variable-frame-stream custom-stream))) l )))
 
-(defclass variable-frame-stream (data-stream) ())
+(defclass variable-frame-stream (data-stream)
+  ((sync-aperture-in-bits :initarg :sync-aperture-in-bits :type sync-aperture-in-bits :reader sync-aperture-in-bits)
+   (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer :reader frame-length-in-bits)
+   (ref :initarg :ref :type symbol :reader ref)
+   (sync-strategy :initarg :sync-strategy :type sync-strategy :reader sync-strategy)
+   (stream-ref :initarg :stream-ref :type stream-ref :reader stream-ref)))
 
-(defclass custom-stream (data-stream) ())
+(defmethod marshall((obj variable-frame-stream))
+  (with-slots (name
+			   short-description
+			   long-description
+			   alias-set
+			   ancillary-data-set
+			   bit-rate-in-bps
+			   pcm-type
+			   inverted
+			   ref
+			   sync-strategy stream-ref) obj
+	(cxml:with-element* ("xtce" "VariableFrameStream")
+	  (cxml:attribute "name" name)
+	  (optional-xml-attribute "shortDescription" short-description)
+	  (optional-xml-attribute "bitRateinBPS" bit-rate-in-bps)
+	  (optional-xml-attribute "pcmType" pcm-type)
+	  (optional-xml-attribute "inverted" inverted)
+	  (marshall long-description)
+	  (marshall alias-set)
+	  (marshall ref)
+	  (marshall stream-ref)
+	  (marshall ancillary-data-set)
+	  (marshall sync-strategy))))
 
-(defclass fixed-frame-stream (data-stream)
+(defclass custom-stream (data-stream) ()
+  
+  )
+
+(defclass algorithm ()
   ((name :initarg :name :type symbol :reader name)
-   (short-description :initarg :short-description :type short-description :reader short-description)
+   (short-description :initarg :short-description :type string :reader short-description)
    (long-description :initarg :long-description :type string :reader long-description)
    (alias-set :initarg :alias-set :type alias-set :reader alias-set)
    (ancillary-data-set :initarg :ancillary-data-set :type ancillary-data-set :reader ancillary-data-set)
-   (bit-rate-in-bps :initarg :bit-rate-in-bips :reader bit-rate-in-bps)
-   (pcm-type :initarg :pcm-type :reader pcm-type)
-   (inverted :initarg :inverted :type boole :reader inverted)
-   (sync-aperture-in-bits :initarg :sync-aperture-in-bits :type sync-aperture-in-bits :reader sync-aperture-in-bits)
+   (input-set :initarg :input-set :type input-set :reader input-set)
+   (algorithm-text :initarg :algorithm-text :type algorithm-text :reader algorithm-text)
+   (external-algorithm-set :initarg :external-algorithm-set :type external-algorithm-set)))
+
+(defclass encoding-algorithm (algorithm)
+  ((thread :initarg thread :type boole)))
+
+(defclass algorithm-text ()
+  ((algorithm-text :initarg :algorithm-text :type list :reader algorithm-text)
+   (language :initarg :language :type string :reader language)))
+
+(defun make-algorithm-text (algorithm)
+  (make-instance 'algorithm-text :algorithm-text algorithm :language "common-lisp"))
+
+(defclass decoding-algorithm (algorithm)
+  ((output-set :initarg :output-set :type output-set)
+   (thread :initarg :thread :type boole)))
+
+(defclass input-parameter-instance-ref (ref)
+  ((parameter-ref :initarg :parameter-ref :type symbol :accessor parameter-ref)
+   (instance :initarg :instance :accessor instance )
+   (use-calibrated-value :initarg :use-calibrated-value :initform t :accessor use-calibrated-value :type boole)
+   (input-name :initarg :input-name :type symbol :accessor input-name)))
+
+(defun make-input-parameter-instance-ref (parameter-ref &key instance use-calibrated-value input-name)
+  (make-instance 'input-parameter-instance-ref
+				 :parameter-ref parameter-ref
+				 :instance instance
+				 :use-calibrated-value use-calibrated-value
+				 :input-name input-name))
+
+(deftype input-set ()
+  `(satisfies input-set-p))
+
+(defun input-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i '(or constant input-parameter-instance-ref))) l)))
+
+(deftype output-set ()
+  `(satisfies output-set-p))
+
+(defun output-set-p (l)
+  (and (listp l)
+	   (every #'(lambda (i) (typep i 'output-parameter-ref)) l)))
+
+(defclass output-parameter-ref ()
+  ((paramter-ref :initarg :parameter-ref :type ref :reader parameter-ref)
+   (output-name :initarg :output-name :type symbol :reader output-name)))
+
+(defclass constant ()
+  ((constant-name :initarg :constant-name :type string :reader constant-name)
+   (value :initarg :value :reader value)))
+
+(defclass input-parameter-instance-ref ()
+  ((parameter-ref :initarg :parameter-ref :type ref :reader parameter-ref)
+   (instance :initarg :instance :reader instance)
+   (use-calibrated-value :initarg :use-calibrated-value :reader use-calibrated-value)
+   (input-name :initarg :input-name :type symbol :reader input-name)
+   ))
+
+(defun make-constant (value &key constant-name)
+  (make-instance 'constant :value value :constant-name constant-name))
+
+(defun make-encoding-algorithm
+	(name
+	 &key
+	 short-description
+	 long-description
+	 alias-set
+	 ancillary-data-set
+	 algorithm-text
+	 external-algorithm-set
+	 input-set)
+  (make-instance 'encoding-algorithm :name name
+									 :short-description short-description
+									 :long-description long-description
+									 :alias-set alias-set
+									 :ancillary-data-set ancillary-data-set
+									 :algorithm-text algorithm-text
+									 :external-algorithm-set external-algorithm-set
+									 :input-set input-set))
+
+(defun make-decoding-algorithm
+	(name
+	 &key
+	 short-description
+	 thread
+	 long-description
+	 alias-set
+	 ancillary-data-set
+	 algorithm-text
+	 external-algorithm-set
+	 input-set
+	 output-set)
+  (make-instance 'decoding-algorithm :name name
+									 :short-description short-description
+									 :thread thread
+									 :long-description long-description
+									 :alias-set alias-set
+									 :ancillary-data-set ancillary-data-set
+									 :algorithm-text algorithm-text
+									 :external-algorithm-set external-algorithm-set
+									 :input-set input-set
+									 :output-set output-set))
+
+(defmethod marshall((obj encoding-algorithm))
+  (with-slots (name
+			   short-description
+			   thread
+			   long-description
+			   alias-set
+			   algorithm-text
+			   ancillary-data-set
+			   external-algorithm-set
+			   input-set
+			   output-set) obj
+	(cxml:with-element* ("xtce" "VariableFrameStream")
+	  (cxml:attribute "name" name)
+	  (optional-xml-attribute "shortDescription" short-description)
+	  (optional-xml-attribute "thread" thread)
+	  (marshall long-description)
+	  (marshall alias-set)
+	  (marshall ancillary-data-set)
+	  (marshall algorithm-text)
+	  (marshall external-algorithm-set)
+	  (marshall input-set)
+	  (marshall output-set))))
+
+(defclass fixed-frame-stream (data-stream)
+  ((sync-aperture-in-bits :initarg :sync-aperture-in-bits :type sync-aperture-in-bits :reader sync-aperture-in-bits)
    (frame-length-in-bits :initarg :frame-length-in-bits :type positive-integer :reader frame-length-in-bits)
    (ref :initarg :ref :type symbol :reader ref)
    (sync-strategy :initarg :sync-strategy :type sync-strategy :reader sync-strategy)
@@ -2619,7 +2785,7 @@
 (defmethod marshall ((obj ancillary-data-set))
   (cxml:with-element* ("xtce" "AncillaryDataSet")
 	(with-slots (data-set) obj
-	  (maphash (lambda (key value) (marshall value)) data-set))))
+	  (alexandria:maphash-values (lambda (value) (marshall value)) data-set))))
 
 (defmethod marshall ((obj ancillary-data))
   (with-slots (name value mime-type href) obj
@@ -2634,48 +2800,32 @@
    These types used to be classes, but its complexity didn't offer any obvious benefits.
   "
   (let ((lname (typecase obj
-				 (ancillary-data-set
-				  "AncillaryDataSet")
-				 (comparison-list
-				  "ComparisonList")
-				 (container-set
-				  "ContainerSet")
-				 (dimension-list
-				  "DimensionList")
-				 (discrete-lookup-list
-				  "DiscreteLookupList")
-				 (entry-list
-				  "EntryList")
-				 (enumeration-list
-				  "EnumerationList")
-				 (parameter-set
-				  "ParameterSet")
-				 (parameter-type-set
-				  "ParameterTypeSet")
-				 (rate-in-stream-set
-				  "RateInStreamSet")
-				 (space-system-list
-				  nil) ;Not an actual XTCE construct
-				 (spline-point-list
-				  "SplinePointList")
-				 (stream-set
-				  "StreamSet")
-				 (term-list
-				  "TermList")
-				 (unit-set
-				  "UnitSet")
-				 (t
-				  :nil)
-				 )))
+				 (ancillary-data-set "AncillaryDataSet")
+				 (comparison-list "ComparisonList")
+				 (container-set "ContainerSet")
+				 (dimension-list "DimensionList")
+				 (discrete-lookup-list "DiscreteLookupList")
+				 (entry-list "EntryList")
+				 (enumeration-list "EnumerationList")
+				 (input-set "InputSet")
+				 (output-set "OutputSet")
+				 (parameter-set "ParameterSet")
+				 (parameter-type-set "ParameterTypeSet")
+				 (rate-in-stream-set "RateInStreamSet")
+				 (space-system-list nil) ;Not an actual XTCE construct
+				 (spline-point-list "SplinePointList")
+				 (stream-set "StreamSet")
+				 (term-list "TermList")
+				 (unit-set "UnitSet")
+				 (t :nil))))
 	(assert (not (equal lname :nil)) () "Fatal Programming Error: Could not find a deftype for the list ~A." obj)
 	;The type needs to be defined and listed in the typecase above.
-	(if lname
-		(progn
-		  (cxml:with-element* ("xtce" lname)
-			(dolist (i obj)
-			  (marshall i))))
+	(progn
+	  (cxml:with-element* ("xtce" lname)
 		(dolist (i obj)
-		  (marshall i)))))
+		  (marshall i))))
+	(dolist (i obj)
+	  (marshall i))))
 
 (defmethod marshall (obj)
   (if (typep obj 'boolean)

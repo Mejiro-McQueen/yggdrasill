@@ -35,6 +35,7 @@
    #:long-description
    #:long-description
    #:make-absolute-time-parameter
+   #:make-algorithm-text
    #:make-ancillary-data
    #:make-ancillary-data-set
    #:make-argument-instance-ref
@@ -45,19 +46,24 @@
    #:make-binary-parameter-type
    #:make-boolean-parameter-type
    #:make-comparison
+   #:make-constant
    #:make-container-ref
    #:make-container-ref-entry
    #:make-container-segment-ref-entry
    #:make-count
+   #:make-custom-stream
+   #:make-decoding-algorithm
    #:make-default-rate-in-stream
    #:make-dimension
    #:make-dynamic-value
    #:make-encoding
+   #:make-encoding-algorithm
    #:make-ending-index
    #:make-enumerated-parameter-type
    #:make-enumeration
    #:make-enumeration-alarm
    #:make-epoch
+   #:make-external-algorithm
    #:make-fixed
    #:make-fixed-frame-stream
    #:make-fixed-value
@@ -65,6 +71,7 @@
    #:make-float-parameter-type
    #:make-include-condition
    #:make-indirect-parameter-ref-entry
+   #:make-input-parameter-instance-ref
    #:make-integer-data-encoding
    #:make-integer-parameter-type
    #:make-leading-size
@@ -123,8 +130,8 @@
    #:short-description
    #:short-description
    #:space-system-list
-   #:stream-set
    #:stream-ref
+   #:stream-set
    #:symbol-table
    #:sync-aperture-in-bits
    #:sync-pattern
@@ -136,7 +143,6 @@
    #:variable-frame-stream
    #:verify-to-lock-good-frames
    #:xml-base
-   ;;#:decode
    ))
 
 (defpackage :standard-template-constructs
