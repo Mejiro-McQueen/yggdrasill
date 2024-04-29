@@ -2760,18 +2760,22 @@
 		(optional-xml-attribute "bitLocationFromStartOfContainer" bit-location-from-start))))
 
 (defclass ancillary-data-set ()
-  ((data-set :initarg :data-set :initform (make-hash-table) :accessor items)))
+  ((data-set :initarg :items :accessor items)))
 
 (defun make-ancillary-data-set (&rest ancillary-data)
   (let ((table (make-hash-table)))
 	(dolist (i ancillary-data)
 	  (push-ancillary-data i table))
-	(make-instance 'ancillary-data-set :data-set table)))
+	(make-instance 'ancillary-data-set :items table)))
 
 (defun push-ancillary-data (ancillary-data ancillary-data-set)
   (with-slots (name) ancillary-data
-  (setf (gethash name (items ancillary-data-set)) ancillary-data))
+  (setf (gethash name ancillary-data-set)  ancillary-data))
   ancillary-data-set)
+
+(Defun get-ancillary-data (ancillary-data-set)
+  "Returns the ancillary data as a regular hash table"
+  (alexandria:copy-hash-table (items ancillary-data-set) :key #'value))
 
 (defclass ancillary-data () ((name :initarg :name :reader name :type symbol)
 							 (value :initarg :value :reader value)
@@ -2780,7 +2784,6 @@
 
 (defun make-ancillary-data (name value &key mime-type href)
   (make-instance 'ancillary-data :name name :value value :mime-type mime-type :href href))
-
 
 (defmethod marshall ((obj ancillary-data-set))
   (cxml:with-element* ("xtce" "AncillaryDataSet")
@@ -2946,3 +2949,4 @@
 (defun container-ref-set-p (l)
   (and (listp l)
 	   (every #'(lambda (i) (typep i 'container-ref)) l)))
+

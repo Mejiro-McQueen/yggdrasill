@@ -40,19 +40,25 @@
 
 
 ;;; Streams
+(defvar *port->stream-name* (make-hash-table))
 (defvar *stream-name->input-queue* (make-hash-table))
 (defvar *stream-name->output-queue* (make-hash-table))
 (defvar *stream-name->output-thread* (make-hash-table))
 (defvar *stream-name->input-thread* (make-hash-table))
 (defvar *stream-name->stream-state* (make-hash-table))
-(defvar *port->stream-name* (make-hash-table))
 
-*stream-name->stream-state*
+(defvar *port->service-name* (make-hash-table))
+(defvar *service-name->input-queue* (make-hash-table))
+(defvar *service-name->output-queue* (make-hash-table))
+(defvar *service-name->output-thread* (make-hash-table))
+(defvar *service-name->input-thread* (make-hash-table))
+(defvar *service-name->service-state* (make-hash-table))
 
 (defstruct stream-state sync-closure container-closure stream-def server symbol-table)
+(defstruct service-state service-closure container-closure service-def server symbol-table)
 
 (defgeneric initialize-stream-state (xtce-stream server symbol-table))
-(defmethod initialize-stream-state ((stream fixed-frame-stream) (server t) (symbol-table t))
+(defmethod initialize-stream-state ((stream service) (server t) (symbol-table t))
   (with-slots (name) stream
 	(let ((stream-state (make-stream-state :sync-closure #'frame-sync
 										   :container-closure nil
@@ -61,17 +67,36 @@
 										   :symbol-table symbol-table)))
 	  (log:info "Initialized state for ~A" (name stream))
 	  (let* ((input-queue (lparallel.queue:make-queue))
-			(output-queue (lparallel.queue:make-queue))
-			(input-thread (bt:make-thread
-						   (lambda () (start-telemetry-stream-input-thread name
-																	  input-queue
-																	  output-queue)))))
+			 (output-queue (lparallel.queue:make-queue))
+			 (input-thread (bt:make-thread
+							(lambda () (start-telemetry-stream-input-thread name
+																	   input-queue
+																	   output-queue)))))
 		(setf (gethash name *stream-name->input-queue*) input-queue)
 		(setf (gethash name *stream-name->output-queue*) output-queue)
 		(setf (gethash name *stream-name->input-thread*) input-thread)
 		(setf (gethash name *stream-name->stream-state*) stream-state)))))
 
-   ;; (make-service '|Service.CCSDS.MPDU|
+(defgeneric initialize-service-state (xtce-service server symbol-table))
+(defmethod initialize-service-state ((service xtce::service) (server t) (symbol-table t))
+  (with-slots (name) service
+	(let ((service-state (make-service-state :container-closure nil
+											 :service-def service
+											 :server server
+											 :symbol-table symbol-table)))
+	  (log:info "Initialized state for ~A" (name service))
+	  (let* ((input-queue (lparallel.queue:make-queue))
+			 (output-queue (lparallel.queue:make-queue))
+			 (input-thread (bt:make-thread
+							(lambda () (start-telemetry-service-input-thread name
+																		input-queue
+																		output-queue)))))
+		(setf (gethash name *service-name->input-queue*) input-queue)
+		(setf (gethash name *service-name->output-queue*) output-queue)
+		(setf (gethash name *service-name->input-thread*) input-thread)
+		(setf (gethash name *service-name->service-state*) service-state)))))
+
+;; (make-service '|Service.CCSDS.MPDU|
 		;; 			  (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
 		;; 			  :short-description "MPDU Decoding for VCID 43"
 		;; 			  :ancillary-data-set
