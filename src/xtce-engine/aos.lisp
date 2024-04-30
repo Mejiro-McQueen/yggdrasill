@@ -325,6 +325,7 @@ static throughout a Mission Phase.")
 										  sync-strategy
 										  port
 										  &key
+											next-service
 											bit-rate-in-bps
 											(pcm-type 'NRZL)
 											inverted
@@ -333,7 +334,10 @@ static throughout a Mission Phase.")
 											alias-set
 											(ancillary-data-set (make-ancillary-data-set))
 											stream-ref)
-  (let ((port (make-ancillary-data :port port)))
+  (let ((port (make-ancillary-data :port port))
+		(next-service (make-ancillary-data :service next-service)))
+	(push-ancillary-data port ancillary-data-set)
+	(push-ancillary-data next-service ancillary-data-set)
 	(make-fixed-frame-stream
 	 name
 	 frame-length-in-bits
@@ -345,6 +349,6 @@ static throughout a Mission Phase.")
 	 :sync-aperture-in-bits sync-aperture-in-bits
 	 :long-description long-description
 	 :alias-set alias-set
-	 :ancillary-data-set (push-ancillary-data port ancillary-data-set)
+	 :ancillary-data-set ancillary-data-set
 	 :stream-ref stream-ref
 	 :short-description (format nil "~A Listening for ~A bit fixed frames on port ~A" name frame-length-in-bits (xtce::value port)))))

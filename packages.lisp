@@ -126,6 +126,7 @@
    #:push-ancillary-data
    #:reference-set
    #:root
+   #:service
    #:service-set
    #:short-description
    #:short-description

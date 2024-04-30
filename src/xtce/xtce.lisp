@@ -2765,15 +2765,16 @@
 (defun make-ancillary-data-set (&rest ancillary-data)
   (let ((table (make-hash-table)))
 	(dolist (i ancillary-data)
-	  (push-ancillary-data i table))
-	(make-instance 'ancillary-data-set :items table)))
+	   (with-slots (name) i
+		 (setf (gethash name table) i)))
+	  (make-instance 'ancillary-data-set :items table)))
 
 (defun push-ancillary-data (ancillary-data ancillary-data-set)
   (with-slots (name) ancillary-data
-  (setf (gethash name ancillary-data-set)  ancillary-data))
+	(setf (gethash name (items ancillary-data-set)) ancillary-data))
   ancillary-data-set)
 
-(Defun get-ancillary-data (ancillary-data-set)
+(defun get-ancillary-data (ancillary-data-set)
   "Returns the ancillary data as a regular hash table"
   (alexandria:copy-hash-table (items ancillary-data-set) :key #'value))
 
@@ -2784,6 +2785,7 @@
 
 (defun make-ancillary-data (name value &key mime-type href)
   (make-instance 'ancillary-data :name name :value value :mime-type mime-type :href href))
+
 
 (defmethod marshall ((obj ancillary-data-set))
   (cxml:with-element* ("xtce" "AncillaryDataSet")
