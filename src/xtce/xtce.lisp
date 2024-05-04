@@ -2774,9 +2774,10 @@
 	(setf (gethash name (items ancillary-data-set)) ancillary-data))
   ancillary-data-set)
 
-(defun get-ancillary-data (ancillary-data-set)
+(defun get-ancillary-data (xtce-obj)
   "Returns the ancillary data as a regular hash table"
-  (alexandria:copy-hash-table (items ancillary-data-set) :key #'value))
+  (with-slots (ancillary-data-set) xtce-obj
+	(alexandria:copy-hash-table (items ancillary-data-set) :key #'value)))
 
 (defclass ancillary-data () ((name :initarg :name :reader name :type symbol)
 							 (value :initarg :value :reader value)
@@ -2930,7 +2931,7 @@
 	  (format stream "Service => name: ~a, short-desc: ~A" name short-description))))
 
 (defun make-service (name reference-set &key short-description long-description alias-set ancillary-data-set)
-  (check-type name symbol)
+  (check-type name string)
   (make-instance 'service :name name
 						  :reference-set reference-set
 						  :short-description short-description

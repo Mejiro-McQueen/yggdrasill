@@ -127,12 +127,12 @@
 																				:fixed-frame-processor-continuation next-continuation
 																				:frame frame))))))))
 (defun process-frame-result (frame state next-ref symbol-table)
-  (log:error symbol-table)
-  (log:error next-ref)
+  ;(log:error symbol-table)
+  ;(log:error next-ref)
   (case state
 	(LOCK
-	 (log:info "Frame Locked and Accepted")
-	 (log:info "Next stage: ~A" next-ref)
+	 ;(log:info "Frame Locked and Accepted")
+	 ;(log:info "Next stage: ~A" next-ref)
 	 (decode (uint->bit-vector frame) next-ref symbol-table '() 0)
 	 )
 	
@@ -150,11 +150,11 @@
 				   &key
 					 (this-continuation (lambda (frame) (process-fixed-frame-stream stream-type :frame frame)))
 					 (frame-counter 0))
-  (log:info "Starting Frame Sync Service for ~A" stream-type)
+  ;(log:info "Starting Frame Sync Service for ~A" stream-type)
   (multiple-value-bind (frame-result state next-continuation) (funcall this-continuation frame)
 	(incf frame-counter)
-	(log:info "Total Frames Synchronized: ~A" frame-counter)
-	(log:info "Current Synchronization State: ~A" state)
+	;(log:info "Total Frames Synchronized: ~A" frame-counter)
+	;(log:info "Current Synchronization State: ~A" state)
 	(let ((res (process-frame-result frame state (xtce::ref stream-type) symbol-table)))
 	  (values res state (lambda (next-frame stream-type symbol-table) (frame-sync
 																  next-frame

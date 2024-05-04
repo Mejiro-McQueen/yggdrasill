@@ -52,37 +52,38 @@
 			(stc::with-ccsds.space-packet.header.parameters nil)))
 
 	:container-set
-	(stc::with-ccsds.aos.containers nil)
+	(stc::with-ccsds.mpdu.containers
+		(stc::with-ccsds.aos.containers nil))
 	
 	:stream-set
 	(stc:with-ccsds.aos.stream 1024 8888 15)
 	)
 
    :service-set
-   (list (make-service '|Service.CCSDS.Space-Packet|
-					   (list (make-container-ref '|STC.CCSDS.Space-Packet|))
-					   :short-description "CCSDS Space Packet Decoding"
+   (list ;; (make-service "STC.CCSDS.Space-Packet.Stream.15"
+		 ;; 			   (list (make-container-ref '|STC.CCSDS.Space-Packet|))
+		 ;; 			   :short-description "CCSDS Space Packet Decoding"
+		 ;; 			   :ancillary-data-set
+		 ;; 			   (xtce::make-ancillary-data-set
+		 ;; 				;(make-ancillary-data :service-function nil)
+		 ;; 				(make-ancillary-data :port 8900)))
+		 (make-service "STC.CCSDS.MPDU.Stream.15"
+					   (list (make-container-ref '|STC.CCSDS.MPDU|))
+					   :short-description "MPDU Decoding for VCID 15"
 					   :ancillary-data-set
-					   (xtce::make-ancillary-data-set (make-ancillary-data :service-function 'identity)
-													  (make-ancillary-data :port 8900)
-													  )))
-   ))
-
+					   (xtce::make-ancillary-data-set
+						(make-ancillary-data :service-function #'stc::decode-mpdu-service)
+						(make-ancillary-data :port 8901)
+						(xtce::make-ancillary-data 'VCID 43)
+						(xtce::make-ancillary-data 'next-stream '|Service.CCSDS.Space-Packet.15|))))))
 
 ;Server State Management
-(defvar *port->stream-name* (make-hash-table))
-(defvar *stream-name->input-queue* (make-hash-table))
-(defvar *stream-name->output-queue* (make-hash-table))
-(defvar *stream-name->output-thread* (make-hash-table))
-(defvar *stream-name->input-thread* (make-hash-table))
-(defvar *stream-name->server-state* (make-hash-table))
-
-(defvar *port->service-name* (make-hash-table))
-(defvar *service-name->input-queue* (make-hash-table))
-(defvar *service-name->output-queue* (make-hash-table))
-(defvar *service-name->output-thread* (make-hash-table))
-(defvar *service-name->input-thread* (make-hash-table))
-(defvar *service-name->server-state* (make-hash-table))
+(defvar *port->stream-name* (make-hash-table :test 'equal))
+(defvar *stream-name->input-queue* (make-hash-table :test 'equal))
+(defvar *stream-name->output-queue* (make-hash-table :test 'equal))
+(defvar *stream-name->output-thread* (make-hash-table :test 'equal))
+(defvar *stream-name->input-thread* (make-hash-table :test 'equal))
+(defvar *stream-name->server-state* (make-hash-table :test 'equal))
 
 (defclass server-state ()
   ((server :initarg :server :reader server)
@@ -96,6 +97,8 @@
 (defclass telemetry-stream-state (telemetry-commanding-server) ())
 (defclass command-stream-state (telemetry-commanding-server) ())
 (defclass algorithm-server (server-state) ())
+(defclass service-stream-state (server-state)
+  ((container-closure :initarg :container-closure :accessor container-closure)))
 
 (defmacro with-server (xtce-obj server-handler &body body)
   `(with-slots (ancillary-data-set) ,xtce-obj
@@ -105,9 +108,9 @@
 	   ,@body)))
 
 (defun make-telemetry-stream (telemetry-stream-def symbol-table)
+  (log:info "Telemetry stream ~A is up." (name telemetry-stream-def))
   (with-server telemetry-stream-def #'telemetry-stream-handler
-	(update-states :stream
-				   #'service-telemetry-queue
+	(update-states #'service-telemetry-stream-queue
 				   name
 				   (make-instance 'telemetry-stream-state
 								  :server-closure #'frame-sync
@@ -117,48 +120,99 @@
 								  :symbol-table symbol-table)
 				   port)))
 
-(defun update-states (kind thread-function name server-state port)
+(defun make-command-stream (command-stream-def symbol-table))
+
+(defun make-service-stream (service-def symbol-table)
+  (log:info "Service stream ~A is up." (name service-def))
+    (with-server service-def #'service-stream-handler
+	  (let ((server-closure (gethash :service-function (xtce::get-ancillary-data service-def))))
+		(if (functionp server-closure)
+			(update-states #'service-service-queue
+						   name
+						   (make-instance 'service-stream-state
+										  :server-closure server-closure
+										  :container-closure nil
+										  :xtce-definition service-def
+										  :server server
+										  :symbol-table symbol-table)
+						   port)
+			(log:info "Skipping creating service for ~A due to no server closure defined." name)))))
+
+(defun update-states (thread-function name server-state port)
   (let* ((input-queue (lparallel.queue:make-queue))
 		 (output-queue (lparallel.queue:make-queue))
 		 (input-thread (bt:make-thread (lambda () (funcall thread-function
 													  name
 													  input-queue
 													  output-queue)))))
-	(case kind
-		(:stream
 		 (setf (gethash port *port->stream-name*) name)
 		 (setf (gethash name *stream-name->input-queue*) input-queue)
 		 (setf (gethash name *stream-name->output-queue*) output-queue)
 		 (setf (gethash name *stream-name->input-thread*) input-thread)
-		 (setf (gethash name *stream-name->server-state*) server-state))
-		(:service))))
+		 (setf (gethash name *stream-name->server-state*) server-state)))
 
 ; Server Handling
-(defun service-telemetry-queue (stream-name input-queue output-queue)
+(defun service-telemetry-stream-queue (stream-name input-queue output-queue)
   (loop
 	(let* ((message (byte-array-to-uint (lparallel.queue:pop-queue input-queue)))
 		   (server-state (gethash stream-name *stream-name->server-state*))
 		   (stream-def (xtce-definition server-state))
 		   (next-stream (stream-ref stream-def))
-		   (next-stream-input-queue (gethash next-stream *stream-name->input-thread*)))
+		   (next-stream-input-queue nil))
 	  (multiple-value-bind (result state next-continuation) (funcall (server-closure server-state)
 																	 message
 																	 (xtce-definition server-state)
 																	 (symbol-table server-state))
 		(setf (server-closure server-state) next-continuation)
 		(setf (gethash stream-name *stream-name->server-state*) server-state)
-		(log:info next-continuation)
-		(log:info result)
-		(log:info state)
+		;; (log:info next-continuation)
+		;; (log:info result)
+		;; (log:info state)
 										;Send to socket output queue
 		(lparallel.queue:push-queue result output-queue)
 										;Send copy to next stream
-		(when next-stream-input-queue
+		(when result
+		  (typecase next-stream
+			(xtce::stream-ref
+			 (setf next-stream (xtce::ref next-stream)))
+			(t (log:info next-stream)))
+
+		  (setf next-stream-input-queue (gethash next-stream *stream-name->input-queue*))
+										;(log:info "Pushing data to next stream ~A? ~A" next-stream next-stream-input-queue)
+		  (when next-stream-input-queue
+			(lparallel.queue:push-queue result next-stream-input-queue)))))))
+
+(defun service-service-queue (service-name input-queue output-queue)
+  (loop
+	(let* ((message (lparallel.queue:pop-queue input-queue))
+		   (server-state (gethash service-name *stream-name->server-state*))
+		   (service-def (xtce-definition server-state))
+		   (next-stream nil)
+		   (next-stream-input-queue (gethash next-stream *stream-name->input-thread*)))
+
+	  (log:error (server-closure server-state))
+	  (multiple-value-bind (result state next-continuation) (funcall (server-closure server-state)
+																	 message
+																	 (xtce-definition server-state)
+																	 (symbol-table server-state))
+		(setf (server-closure server-state) next-continuation)
+		(setf (gethash service-name *stream-name->server-state*) server-state)
+		;; (log:info next-continuation)
+		;; (log:info result)
+		;; (log:info state)
+										;Send to socket output queue
+		(lparallel.queue:push-queue result output-queue)
+		(setf message result)
+										;Send copy to next stream
+		(setf next-stream (gethash "next-stream" (xtce::get-ancillary-data service-def)))
+		(when (and result next-stream-input-queue)
 		  (log:debug "Pushing data to next stream ~A" next-stream)
-		  (lparallel.queue:push-queue result next-stream-input-queue))))))
+		  (lparallel.queue:push-queue message next-stream-input-queue))
+		))))
 
 (defun start-stream-output-thread (input-queue websocket)
   (loop
+	
 	(wsd:send-text websocket (lparallel.queue:pop-queue input-queue))))
 
 (defun telemetry-stream-handler (env)
@@ -187,20 +241,16 @@
 (defun service-stream-handler (env)
   (let ((ws (wsd:make-server env)))
 	(wsd:on :open ws
-			(lambda ()
-			  (handle-open ws env)))
+			(lambda () (handle-open ws env)))
 
 	(wsd:on :message ws
-			(lambda (message)
-			  (handle-service-message ws message env)))
+			(lambda (message) (handle-service-message ws message env)))
 
 	(wsd:on :error ws
-			(lambda (error)
-			  (format t "Got an error: ~S~%" error)))
+			(lambda (error) (format t "Got an error: ~S~%" error)))
 
 	(wsd:on :close ws
-			(lambda (&key code reason)
-			  (handle-close ws env code reason)))
+			(lambda (&key code reason) (handle-close ws env code reason)))
 
 	(lambda (responder)
         (declare (ignore responder))
@@ -254,40 +304,55 @@
 		  (clack:stop (server server-state))
 		  (remhash stream-name *stream-name->server-state*)
 		  (log:info "Shutdown server ~A" stream-name))))
-  
+
+;;; Server Controls 
+(defun stop-service-server (service-name)
+  (let* ((server-state (gethash service-name *stream-name->server-state*)))
+	(when server-state (server server-state)
+		  (clack:stop (server server-state))
+		  (remhash service-name *stream-name->server-state*)
+		  (log:info "Shutdown server ~A" service-name))))
+
 (defun stop-servers (space-system service-type)
   (with-slots (telemetry-metadata command-metadata service-set symbol-table) space-system
 	(case service-type
-	  (:telemetry-stream
+	  (:telemetry
 	   (when telemetry-metadata
 		 (dolist (i (stream-set telemetry-metadata))
 		   (stop-stream-server (name i)))))
-	  (:command-stream
+	  (:command
 	   (when command-metadata
 		 (dolist (i (stream-set command-metadata))
 		   (stop-stream-server (name i)))))
-	  (:service-set))))
+	  (:service
+	   (dolist (i (service-set space-system))
+		   (stop-service-server (name i)))))))
 
 (defun start-servers (space-system service-type)
   (with-slots (telemetry-metadata command-metadata service-set symbol-table) space-system
 	  (case service-type
-		(:telemetry-stream
+		(:telemetry
 		 (when telemetry-metadata
 		   (dolist (i (stream-set telemetry-metadata))
 			 (make-telemetry-stream i symbol-table))))
-		(:command-stream)
-		(:service-set))))
+		(:command
+		 (when command-metadata
+		   (dolist (i (stream-set command-metadata))
+			 (make-command-stream i symbol-table))))
+		(:service
+		   (dolist (i service-set)
+			 (make-service-stream i symbol-table))))))
 
 (defun bifrost.start (space-system)
-	(start-servers space-system :telemetry-stream)
-	(start-servers space-system :command-stream)
+	(start-servers space-system :telemetry)
+	(start-servers space-system :command)
 	(start-servers space-system :service))
 
 (defun bifrost.stop (space-system)
-	(stop-servers space-system :telemetry-stream)
-	(stop-servers space-system :command-stream)
+	(stop-servers space-system :telemetry)
+	(stop-servers space-system :command)
 	(stop-servers space-system :service))
-
+ 
 (bifrost.start Test-System)
 
 (defparameter *client* (wsd:make-client "ws://127.0.0.1:8888"))
@@ -305,6 +370,8 @@
 (wsd:send-binary *client* tt)
 (wsd:send-binary *client* tt)
 (wsd:close-connection *client*)
+
+(sleep 2)
 (bifrost.stop Test-System)
 
 ;;TODO:
@@ -389,3 +456,5 @@
 	(apply algorithm arg-list)))
 
 ;; (eval-algorithm test1 alist)
+
+(gethash "STC.CCSDS.MPDU.Stream.15" *stream-name->input-queue*)

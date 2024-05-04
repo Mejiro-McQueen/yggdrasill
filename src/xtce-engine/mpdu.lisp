@@ -121,8 +121,7 @@
 	  (values alist (lambda (frame symbol-table) (monad frame symbol-table :packet-extractor next-extractor))))))
 
 
-
-(defun decode-mpdu (frame-alist symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
+(defun decode-mpdu-service (frame-alist service-definition symbol-table &key (packet-extractor (lambda (data first-header-pointer symbol-table alist)
 																	(extract-space-packets data first-header-pointer symbol-table alist #*))))
   (let* ((frame-data-field (cdr (assoc stc::'|STC.CCSDS.AOS.Transfer-Frame-Data-Field| frame-alist)))
 		 (container (gethash "STC.CCSDS.MPDU.Container.MPDU" symbol-table))
@@ -133,4 +132,4 @@
 	(log:info first-header-pointer)
 	(multiple-value-bind (alist next-extractor)
 		(funcall packet-extractor packet-zone first-header-pointer symbol-table mpdu)
-	  (values alist (lambda (frame-alist symbol-table) (decode-mpdu frame-alist symbol-table :packet-extractor next-extractor))))))
+	  (values alist :OK (lambda (frame-alist service-definition symbol-table) (decode-mpdu-service frame-alist service-definition symbol-table :packet-extractor next-extractor))))))

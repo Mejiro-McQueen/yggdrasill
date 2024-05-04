@@ -347,7 +347,7 @@
 			(return-from extract-space-packets
 			  (values packet-list
 					  (lambda (next-data first-header-pointer symbol-table alist)
-						(extract-space-packets next-data first-header-pointer symbol-table alist (concatenate-bit-arrays previous-packet-segment data))))))))
+						(extract-space-packets next-data first-header-pointer symbol-table alist (xtce-engine::concatenate-bit-arrays previous-packet-segment data))))))))
 	
 	(let* ((rear-fragment (subseq data 0 (* 8 first-header-pointer)))
 		   (lead-fragment nil))
@@ -357,8 +357,8 @@
 		(if (equal previous-packet-segment #*)
 		  (log:info "Found fragmented packet at the front of the MPDU but we did not see it's lead fragment in the last MPDU.")
 		  (progn
-			(let* ((reconstructed-packet (concatenate-bit-arrays previous-packet-segment rear-fragment))
-				   (decoded-packet (decode reconstructed-packet container symbol-table alist 0)))
+			(let* ((reconstructed-packet (xtce-engine::concatenate-bit-arrays previous-packet-segment rear-fragment))
+				   (decoded-packet (xtce-engine::decode reconstructed-packet container symbol-table alist 0)))
 			  (log:info reconstructed-packet)
 			  (if (stc::stc.ccsds.space-packet.is-idle-pattern
 				   (cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| decoded-packet)))
@@ -372,14 +372,14 @@
 		(loop while (< next-pointer data-length)
 			  do
 				 (handler-case 
-					 (multiple-value-bind (res-list bits-consumed) (decode data container symbol-table alist next-pointer)					   
+					 (multiple-value-bind (res-list bits-consumed) (xtce-engine::decode data container symbol-table alist next-pointer)					   
 					   (setf next-pointer bits-consumed)
 					   (log:debug "Extracted ~A of ~A bytes" bits-consumed data-length)
 					   (if (stc::stc.ccsds.space-packet.is-idle-pattern
 							(cdr (assoc stc::'|STC.CCSDS.Space-Packet.Header.Application-Process-Identifier| res-list)))
 						   (log:debug "Found idle Packet!")
 						   (push res-list packet-list)))
-				   (fragmented-packet-error ()
+				   (xtce-engine::fragmented-packet-error ()
 					 ;; We hit this whenever the packet length tells us to subseq beyond the data frame
 					 ;; This is fine, we just take the rest of the frame as a leading fragment
 					 (log:info "Fragmented Packet!")
