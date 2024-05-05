@@ -8,28 +8,9 @@
 (defparameter tt
   (hex-string-to-byte-array "1acffc1dFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
 
-;; (make-service '|Service.CCSDS.MPDU|
-		;; 			  (list (make-container-ref '|STC.CCSDS.MPDU.Container.MPDU|))
-		;; 			  :short-description "MPDU Decoding for VCID 43"
-		;; 			  :ancillary-data-set
-		;; 			  (xtce::make-ancillary-data-set
-		;; 			   (xtce::make-ancillary-data 'Service-Function 'stc::decode-mpdu)
-		;; 			   (xtce::make-ancillary-data 'VCID 43)
-		;; 			   (xtce::make-ancillary-data 'Next-Service '|Service.CCSDS.Space-Packet|)))
-		
-
-		;; (make-service '|Service.CCSDS.Space-Packet|
-		;; 			  (list (make-container-ref '|STC.CCSDS.Space-Packet|))
-		;; 			  :short-description "CCSDS Space Packet Decoding"
-		;; 			  :ancillary-data-set
-		;; 			  (xtce::make-ancillary-data-set
-		;; 			   (xtce::make-ancillary-data 'Service-Function 'identity)))
-; stc::'ccsds.aos.frame.decode
-
-
 (defparameter Test-System
   (make-space-system
-   '|Test-System|
+   "Test-System"
    :root t
 
    :short-description
@@ -60,22 +41,23 @@
 	)
 
    :service-set
-   (list ;; (make-service "STC.CCSDS.Space-Packet.Stream.15"
-		 ;; 			   (list (make-container-ref '|STC.CCSDS.Space-Packet|))
-		 ;; 			   :short-description "CCSDS Space Packet Decoding"
-		 ;; 			   :ancillary-data-set
-		 ;; 			   (xtce::make-ancillary-data-set
-		 ;; 				;(make-ancillary-data :service-function nil)
-		 ;; 				(make-ancillary-data :port 8900)))
+   (list (make-service "STC.CCSDS.Space-Packet.Stream.15"
+					   (list (make-container-ref "STC.CCSDS.Space-Packet"))
+					   :short-description "CCSDS Space Packet Decoding"
+					   :ancillary-data-set
+					   (xtce::make-ancillary-data-set
+						(make-ancillary-data "service-function" nil)
+						(make-ancillary-data "port" 8900)))
 		 (make-service "STC.CCSDS.MPDU.Stream.15"
-					   (list (make-container-ref '|STC.CCSDS.MPDU|))
+					   (list (make-container-ref "STC.CCSDS.MPDU"))
 					   :short-description "MPDU Decoding for VCID 15"
 					   :ancillary-data-set
 					   (xtce::make-ancillary-data-set
-						(make-ancillary-data :service-function #'stc::decode-mpdu-service)
-						(make-ancillary-data :port 8901)
-						(xtce::make-ancillary-data 'VCID 43)
-						(xtce::make-ancillary-data 'next-stream '|Service.CCSDS.Space-Packet.15|))))))
+						(make-ancillary-data "service-function" #'stc::decode-mpdu-service)
+						(make-ancillary-data "port" 8901)
+						(make-ancillary-data "vcid" 43)
+						(make-ancillary-data "next-stream" "Service.CCSDS.Space-Packet.15"))))))
+
 
 ;Server State Management
 (defvar *port->stream-name* (make-hash-table :test 'equal))
@@ -98,12 +80,12 @@
 (defclass command-stream-state (telemetry-commanding-server) ())
 (defclass algorithm-server (server-state) ())
 (defclass service-stream-state (server-state)
-  ((container-closure :initarg :container-closure :accessor container-closure)))
+  ((container-calosure :initarg :container-closure :accessor container-closure)))
 
 (defmacro with-server (xtce-obj server-handler &body body)
   `(with-slots (ancillary-data-set) ,xtce-obj
 	 (let* ((name (name ,xtce-obj))
-			(port (xtce::value (gethash :port (xtce::items ancillary-data-set))))
+			(port (xtce::value (gethash "port" (xtce::items ancillary-data-set))))
 			(server (clack:clackup ,server-handler :port port)))
 	   ,@body)))
 
@@ -125,7 +107,7 @@
 (defun make-service-stream (service-def symbol-table)
   (log:info "Service stream ~A is up." (name service-def))
     (with-server service-def #'service-stream-handler
-	  (let ((server-closure (gethash :service-function (xtce::get-ancillary-data service-def))))
+	  (let ((server-closure (gethash "service-function" (xtce::get-ancillary-data service-def))))
 		(if (functionp server-closure)
 			(update-states #'service-service-queue
 						   name
@@ -190,7 +172,8 @@
 		   (next-stream nil)
 		   (next-stream-input-queue (gethash next-stream *stream-name->input-thread*)))
 
-	  (log:error (server-closure server-state))
+	  ;(log:error message)
+	  ;(log:error (server-closure server-state))
 	  (multiple-value-bind (result state next-continuation) (funcall (server-closure server-state)
 																	 message
 																	 (xtce-definition server-state)
@@ -198,7 +181,7 @@
 		(setf (server-closure server-state) next-continuation)
 		(setf (gethash service-name *stream-name->server-state*) server-state)
 		;; (log:info next-continuation)
-		;; (log:info result)
+		;;(log:info result)
 		;; (log:info state)
 										;Send to socket output queue
 		(lparallel.queue:push-queue result output-queue)
@@ -456,5 +439,3 @@
 	(apply algorithm arg-list)))
 
 ;; (eval-algorithm test1 alist)
-
-(gethash "STC.CCSDS.MPDU.Stream.15" *stream-name->input-queue*)

@@ -54,7 +54,7 @@
                             service-set
                             space-system-list
 							short-description)
-  (check-type name symbol)
+  (check-type name string)
   (check-optional-type long-description long-description)
   (let* ((sys (make-instance 'space-system
 							 :name name
@@ -84,7 +84,7 @@
   (setf (slot-value space-system 'parent-system) parent-system)
   (register-system-keys space-system)
   (when parent-system
-	(link-filesystem-hash-tables (slot-value parent-system 'symbol-table) (slot-value space-system 'symbol-table) (symbol-name (slot-value space-system 'name))))
+	(link-filesystem-hash-tables (slot-value parent-system 'symbol-table) (slot-value space-system 'symbol-table) (slot-value space-system 'name)))
   (restart-case (type-check-parameter-set space-system)
 	  (continue-with-overwrite () :report (lambda (stream) (format stream "overwrite parameter-ref value and continue."))))
   (when (slot-value space-system 'space-system-list)
@@ -98,7 +98,7 @@
 
 (defun register-keys-in-sequence (sequence symbol-table system-name)
   (dolist (item sequence)
-	(restart-case (add-unique-key (symbol-name (slot-value item 'name)) item symbol-table)
+	(restart-case (add-unique-key (slot-value item 'name) item symbol-table)
 	  (continue-with-overwrite () :report (lambda (stream)
 											(format stream "continue overwriting [key: ~A with value: ~A] for space system ~A"
 													(slot-value item 'name)
@@ -113,7 +113,7 @@
 		(add-unique-key new-key item symbol-table))
 	  (continue-with-current () :report (lambda (stream)
 										  (format stream "continue with existing entry [key: ~A value: ~A] for space system ~A"
-												  (symbol-name (slot-value item 'name))
+												  (slot-value item 'name)
 												  (gethash (slot-value item 'name) symbol-table)
 												  system-name)))))
   symbol-table)
@@ -605,26 +605,25 @@
 
 (defclass ref () ())
 
-(defclass service-ref (ref) ((service-reference :initarg :service-reference :type ref :reader ref)))
+(defclass service-ref (ref) ((service-reference :initarg :ref :type ref :reader ref)))
 
-(defun make-service-ref (service-reference)
-  (make-instance 'service-ref :service-reference service-reference))
-
+(defun make-service-ref (service-ref)
+  (make-instance 'service-ref :ref service-ref))
 
 (defmethod marshall ((obj service-ref))
   (with-slots (service-reference) obj
 	(cxml:with-element* ("xtce" "ServiceRef") 
 	  (cxml:attribute "serviceRef" service-reference))))
 
-(defclass stream-ref (ref) ((stream-reference :initarg :stream-reference :reader ref)))
+(defclass stream-ref (ref) ((stream-ref :initarg :stream-ref :reader ref)))
 
-(defun make-stream-ref (stream-reference)
-  (make-instance 'stream-ref :stream-reference stream-reference))
+(defun make-stream-ref (stream-ref)
+  (make-instance 'stream-ref :stream-ref stream-ref))
 
-(defmethod marshal ((obj stream-ref))
-  (with-slots (stream-reference) obj
+(defmethod marshall ((obj stream-ref))
+  (with-slots (stream-ref) obj
 	(cxml:with-element* ("xtce" "StreamRef") 
-	  (cxml:attribute "streamRef" stream-reference))))
+	  (cxml:attribute "streamRef" stream-ref))))
 
 (defun make-container-ref-entry (container-ref
 								 &key
@@ -1250,7 +1249,7 @@
                                     default-alarm
                                     context-alarm-list
 									unit-set)
-  (check-type name symbol)
+  (check-type name string)
   ;(require-unique-key name)
                                         ;(if encoding (check-type encoding encoding))
   (check-optional-type short-description string)
@@ -1472,7 +1471,7 @@
                                       valid-range
                                       default-alarm
                                       context-alarm-list)
-  (check-type name symbol)
+  (check-type name string)
   (check-optional-type short-description string)
   (if base-type nil)
   (if initial-value nil)
@@ -1564,7 +1563,7 @@
 									 data-encoding
 									 default-alarm
 									 binary-context-alarm-list)
-  (check-type name symbol)
+  (check-type name string)
   (check-optional-type short-description string)
 										;(check-optional-type base-type T)
   (check-optional-type long-description long-description)
@@ -1640,7 +1639,7 @@
 										 enumeration-list
 										 default-alarm
 										 context-alarm-list)
-  (check-type name symbol)
+  (check-type name string)
   (check-optional-type short-description string)
 										;(check-optional-type base-type T)
   (check-optional-type long-description long-description)
@@ -1763,7 +1762,7 @@
 									   ancillary-data-set
 									   encoding
 									   reference-time)
-  (check-type name symbol)
+  (check-type name string)
   (check-optional-type short-description string)
   (check-optional-type base-type string)
 										;(check-optional-type initial-value T)
@@ -1889,8 +1888,8 @@
 						 alias-set
 						 ancillary-data-set
 						 parameter-properties)
-  (check-type name symbol)
-  (check-type parameter-type-ref symbol)
+  (check-type name string)
+  (check-type parameter-type-ref string)
   (assert (not (equal name parameter-type-ref)) () "Error instantiating parameter ~A. The name of this parameter and its parameter-type-reference are the same. This would cause an immediate circular reference." name)
   (make-instance
    'parameter
@@ -2763,7 +2762,7 @@
   ((data-set :initarg :items :accessor items)))
 
 (defun make-ancillary-data-set (&rest ancillary-data)
-  (let ((table (make-hash-table)))
+  (let ((table (make-hash-table :test 'equal)))
 	(dolist (i ancillary-data)
 	   (with-slots (name) i
 		 (setf (gethash name table) i)))
@@ -2842,6 +2841,9 @@
   (when obj
 	  (symbol-name obj)))
 
+(defmethod marshall ((obj string))
+  obj)
+
 (defmethod marshall ((obj number))
   (format nil "~A" obj))
 
@@ -2878,29 +2880,29 @@
 
 (defmethod dereference ((obj xtce::container-ref) symbol-table)
   (let* ((reference (container-ref obj))
-		 (res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+		 (res (filesystem-hash-table:find-key-by-path reference symbol-table)))
 	res))
 
 (defmethod dereference ((obj xtce::container-ref-entry) symbol-table)
   (let* ((reference (xtce::ref obj))
-		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+		(res (filesystem-hash-table:find-key-by-path reference symbol-table)))
 	res))
 
 (defmethod dereference ((obj xtce::parameter) symbol-table)
   (let* ((reference (xtce::ref obj))
-		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+		(res (filesystem-hash-table:find-key-by-path reference symbol-table)))
 	res
   ))
 
 (defmethod dereference ((obj xtce::parameter-ref-entry) symbol-table)
   (let* ((reference (xtce::ref obj))
-		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+		(res (filesystem-hash-table:find-key-by-path reference symbol-table)))
 	res))
 
 
 (defmethod dereference ((obj xtce::service-ref) symbol-table)
   (let* ((reference (xtce::ref obj))
-		(res (filesystem-hash-table:find-key-by-path (symbol-name reference) symbol-table)))
+		(res (filesystem-hash-table:find-key-by-path reference symbol-table)))
 	res))
 
 (define-condition circular-reference-found (error)
