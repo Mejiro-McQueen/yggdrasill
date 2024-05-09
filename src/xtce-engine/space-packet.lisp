@@ -412,7 +412,7 @@
 										 #'with-ccsds.aos.containers
 										 #'with-ccsds.aos.header.parameters
 										 #'with-ccsds.aos.header.types) nil)
-					 (filesystem-hash-table:make-filesystem-hash-table)
+					 (make-filesystem-hash-table)
 					 'Test)))
   data
   (xtce-engine::decode data spec test-table '() bit-offset)))

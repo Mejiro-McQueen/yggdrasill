@@ -180,7 +180,7 @@
 
 ;Recall:
 ;CL drops leading zeroes in binary numbers e.g. #b001 = 1.
-;Throughout bifrost we must use bit-vectors to preserve the leading zeroes because they are meaningful values to us.
+;we must use bit-vectors to preserve the leading zeroes because they are meaningful values to us.
 ;This occurs with hexadecimal numbers e.g. #x000F since they are treated as unsigned integers.
 ;There are utilities in binops.lisp to convert various formats into bit-vectors.
 ;Data should be converted into bit-vectors as soon as possible.

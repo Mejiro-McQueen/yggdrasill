@@ -2880,29 +2880,29 @@
 
 (defmethod dereference ((obj xtce::container-ref) symbol-table)
   (let* ((reference (container-ref obj))
-		 (res (filesystem-hash-table:find-key-by-path reference symbol-table)))
+		 (res (find-key-by-path reference symbol-table)))
 	res))
 
 (defmethod dereference ((obj xtce::container-ref-entry) symbol-table)
   (let* ((reference (xtce::ref obj))
-		(res (filesystem-hash-table:find-key-by-path reference symbol-table)))
+		(res (find-key-by-path reference symbol-table)))
 	res))
 
 (defmethod dereference ((obj xtce::parameter) symbol-table)
   (let* ((reference (xtce::ref obj))
-		(res (filesystem-hash-table:find-key-by-path reference symbol-table)))
+		(res (find-key-by-path reference symbol-table)))
 	res
   ))
 
 (defmethod dereference ((obj xtce::parameter-ref-entry) symbol-table)
   (let* ((reference (xtce::ref obj))
-		(res (filesystem-hash-table:find-key-by-path reference symbol-table)))
+		(res (find-key-by-path reference symbol-table)))
 	res))
 
 
 (defmethod dereference ((obj xtce::service-ref) symbol-table)
   (let* ((reference (xtce::ref obj))
-		(res (filesystem-hash-table:find-key-by-path reference symbol-table)))
+		(res (find-key-by-path reference symbol-table)))
 	res))
 
 (define-condition circular-reference-found (error)

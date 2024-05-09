@@ -1,4 +1,4 @@
-(ql:quickload "bifrost-yggdrasill")
+(ql:quickload "yggdrasill")
 (in-package :nasa-cfs)
 
 (defparameter NASA-cFS

@@ -326,17 +326,17 @@
 		   (dolist (i service-set)
 			 (make-service-stream i symbol-table))))))
 
-(defun bifrost.start (space-system)
+(defun yggdrasill.start (space-system)
 	(start-servers space-system :telemetry)
 	(start-servers space-system :command)
 	(start-servers space-system :service))
 
-(defun bifrost.stop (space-system)
+(defun yggdrasill.stop (space-system)
 	(stop-servers space-system :telemetry)
 	(stop-servers space-system :command)
 	(stop-servers space-system :service))
  
-(bifrost.start Test-System)
+(yggdrasill.start Test-System)
 
 (defparameter *client* (wsd:make-client "ws://127.0.0.1:8888"))
 
@@ -355,7 +355,7 @@
 (wsd:close-connection *client*)
 
 (sleep 2)
-(bifrost.stop Test-System)
+(yggdrasill.stop Test-System)
 
 ;;TODO:
 ;; What should we define as a space system?
@@ -363,7 +363,7 @@
 ;; This would help flatten a large root space system.
 
 ;; TODO:
-;; We're going to use streams for setting up bifrost services.
+;; We're going to use streams for setting up yggdrasill services.
 ;; We'll traverse into the root system's telemetry node and pick up what we need from the ancillary data, mainly the port.
 ;; We'll pick up the next stage by looking at the container/service/stream ref
 ;; If container then we decode, if stream-ref we place into the stream queue, we don't know what to use services for.

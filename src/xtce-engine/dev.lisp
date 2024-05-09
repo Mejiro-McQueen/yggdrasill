@@ -11,7 +11,7 @@
 											  (stc::with-ccsds.aos.containers
 												  (stc::with-ccsds.aos.header.parameters
 													  (stc::with-ccsds.aos.header.types '())))))))))
-					  (filesystem-hash-table:make-filesystem-hash-table) 'Test)))
+					  (make-filesystem-hash-table) 'Test)))
 	 ,@body))
 
 

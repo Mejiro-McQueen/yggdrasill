@@ -2,11 +2,11 @@
 (ql:quickload :cl-ppcre)
 (ql:quickload :alexandria)
 
-;; This is a proof of concept for a COSMOS -> Bifrost translator
-;; We parse the COSMOS dictionary format and write s-expressions that compose a bifrost dictionary by utilizing quasi quoting
+;; This is a proof of concept for a COSMOS -> yggdrasill translator
+;; We parse the COSMOS dictionary format and write s-expressions that compose a yggdrasill dictionary by utilizing quasi quoting
 ;; I am abandoning this in favor of writing a new dictionary from scratch since 
 ;; COSMOS dictionaries do not take full advantage of XTCE's features.
-;; If this ever picks up steam, we can use parsers like this to help projects quickly test bifrost before committing to writing new dictionaries
+;; If this ever picks up steam, we can use parsers like this to help projects quickly test yggdrasill before committing to writing new dictionaries
 
 (defun collect-blocks (lines)
   (let ((accumulator ())

@@ -1,7 +1,6 @@
 (defpackage :xtce
   (:use :cl
-		:cxml
-		:filesystem-hash-table)
+		:cxml)
   (:documentation "XTCE")
   (:export
    #:algorithm-set

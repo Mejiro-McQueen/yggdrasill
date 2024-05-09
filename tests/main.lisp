@@ -1,11 +1,11 @@
 (ql:quickload "fiveam")
 (in-package :cl-user)
-(defpackage bifrost-yggdrasill-test 
+(defpackage yggdrasill-test 
   (:use :cl
 		:filesystem-hash-table
         :fiveam
 		:xtce-engine))
-(in-package :bifrost-yggdrasill-test)
+(in-package :yggdrasill-test)
 
 (setf fiveam:*run-test-when-defined* t)
 (setf fiveam:*on-failure* :debug)
