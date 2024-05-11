@@ -23,19 +23,49 @@
    (make-telemetry-metadata
 	
 	:parameter-type-set
-	(stc::with-ccsds.aos.header.types
-		(stc::with-ccsds.mpdu.types
-			(stc:with-ccsds.space-packet.types nil)))
-
+	(funcall 
+	 (alexandria:compose 
+	  #'stc::with-ccsds.aos.header.types
+	  #'stc::with-ccsds.mpdu.types
+	  #'stc:with-ccsds.space-packet.types)
+	 (list
+	  (make-integer-parameter-type "UINT_8" :data-encoding (make-integer-data-encoding :size-in-bits 8))
+	  (make-integer-parameter-type "UINT_32" :data-encoding (make-integer-data-encoding :size-in-bits 32))
+	  (make-enumerated-parameter-type "ENABLED_8" :data-encoding (make-integer-data-encoding) :enumeration-list
+	   								  (list (make-enumeration 0 "Enabled")
+	   										(make-enumeration 1 "Disabled")))))
 	:parameter-set
-	(stc::with-ccsds.mpdu.parameters
-		(stc::with-ccsds.aos.header.parameters
-			(stc::with-ccsds.space-packet.parameters nil)))
+	(funcall
+	 (alexandria:compose 
+	  #'stc::with-ccsds.mpdu.parameters
+	  #'stc::with-ccsds.aos.header.parameters
+	  #'stc::with-ccsds.space-packet.parameters)
+	 (list
+	  (make-parameter "CMD_ERR_COUNT_8" "/UINT_8" :short-description "Command Error Count")
+	  (make-parameter "CMD_COUNT_8" "/UINT_8" :short-description "Command Count")
+	  (make-parameter "DEVICE_ERR_COUNT_8" "/UINT_8" :short-description "Device Command Error Count")
+	  (make-parameter "DEVICE_COMMAND_COUNT_8" "/UINT_8" :short-description "Device Command Count")
+	  (make-parameter "DEVICE_ENABLED_8" "/ENABLED_8" :short-description "Device Enabled Status")
+	  (make-parameter "DEVICE_COUNTER_32" "/UINT_32" :short-description "Reported Device Command Counter")
+	  (make-parameter "DEVICE_CONFIG_32" "/UINT_32" :short-description "Reported Device Configuration")
+	  (make-parameter "DEVICE_STATUS_32" "/UINT_32" :short-description "Reported Device Status")))
 
 	:container-set
-	(stc::with-ccsds.space-packet.containers
-		(stc::with-ccsds.mpdu.containers
-			(stc::with-ccsds.aos.containers nil)))
+	(funcall
+	 (alexandria:compose 
+	  #'stc::with-ccsds.space-packet.containers
+	  #'stc::with-ccsds.mpdu.containers
+	  #'stc::with-ccsds.aos.containers)
+	 (list
+	  (make-space-packet-container #x870 "Novatel_OEM615_HK_TLM"
+								   (mapcar #'make-parameter-ref-entry
+										   '("CMD_ERR_COUNT_8"
+											 "CMD_COUNT_8"
+											 "DEVICE_ERR_COUNT_8"
+											 "DEVICE_ENABLED_8"
+											 "DEVICE_COUNTER_32"
+											 "DEVICE_CONFIG_32"
+											 "DEVICE_STATUS_32")))))
 	  
 	:stream-set
 	(stc:with-ccsds.aos.stream 1024 9002 15)
@@ -59,6 +89,13 @@
 						(make-ancillary-data "port" 9001)
 						(make-ancillary-data "vcid" 43)
 						(make-ancillary-data "next-stream" "Service.CCSDS.Space-Packet.15"))))))
+
+
+(xtce-engine::bit-vector->hex
+ (cdr (car (stc::decode-ccsds (hex-string-to-bit-vector "0870")
+							  stc::CCSDS.Space-Packet.Container.Header.Packet-Identification 0))))
+ 
+(xtce-engine::bit-vector->uint #*000100001110000)
 
 ;Server State Management
 (defvar *port->stream-name* (make-hash-table :test 'equal))
@@ -176,7 +213,7 @@
 		   (next-stream-input-queue (gethash next-stream *stream-name->input-thread*)))
 
 	  (setf message (U8-ARRAY->BIT-VECTOR message))
-	  (log:error message)
+	  ;(log:error message)
 	  ;(log:error (server-closure server-state))
 	  (multiple-value-bind (result state next-continuation) (funcall (server-closure server-state)
 																	 message
@@ -185,7 +222,7 @@
 		(setf (server-closure server-state) next-continuation)
 		(setf (gethash service-name *stream-name->server-state*) server-state)
 		;; (log:info next-continuation)
-		;;(log:info result)
+		;(log:info result)
 		;; (log:info state)
 										;Send to socket output queue
 		(lparallel.queue:push-queue result output-queue)
@@ -199,8 +236,8 @@
 
 (defun start-stream-output-thread (input-queue websocket)
   (loop
-	
-	(wsd:send-text websocket (lparallel.queue:pop-queue input-queue))))
+	(sleep 5)))
+	;(wsd:send-text websocket (lparallel.queue:pop-queue input-queue))))
 
 (defun telemetry-stream-handler (env)
   (let ((ws (wsd:make-server env)))
@@ -340,7 +377,7 @@
 	(stop-servers space-system :command)
 	(stop-servers space-system :service))
  
-(yggdrasill.start Test-System)
+;(yggdrasill.start Test-System)
 
 ;; (defparameter *client* (wsd:make-client "ws://127.0.0.1:8888"))
 

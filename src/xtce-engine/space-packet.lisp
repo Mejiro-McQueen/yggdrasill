@@ -128,7 +128,7 @@
    :size-in-bits 14
    :short-description "CCSDS Space Packet Header Element. Part of Packet Sequence Control container."
    :long-description (make-long-description "The CCSDS spec calls out for either a packet name or packet count.")
-  :data-encoding (make-integer-data-encoding :size-in-bits 14)))
+   :data-encoding (make-integer-data-encoding :size-in-bits 14)))
 
 (defparameter CCSDS.Space-Packet.Header.Packet-Name-Type
   (make-string-parameter-type
@@ -416,7 +416,6 @@
 					 'Test)))
 	(xtce-engine::decode data spec test-table '() bit-offset)))
 
-
 (defun build-apid->container-table (service-def symbol-table)
   (let ((apid-lookup-table (make-hash-table :test 'equalp)))
 	(with-slots (reference-set) service-def
@@ -437,7 +436,13 @@
 		 (apid (assoc "apid" space-packet))
 		 (user-data (assoc "user-data-field" space-packet))
 		 (result nil))
-	(log:info space-packet)
+	(let ((code (xtce-engine::bit-vector->hex
+				(xtce-engine::concatenate-bit-arrays
+				(xtce-engine::uint->bit-vector (cdr (assoc "STC.CCSDS.Space-Packet.Header.Packet-Version-Number" space-packet)) 3)
+				(xtce-engine::uint->bit-vector (cdr (assoc "STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag" space-packet)) 1)
+				(cdr (assoc "STC.CCSDS.Space-Packet.Header.Application-Process-Identifier" space-packet))))))
+	  (log:error code))
+	;(log:info space-packet)
 	;(setf result (xtce-engine::decode user-data (gethash apid apid->container-table) symbol-table nil 0))
 	(values result :ok (lambda (data service-def symbol-table)
 						 (space-packet-service data service-def symbol-table :apid->container-table apid->container-table)))))
@@ -454,3 +459,4 @@
 
 ;; (xtce-engine::hex-string-to-bit-vector "0009 1aed 9e00 4d00 002d 9f8c cc00 0000")
 
+;;(xtce-engine::bit-vector->hex #*000100001110000)

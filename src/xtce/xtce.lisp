@@ -198,6 +198,7 @@
 		;; (print (find-key-by-path (symbol-name parameter-type-ref) symbol-table))
 		(dereference-with-cycle-detection parameter symbol-table)
 		(unless (find-key-by-path (format nil "~A" parameter-type-ref) symbol-table)
+		  (print symbol-table)
 		  (error `parameter-ref-not-found :parameter parameter :parameter-type-ref parameter-type-ref))
 		))))
 
