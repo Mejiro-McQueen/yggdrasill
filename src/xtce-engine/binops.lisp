@@ -7,6 +7,8 @@
   (ironclad:byte-array-to-hex-string a))
 
 (defun ascii-string-to-byte-array (s)
+    (when (find #\space s)
+	  (setf s (remove #\space s)))
   (ironclad::ascii-string-to-byte-array s))
 
 ;; (defun byte-array->hex-string (a)
@@ -16,11 +18,16 @@
 ;; 			   :initial-contents a)))
 
 (defun hex-string-to-byte-array (s)
+  (when (find #\space s)
+	(setf s (remove #\space s)))
   (ironclad::hex-string-to-byte-array s))
+
+(defun hex-string-to-bit-vector (s)
+  (u8-array->bit-vector (hex-string-to-byte-array s)))
 
 (defun U8-Array->bit-vector (a)
   (xtce-engine::bit-array-list->concat-bit-vector
-   (map 'list xtce-engine::'uint->bit-vector a)))
+   (map 'list #'(lambda (i) (uint->bit-vector i 8)) a)))
 
 (defun bit-array-list->concat-bit-vector (l)
   (apply #'concatenate-bit-arrays l))

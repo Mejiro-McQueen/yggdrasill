@@ -256,9 +256,9 @@
 
 (defparameter CCSDS.Space-Packet.Container.User-Data-Field
   (make-sequence-container
-   "CCSDS.Space-Packet.Container.Packet-Data-Field.User-Data-Field"
+   "STC.CCSDS.Space-Packet.Container.Packet-Data-Field.User-Data-Field"
    (list
-	(make-parameter-ref-entry "CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field"))))
+	(make-parameter-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field"))))
 
 (defparameter CCSDS.Space-Packet.Container.Space-Packet
   (let ((entry-list
@@ -304,7 +304,7 @@
 									  base-container)
   (declare (ignore base-container))
   (with-slots (xtce::data-set) ancillary-data-set
-	 (setf (gethash :apid xtce::data-set) (xtce::make-ancillary-data :apid apid))
+	 (setf (gethash "apid" xtce::data-set) (xtce::make-ancillary-data "apid" apid))
 	(make-sequence-container name
 							 entry-list
 							 :abstract abstract
@@ -326,12 +326,12 @@
 
 
 
-(defun extract-space-packets (data first-header-pointer symbol-table alist previous-packet-segment)
+(defun extract-space-packets-from-mpdu (data first-header-pointer symbol-table alist previous-packet-segment)
   (log:info "Attempting to extract space packets...")
   
   (when (stc::stc.ccsds.mpdu.is-idle-pattern first-header-pointer)
 	(log:info "Found idle pattern.")
-	(return-from extract-space-packets nil))
+	(return-from extract-space-packets-from-mpdu nil))
   
   (let ((container stc::CCSDS.Space-Packet.Container.Space-Packet)
 		(packet-list nil)
@@ -342,16 +342,16 @@
 	  (if (eq previous-packet-segment #*)
 		  (progn
 			(log:info "Found spanning packet but we do not have a previous fragmented packet.")
-			(return-from extract-space-packets
+			(return-from extract-space-packets-from-mpdu
 			  (values nil
 					  (lambda (next-data first-header-pointer symbol-table alist)
-						(extract-space-packets next-data first-header-pointer symbol-table alist nil)))))		  
+						(extract-space-packets-from-mpdu next-data first-header-pointer symbol-table alist nil)))))		  
 		  (progn
 			(log:info "Packet still fragmented.")
-			(return-from extract-space-packets
+			(return-from extract-space-packets-from-mpdu
 			  (values packet-list
 					  (lambda (next-data first-header-pointer symbol-table alist)
-						(extract-space-packets next-data first-header-pointer symbol-table alist (concatenate-bit-arrays previous-packet-segment data))))))))
+						(extract-space-packets-from-mpdu next-data first-header-pointer symbol-table alist (concatenate-bit-arrays previous-packet-segment data))))))))
 	
 	(let* ((rear-fragment (subseq data 0 (* 8 first-header-pointer)))
 		   (lead-fragment nil))
@@ -393,7 +393,7 @@
 		(log:info (- data-length next-pointer))
 		(log:info (length (subseq data next-pointer) ))
 		(values packet-list (lambda (next-data first-header-pointer symbol-table alist)
-							  (extract-space-packets next-data first-header-pointer symbol-table alist lead-fragment)))))))
+							  (extract-space-packets-from-mpdu next-data first-header-pointer symbol-table alist lead-fragment)))))))
 
 
 (defun decode-ccsds (data spec bit-offset)
@@ -412,7 +412,45 @@
 										 #'with-ccsds.aos.containers
 										 #'with-ccsds.aos.header.parameters
 										 #'with-ccsds.aos.header.types) nil)
-					 (make-filesystem-hash-table)
+					 (xtce::make-filesystem-hash-table)
 					 'Test)))
-  data
-  (xtce-engine::decode data spec test-table '() bit-offset)))
+	(xtce-engine::decode data spec test-table '() bit-offset)))
+
+
+(defun build-apid->container-table (service-def symbol-table)
+  (let ((apid-lookup-table (make-hash-table :test 'equalp)))
+	(with-slots (reference-set) service-def
+		  (progn
+			(dolist (reference reference-set)
+			  (print reference)
+			  (let* ((packet-def (dereference reference symbol-table))
+					 (apid (gethash "apid" (xtce::get-ancillary-data packet-def))))
+				(setf (gethash apid apid-lookup-table) packet-def)))))
+	apid-lookup-table))
+
+
+(defun space-packet-service (data service-def symbol-table &key apid->container-table)
+  (unless apid->container-table
+	(setf apid->container-table (build-apid->container-table service-def symbol-table)))
+
+  (let* ((space-packet (xtce-engine::decode data (gethash "STC.CCSDS.Space-Packet.Container.Space-Packet" symbol-table) symbol-table nil 0))
+		 (apid (assoc "apid" space-packet))
+		 (user-data (assoc "user-data-field" space-packet))
+		 (result nil))
+	(log:info space-packet)
+	;(setf result (xtce-engine::decode user-data (gethash apid apid->container-table) symbol-table nil 0))
+	(values result :ok (lambda (data service-def symbol-table)
+						 (space-packet-service data service-def symbol-table :apid->container-table apid->container-table)))))
+
+
+
+;; (log:config :debug)
+;; (decode-ccsds (xtce-engine::hex-string-to-bit-vector "0870 fee6 001a 0000 2d9f 851e 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0009 1aed 9e00 4d00 002d 9f8c cc00 0000") stc::CCSDS.Space-Packet.Container.Space-Packet  0)
+
+
+;; (xtce-engine::u8-array->bit-vector
+;;  (xtce-engine::hex-string-to-byte-array "000F"))
+
+
+;; (xtce-engine::hex-string-to-bit-vector "0009 1aed 9e00 4d00 002d 9f8c cc00 0000")
+

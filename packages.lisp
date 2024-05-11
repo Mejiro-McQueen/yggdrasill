@@ -227,7 +227,7 @@
    #:alist->bit-vector
    #:concatenate-bit-arrays
    #:decode
-   #:extract-space-packets
+   #:extract-space-packets-from-mpdu
    #:fragment-packet
    #:hex-string-to-byte-array
    #:make-mpdu-header

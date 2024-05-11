@@ -25,39 +25,40 @@
 	:parameter-type-set
 	(stc::with-ccsds.aos.header.types
 		(stc::with-ccsds.mpdu.types
-			(stc:with-ccsds.space-packet.header.types nil)))
+			(stc:with-ccsds.space-packet.types nil)))
 
 	:parameter-set
 	(stc::with-ccsds.mpdu.parameters
 		(stc::with-ccsds.aos.header.parameters
-			(stc::with-ccsds.space-packet.header.parameters nil)))
+			(stc::with-ccsds.space-packet.parameters nil)))
 
 	:container-set
-	(stc::with-ccsds.mpdu.containers
-		(stc::with-ccsds.aos.containers nil))
-	
+	(stc::with-ccsds.space-packet.containers
+		(stc::with-ccsds.mpdu.containers
+			(stc::with-ccsds.aos.containers nil)))
+	  
 	:stream-set
-	(stc:with-ccsds.aos.stream 1024 8888 15)
+	(stc:with-ccsds.aos.stream 1024 9002 15)
 	)
 
    :service-set
    (list (make-service "STC.CCSDS.Space-Packet.Stream.15"
-					   (list (make-container-ref "STC.CCSDS.Space-Packet"))
+					   ;(list (make-container-ref "STC.CCSDS.Space-Packet"))
+					   '()
 					   :short-description "CCSDS Space Packet Decoding"
 					   :ancillary-data-set
 					   (xtce::make-ancillary-data-set
-						(make-ancillary-data "service-function" nil)
-						(make-ancillary-data "port" 8900)))
+						(make-ancillary-data "service-function" #'stc::space-packet-service)
+						(make-ancillary-data "port" 9000)))
 		 (make-service "STC.CCSDS.MPDU.Stream.15"
 					   (list (make-container-ref "STC.CCSDS.MPDU"))
 					   :short-description "MPDU Decoding for VCID 15"
 					   :ancillary-data-set
 					   (xtce::make-ancillary-data-set
 						(make-ancillary-data "service-function" #'stc::decode-mpdu-service)
-						(make-ancillary-data "port" 8901)
+						(make-ancillary-data "port" 9001)
 						(make-ancillary-data "vcid" 43)
 						(make-ancillary-data "next-stream" "Service.CCSDS.Space-Packet.15"))))))
-
 
 ;Server State Management
 (defvar *port->stream-name* (make-hash-table :test 'equal))
@@ -141,6 +142,8 @@
 		   (stream-def (xtce-definition server-state))
 		   (next-stream (stream-ref stream-def))
 		   (next-stream-input-queue nil))
+	  
+	  (setf message (U8-ARRAY->BIT-VECTOR message))
 	  (multiple-value-bind (result state next-continuation) (funcall (server-closure server-state)
 																	 message
 																	 (xtce-definition server-state)
@@ -172,7 +175,8 @@
 		   (next-stream nil)
 		   (next-stream-input-queue (gethash next-stream *stream-name->input-thread*)))
 
-	  ;(log:error message)
+	  (setf message (U8-ARRAY->BIT-VECTOR message))
+	  (log:error message)
 	  ;(log:error (server-closure server-state))
 	  (multiple-value-bind (result state next-continuation) (funcall (server-closure server-state)
 																	 message
@@ -338,24 +342,24 @@
  
 (yggdrasill.start Test-System)
 
-(defparameter *client* (wsd:make-client "ws://127.0.0.1:8888"))
+;; (defparameter *client* (wsd:make-client "ws://127.0.0.1:8888"))
 
-(sleep 2)
-(wsd:start-connection *client*)
-;; ;; (wsd:on :message *client*
-;; ;;         (lambda (message)
-;; ;;           (format t "~&Got: ~A~%" message)))
-;; ;; (wsd:send *client* "Hi")
-(wsd:send-binary *client* tt)
-(wsd:send-binary *client* tt)
-(wsd:send-binary *client* tt)
-(wsd:send-binary *client* tt)
-(wsd:send-binary *client* tt)
-(wsd:send-binary *client* tt)
-(wsd:close-connection *client*)
+;; (sleep 2)
+;; (wsd:start-connection *client*)
+;; ;; ;; (wsd:on :message *client*
+;; ;; ;;         (lambda (message)
+;; ;; ;;           (format t "~&Got: ~A~%" message)))
+;; ;; ;; (wsd:send *client* "Hi")
+;; (wsd:send-binary *client* tt)
+;; (wsd:send-binary *client* tt)
+;; (wsd:send-binary *client* tt)
+;; (wsd:send-binary *client* tt)
+;; (wsd:send-binary *client* tt)
+;; (wsd:send-binary *client* tt)
+;; (wsd:close-connection *client*)
 
-(sleep 2)
-(yggdrasill.stop Test-System)
+;; (sleep 2)
+;; (yggdrasill.stop Test-System)
 
 ;;TODO:
 ;; What should we define as a space system?

@@ -2876,6 +2876,8 @@
 		(error 'dereference-mismatch :reference-holder reference-holder :dereferenced-obj dereferenced-object)
 		(error 'reference-not-found :reference-holder reference-holder :dereferenced-obj dereferenced-object))))
 
+
+; TODO: This is whack
 (defgeneric dereference (reference-symbol symbol-table))
 
 (defmethod dereference ((obj xtce::container-ref) symbol-table)
