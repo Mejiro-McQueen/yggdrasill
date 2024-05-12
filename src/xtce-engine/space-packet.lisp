@@ -456,38 +456,6 @@
 					 'Test)))
 	(xtce-engine::decode data spec test-table '() bit-offset)))
 
-(defun build-apid->container-table (service-def symbol-table)
-  (let ((apid-lookup-table (make-hash-table :test 'equalp)))
-	(with-slots (reference-set) service-def
-		  (progn
-			(dolist (reference reference-set)
-			  (print reference)
-			  (let* ((packet-def (dereference reference symbol-table))
-					 (apid (gethash "apid" (xtce::get-ancillary-data packet-def))))
-				(setf (gethash apid apid-lookup-table) packet-def)))))
-	apid-lookup-table))
-
-
-(defun space-packet-service (data service-def symbol-table &key apid->container-table)
-  (unless apid->container-table
-	(setf apid->container-table (build-apid->container-table service-def symbol-table)))
-
-  (let* ((space-packet (xtce-engine::decode data (gethash "STC.CCSDS.Space-Packet.Container.Space-Packet" symbol-table) symbol-table nil 0))
-		 (apid (assoc "apid" space-packet))
-		 (user-data (assoc "user-data-field" space-packet))
-		 (result nil))
-	(let ((code (xtce-engine::bit-vector->hex
-				(xtce-engine::concatenate-bit-arrays
-				(xtce-engine::uint->bit-vector (cdr (assoc "STC.CCSDS.Space-Packet.Header.Packet-Version-Number" space-packet)) 3)
-				(xtce-engine::uint->bit-vector (cdr (assoc "STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag" space-packet)) 1)
-				(cdr (assoc "STC.CCSDS.Space-Packet.Header.Application-Process-Identifier" space-packet))))))
-	  (log:error code))
-	(log:info space-packet)
-	;(setf result (xtce-engine::decode user-data (gethash apid apid->container-table) symbol-table nil 0))
-	(values result :ok (lambda (data service-def symbol-table)
-						 (space-packet-service data service-def symbol-table :apid->container-table apid->container-table)))))
-
-
 
 ;; (log:config :debug)
 ;; (decode-ccsds (xtce-engine::hex-string-to-bit-vector "08 00 d7 05 00 9d 00 00 5c 15 6e 14 00 00 00 00 00 00 65 45 06 07 63 ff 05 00 63 ff 01 04 63 ff ef 0b 00 00 00 0c 00 00 2d 00 00 00 00 00 00 00 01 00 00 00 01 00 00 00 05 00 00 00 16 00 00 00 23 00 00 00 02 00 00 00 02 00 00 00 01 00 00 00 00 00 00 00 02 00 00 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00") stc::CCSDS.Space-Packet.Container.Space-Packet 0)

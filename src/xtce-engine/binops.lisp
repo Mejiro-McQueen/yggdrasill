@@ -3,6 +3,9 @@
 (defun byte-array-to-uint (a)
   (parse-integer (byte-array-to-hex-string a) :radix 16))
 
+(defun uint->hex (a)
+  (format nil "0x~4,'0X" a ))
+
 (defun byte-array-to-hex-string (a)
   (ironclad:byte-array-to-hex-string a))
 

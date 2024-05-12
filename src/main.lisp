@@ -2,6 +2,66 @@
 ;(defvar debug-mode t)
 (in-package :xtce-engine)
 
+(defun make-cfs-packet-container (apid
+									name
+									entry-list
+									&key
+									  abstract
+									  idle-pattern
+									  short-description
+									  long-description
+									  alias-set
+									  (ancillary-data-set (xtce::make-ancillary-data-set))
+									  rate-in-stream-set
+									  default-rate-in-stream
+									  binary-encoding
+									  base-container)
+  (declare (ignore base-container))
+  (with-slots (xtce::data-set) ancillary-data-set
+	 (setf (gethash "apid" xtce::data-set) (xtce::make-ancillary-data "apid" apid))
+	(make-sequence-container name
+							 entry-list
+							 :abstract abstract
+							 :idle-pattern idle-pattern
+							 :short-description short-description
+							 :long-description long-description
+							 :alias-set alias-set
+							 :ancillary-data-set ancillary-data-set
+							 :rate-in-stream-set rate-in-stream-set
+							 :default-rate-in-stream default-rate-in-stream
+							 :binary-encoding binary-encoding
+							 :base-container "CFS.Packet")))
+
+(defun build-apid->container-table (service-def symbol-table apid->container-table)
+  (log:error (reference-set service-def))
+	(with-slots (reference-set) service-def
+		  (progn
+			(dolist (reference reference-set)
+			  (log:error reference)
+			  (let* ((packet-def (dereference reference symbol-table))
+					 (apid (gethash "apid" (xtce::get-ancillary-data packet-def))))
+				(setf (gethash apid apid->container-table) packet-def)))))
+	apid->container-table)
+
+(defun apid-packet-service (data service-def symbol-table &key (apid->container-table (make-hash-table)))
+  (when (equal (hash-table-count apid->container-table) 0)
+	(setf apid->container-table (build-apid->container-table service-def symbol-table apid->container-table)))
+
+  (multiple-value-bind (space-packet next-offset) (xtce-engine::decode data (gethash "CFS.Packet" symbol-table) symbol-table nil 0)
+  (let* ((apid (cdr (assoc "CCSDS_Stream_ID" space-packet :test #'equalp)))
+		 (next-container (gethash apid apid->container-table))
+		 (result nil))
+	;(log:info apid)
+	;(log:info space-packet)
+	;(log:info (alexandria:hash-table-keys apid->container-table))
+	(if next-container
+		(progn
+		  ;(log:info "next-container: ~A" next-container)
+		  (setf result (decode data next-container symbol-table '() next-offset)))
+		(log:warn "Could not find container for apid: ~A" (uint->hex apid)))
+	(values result :ok (lambda (data service-def symbol-table)
+						 (apid-packet-service data service-def symbol-table :apid->container-table apid->container-table))))))
+
 (defparameter Test-System
   (make-space-system
    "Test-System"
@@ -17,80 +77,64 @@
    (make-telemetry-metadata 
 	
 	:parameter-type-set
-	(funcall 
-	 (alexandria:compose 
-	  #'stc::with-ccsds.aos.header.types
-	  #'stc::with-ccsds.mpdu.types
-	  #'stc:with-ccsds.space-packet.types)
-	 (list
-	  (make-integer-parameter-type "UINT_8" :data-encoding (make-integer-data-encoding :size-in-bits 8))
-	  (make-integer-parameter-type "UINT_32" :data-encoding (make-integer-data-encoding :size-in-bits 32))
-	  (make-enumerated-parameter-type "ENABLED_8" :data-encoding (make-integer-data-encoding) :enumeration-list
-	   								  (list (make-enumeration 0 "Enabled")
-	   										(make-enumeration 1 "Disabled")))))
+	(list
+	 (make-integer-parameter-type "UINT_8" :data-encoding (make-integer-data-encoding :size-in-bits 8))
+	 (make-integer-parameter-type "UINT_16" :data-encoding (make-integer-data-encoding :size-in-bits 16))
+	 (make-integer-parameter-type "UINT_32" :data-encoding (make-integer-data-encoding :size-in-bits 32))
+	 (make-enumerated-parameter-type "ENABLED_8" :data-encoding (make-integer-data-encoding) :enumeration-list
+									 (list (make-enumeration 0 "Enabled")
+										   (make-enumeration 1 "Disabled"))))
 	:parameter-set
-	(funcall
-	 (alexandria:compose 
-	  #'stc::with-ccsds.mpdu.parameters
-	  #'stc::with-ccsds.aos.header.parameters
-	  #'stc::with-ccsds.space-packet.parameters
-	  )
-	 (list
-	  (make-parameter "CMD_ERR_COUNT_8" "/UINT_8" :short-description "Command Error Count")
-	  (make-parameter "CMD_COUNT_8" "/UINT_8" :short-description "Command Count")
-	  (make-parameter "DEVICE_ERR_COUNT_8" "/UINT_8" :short-description "Device Command Error Count")
-	  (make-parameter "DEVICE_COMMAND_COUNT_8" "/UINT_8" :short-description "Device Command Count")
-	  (make-parameter "DEVICE_ENABLED_8" "/ENABLED_8" :short-description "Device Enabled Status")
-	  (make-parameter "DEVICE_COUNTER_32" "/UINT_32" :short-description "Reported Device Command Counter")
-	  (make-parameter "DEVICE_CONFIG_32" "/UINT_32" :short-description "Reported Device Configuration")
-	  (make-parameter "DEVICE_STATUS_32" "/UINT_32" :short-description "Reported Device Status")))
+	(list
+	 (make-parameter "CCSDS_Stream_ID" "/UINT_16")
+	 (make-parameter "CCSDS_Sequence" "/UINT_16")
+	 (make-parameter "CCSDS_Length" "/UINT_16")
+	 (make-parameter "CCSDS_Seconds" "/UINT_32")
+	 (make-parameter "CCSDS_Subseconds" "/UINT_16")
+	 (make-parameter "CCSDS_Spare" "/UINT_32")
+	 (make-parameter "CMD_ERR_COUNT_8" "/UINT_8" :short-description "Command Error Count")
+	 (make-parameter "CMD_COUNT_8" "/UINT_8" :short-description "Command Count")
+	 (make-parameter "DEVICE_ERR_COUNT_8" "/UINT_8" :short-description "Device Command Error Count")
+	 (make-parameter "DEVICE_COMMAND_COUNT_8" "/UINT_8" :short-description "Device Command Count")
+	 (make-parameter "DEVICE_ENABLED_8" "/ENABLED_8" :short-description "Device Enabled Status")
+	 (make-parameter "DEVICE_COUNTER_32" "/UINT_32" :short-description "Reported Device Command Counter")
+	 (make-parameter "DEVICE_CONFIG_32" "/UINT_32" :short-description "Reported Device Configuration")
+	 (make-parameter "DEVICE_STATUS_32" "/UINT_32" :short-description "Reported Device Status"))
 
 	:container-set
-	(funcall
-	 (alexandria:compose 
-	  #'stc::with-ccsds.space-packet.containers
-	  #'stc::with-ccsds.mpdu.containers
-	  #'stc::with-ccsds.aos.containers)
-	 (list
-	  (make-space-packet-container #x870 "Novatel_OEM615_HK_TLM"
-								   (mapcar #'make-parameter-ref-entry
-										   '("CMD_ERR_COUNT_8"
-											 "CMD_COUNT_8"
-											 "DEVICE_ERR_COUNT_8"
-											 "DEVICE_ENABLED_8"
-											 "DEVICE_COUNTER_32"
-											 "DEVICE_CONFIG_32"
-											 "DEVICE_STATUS_32")))))
+	 (list	  
+	  (make-sequence-container "CFS.Packet"
+							   (list (make-parameter-ref-entry "CCSDS_Stream_ID")
+									 (make-parameter-ref-entry "CCSDS_Sequence")
+									 (make-parameter-ref-entry "CCSDS_Length")
+									 (make-parameter-ref-entry "CCSDS_Seconds")
+									 (make-parameter-ref-entry "CCSDS_Subseconds")
+									 (make-parameter-ref-entry "CCSDS_Spare"))
+							   :abstract t)
+	  (make-cfs-packet-container #x870 "Novatel_OEM615_HK_TLM"
+								 (mapcar #'make-parameter-ref-entry
+										 '("CMD_ERR_COUNT_8"
+										   "CMD_COUNT_8"
+										   "DEVICE_ERR_COUNT_8"
+										   "DEVICE_ENABLED_8"
+										   "DEVICE_COUNTER_32"
+										   "DEVICE_CONFIG_32"
+										   "DEVICE_STATUS_32")))))
 	  
-	:stream-set
-	(stc:with-ccsds.aos.stream 1024 9002 15)
-	)
-
    :service-set
    (list (make-service "STC.CCSDS.Space-Packet.Stream.15"
-					   ;(list (make-container-ref "STC.CCSDS.Space-Packet"))
-					   '()
-					   :short-description "CCSDS Space Packet Decoding"
+					   (list (make-container-ref "Novatel_OEM615_HK_TLM"))
+					   :short-description "CFS Packet Decoding"
 					   :ancillary-data-set
 					   (xtce::make-ancillary-data-set
-						(make-ancillary-data "service-function" #'stc::space-packet-service)
-						(make-ancillary-data "port" 9000)))
-		 (make-service "STC.CCSDS.MPDU.Stream.15"
-					   (list (make-container-ref "STC.CCSDS.MPDU"))
-					   :short-description "MPDU Decoding for VCID 15"
-					   :ancillary-data-set
-					   (xtce::make-ancillary-data-set
-						(make-ancillary-data "service-function" #'stc::decode-mpdu-service)
-						(make-ancillary-data "port" 9001)
-						(make-ancillary-data "vcid" 43)
-						(make-ancillary-data "next-stream" "Service.CCSDS.Space-Packet.15"))))))
+						(make-ancillary-data "service-function" #'apid-packet-service)
+						(make-ancillary-data "port" 9000))))))
 
-
-(xtce-engine::bit-vector->hex
- (cdr (car (stc::decode-ccsds (hex-string-to-bit-vector "0870")
-							  stc::CCSDS.Space-Packet.Container.Header.Packet-Identification 0))))
+;; (xtce-engine::bit-vector->hex
+;;  (cdr (car (stc::decode-ccsds (hex-string-to-bit-vector "0870")
+;; 							  stc::CCSDS.Space-Packet.Container.Header.Packet-Identification 0))))
  
-(xtce-engine::bit-vector->uint #*000100001110000)
+;; (xtce-engine::bit-vector->uint #*000100001110000)
 
 ;Server State Management
 (defvar *port->stream-name* (make-hash-table :test 'equal))
@@ -363,16 +407,28 @@
 			 (make-service-stream i symbol-table))))))
 
 (defun yggdrasill.start (space-system)
-	(start-servers space-system :telemetry)
-	(start-servers space-system :command)
-	(start-servers space-system :service))
+  (defparameter *last-system* space-system)
+  (start-servers space-system :telemetry)
+  (start-servers space-system :command)
+  (start-servers space-system :service))
 
-(defun yggdrasill.stop (space-system)
-	(stop-servers space-system :telemetry)
-	(stop-servers space-system :command)
-	(stop-servers space-system :service))
- 
+(defun yggdrasill.stop (&optional (space-system *last-system*))
+  (stop-servers space-system :telemetry)
+  (stop-servers space-system :command)
+  (stop-servers space-system :service))
+
+(defun yggdrasill.restart (&optional (space-system *last-system*))
+  (yggdrasill.stop space-system)
+  (yggdrasill.start space-system))
+
+#+or
 (yggdrasill.start Test-System)
+
+#+or
+(yggdrasill.stop Test-System)
+
+#+or
+(yggdrasill.restart Test-System)
 
 ;; (defparameter *client* (wsd:make-client "ws://127.0.0.1:8888"))
 
@@ -391,7 +447,7 @@
 ;; (wsd:close-connection *client*)
 
 ;; (sleep 2)
-;(yggdrasill.stop Test-System)
+;;(yggdrasill.stop Test-System)
 
 ;;TODO:
 ;; What should we define as a space system?
@@ -475,3 +531,4 @@
 	(apply algorithm arg-list)))
 
 ;; (eval-algorithm test1 alist)
+
