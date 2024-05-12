@@ -3,15 +3,22 @@
 
 ;;OPTIONS
 (defparameter Space-Packet.Header.Sequence-or-Name :sequence)
-(defparameter Space-Packet.Secondary-Header-Length 0)
+(defparameter Space-Packet.Packet-Data-Field.Secondary-Header-Length 0)
 
 ;;
-(defparameter Space-Packet.Secondary-Header-Type
-  (make-binary-parameter-type
-   "STC.CCSDS.Space-Packet.Header.Packet-Identification-Type"
-   :short-description "CCSDS Space Secondary Packet Header element."
+(defparameter CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Seconds-Type
+  (make-integer-parameter-type
+   "STC.CCSDS.Space-Packet.User-Packet-Field.Secondary-Header.Seconds-Type"
+   :short-description "CCSDS Space Secondary Packet Header seconds element."
    :data-encoding
-   (make-binary-data-encoding (make-size-in-bits (make-fixed-value Space-Packet.Secondary-Header-Length)))))
+   (make-integer-data-encoding :size-in-bits 32)))
+
+(defparameter CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Subseconds-Type
+  (make-integer-parameter-type
+   "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Subseconds-Type"
+   :short-description "CCSDS Space Secondary Packet Header subseconds element."
+   :data-encoding
+   (make-integer-data-encoding :size-in-bits 16)))
 
 (defparameter Space-Packet.Header.Packet-Name "STC.CCSDS.Space-Packet.Header.Packet-Name")
 
@@ -43,8 +50,8 @@
 	 Space-Packet.Header.Packet-Name)
 	(t (error "Space-Packet.Header.Sequence-or-Name must be :name or :sequence"))))
 
-(defun set-CCSDS.Space-Packet.Secondary-Header-Length (n)
-  (setf Space-Packet.Secondary-Header-Length n))
+(defun set-CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header-Length (n)
+  (setf Space-Packet.Packet-Data-Field.Secondary-Header-Length n))
 
 (defun get-CCSDS.Space-Packet.Header.Sequence-or-Name ()
   (assert (member Space-Packet.Header.Sequence-or-Name '(:sequence :name)) (Space-Packet.Header.Sequence-or-Name)
@@ -149,21 +156,32 @@
 					 )))))
 
 (defun with-ccsds.space-packet.header.types (type-list)
-  (append type-list
-		  (list
-		   CCSDS.Space-Packet.Header.Packet-Identification-Type
-		   CCSDS.Space-Packet.Header.Packet-Sequence-Control-Type
-		   CCSDS.Space-Packet.Header.Packet-Version-Number-Type
-		   CCSDS.Space-Packet.Header.Packet-Type-Type
-		   CCSDS.Space-Packet.Header.Secondary-Header-Flag-Type
-		   CCSDS.Space-Packet.Header.Application-Process-Identifier-Type
-		   CCSDS.Space-Packet.Header.Sequence-Flags-Type
-		   CCSDS.Space-Packet.Header.Packet-Data-Length-Type
-		   CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field-Type
-		   (get-CCSDS.Space-Packet.Header.Sequence-or-Name-Type))))
+  (append
+   type-list
+   (list
+	CCSDS.Space-Packet.Header.Packet-Identification-Type
+	CCSDS.Space-Packet.Header.Packet-Sequence-Control-Type
+	CCSDS.Space-Packet.Header.Packet-Version-Number-Type
+	CCSDS.Space-Packet.Header.Packet-Type-Type
+	CCSDS.Space-Packet.Header.Secondary-Header-Flag-Type
+	CCSDS.Space-Packet.Header.Application-Process-Identifier-Type
+	CCSDS.Space-Packet.Header.Sequence-Flags-Type
+	CCSDS.Space-Packet.Header.Packet-Data-Length-Type
+	CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field-Type
+	(get-CCSDS.Space-Packet.Header.Sequence-or-Name-Type))))
+
+(defun with-ccsds.space-packet.packet-data-field.secondary-header.types (type-list)
+  (append
+   type-list
+   (list
+	CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Seconds-Type
+	CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Subseconds-Type)))
 
 (defun with-ccsds.space-packet.types (type-list)
-  (with-ccsds.space-packet.header.types type-list))
+  (setf type-list (with-ccsds.space-packet.header.types type-list))
+  (when (not (equal Space-Packet.Packet-Data-Field.Secondary-Header-Length 0))
+	(with-ccsds.space-packet.packet-data-field.secondary-header.types type-list))
+  type-list)
 
 (defparameter CCSDS.Space-Packet.Header.Packet-Version-Number
   (make-parameter "STC.CCSDS.Space-Packet.Header.Packet-Version-Number" "STC.CCSDS.Space-Packet.Header.Packet-Version-Number-Type"))
@@ -198,6 +216,14 @@
 (defparameter CCSDS.Space-Packet.Header.Packet-Name
   (make-parameter Space-Packet.Header.Packet-Name Space-Packet.Header.Packet-Name-Type))
 
+(defparameter CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Seconds
+  (make-parameter "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Seconds"
+				  "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Seconds-Type"))
+
+(defparameter CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Subseconds
+  (make-parameter "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Subseconds"
+				  "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Subseconds-Type"))
+
 (defun with-ccsds.space-packet.header.parameters (parameter-list)
   (append
    parameter-list
@@ -214,8 +240,7 @@
 	(get-CCSDS.Space-Packet.Header.Sequence-or-Name))))
 
 (defun with-ccsds.space-packet.parameters (parameter-list)
-  (with-ccsds.space-packet.header.parameters parameter-list)
-  )
+  (with-ccsds.space-packet.header.parameters parameter-list))
 
 (defparameter CCSDS.Space-Packet.Container.Packet-Primary-Header
   (make-sequence-container
@@ -243,8 +268,8 @@
 
 (defparameter CCSDS.Space-Packet.Container.Packet-Data-Field
   (let ((seq '()))
-	(when (not (equal Space-Packet.Secondary-Header-Length 0))
-	  (push (make-container-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.Container.Secondary-Header")
+	(when (not (equal Space-Packet.Packet-Data-Field.Secondary-Header-Length 0))
+	  (push (make-container-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header")
 			seq))
 	(push (make-parameter-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field")
 		  seq)
@@ -252,13 +277,20 @@
 	 "STC.CCSDS.Space-Packet.Container.Packet-Data-Field"
 	 seq)))
 
-(defparameter CCSDS.Space-Packet.Container.Secondary-Header ())
+(defparameter CCSDS.Space-Packet.Container.Packet-Data-Field.Secondary-Header
+   (make-sequence-container
+   "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header"
+   (list
+	(make-parameter-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Seconds")
+	(make-parameter-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header.Subseconds"))))
 
 (defparameter CCSDS.Space-Packet.Container.User-Data-Field
   (make-sequence-container
    "STC.CCSDS.Space-Packet.Container.Packet-Data-Field.User-Data-Field"
-   (list
-	(make-parameter-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field"))))
+   (append
+	(when (not (equal Space-Packet.Packet-Data-Field.Secondary-Header-Length 0))
+	  (list (make-container-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.Secondary-Header")))
+	(list (make-parameter-ref-entry "STC.CCSDS.Space-Packet.Packet-Data-Field.User-Data-Field")))))
 
 (defparameter CCSDS.Space-Packet.Container.Space-Packet
   (let ((entry-list
@@ -279,10 +311,9 @@
 	CCSDS.Space-Packet.Container.Packet-Data-Field
 	CCSDS.Space-Packet.Container.Header.Packet-Identification
 	CCSDS.Space-Packet.Container.Header.Packet-Sequence-Control
-	CCSDS.Space-Packet.Container.Packet-Primary-Header
-	)
-  (when (not (equal Space-Packet.Secondary-Header-Length 0))
-	CCSDS.Space-Packet.Container.Secondary-Header)))
+	CCSDS.Space-Packet.Container.Packet-Primary-Header)
+  (when (not (equal Space-Packet.Packet-Data-Field.Secondary-Header-Length 0))
+	(list CCSDS.Space-Packet.Container.Packet-Data-Field.Secondary-Header))))
 
 ; Concrete Deframing: Stream + Frame Container -> Frames + Packet Container Ref
 ; -> Publish on AOS Service -> AOS Service Publishes by VCID
@@ -323,8 +354,6 @@
 	(if (equal xtce::idle-pattern apid)
 		t
 		nil)))
-
-
 
 (defun extract-space-packets-from-mpdu (data first-header-pointer symbol-table alist previous-packet-segment)
   (log:info "Attempting to extract space packets...")
@@ -411,7 +440,8 @@
 										 #'with-ccsds.mpdu.parameters
 										 #'with-ccsds.aos.containers
 										 #'with-ccsds.aos.header.parameters
-										 #'with-ccsds.aos.header.types) nil)
+										 #'with-ccsds.aos.header.types)
+					 nil)
 					 (xtce::make-filesystem-hash-table)
 					 'Test)))
 	(xtce-engine::decode data spec test-table '() bit-offset)))
@@ -442,7 +472,7 @@
 				(xtce-engine::uint->bit-vector (cdr (assoc "STC.CCSDS.Space-Packet.Header.Secondary-Header-Flag" space-packet)) 1)
 				(cdr (assoc "STC.CCSDS.Space-Packet.Header.Application-Process-Identifier" space-packet))))))
 	  (log:error code))
-	;(log:info space-packet)
+	(log:info space-packet)
 	;(setf result (xtce-engine::decode user-data (gethash apid apid->container-table) symbol-table nil 0))
 	(values result :ok (lambda (data service-def symbol-table)
 						 (space-packet-service data service-def symbol-table :apid->container-table apid->container-table)))))
