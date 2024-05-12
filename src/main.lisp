@@ -33,7 +33,8 @@
 	 (alexandria:compose 
 	  #'stc::with-ccsds.mpdu.parameters
 	  #'stc::with-ccsds.aos.header.parameters
-	  #'stc::with-ccsds.space-packet.parameters)
+	  #'stc::with-ccsds.space-packet.parameters
+	  )
 	 (list
 	  (make-parameter "CMD_ERR_COUNT_8" "/UINT_8" :short-description "Command Error Count")
 	  (make-parameter "CMD_COUNT_8" "/UINT_8" :short-description "Command Count")
@@ -390,7 +391,7 @@
 ;; (wsd:close-connection *client*)
 
 ;; (sleep 2)
-(yggdrasill.stop Test-System)
+;(yggdrasill.stop Test-System)
 
 ;;TODO:
 ;; What should we define as a space system?
